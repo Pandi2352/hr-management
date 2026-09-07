@@ -1,0 +1,35 @@
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { OrganizationModule } from './modules/organization/organization.module';
+import { EmployeesModule } from './modules/employees/employees.module';
+import { UsersModule } from './modules/users/users.module';
+import { AuditApiModule } from './modules/audit/audit.module';
+import { RecruitmentModule } from './modules/recruitment/recruitment.module';
+import { AuditModule } from './common/audit/audit.module';
+import { RequestContextMiddleware } from './common/audit/request-context';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '../.env'],
+    }),
+    DatabaseModule,
+    AuditModule,
+    AuthModule,
+    OrganizationModule,
+    EmployeesModule,
+    UsersModule,
+    AuditApiModule,
+    RecruitmentModule,
+  ],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Establishes requestId / IP / user-agent context for every request so
+    // audit records are correlatable without threading params through services.
+    consumer.apply(RequestContextMiddleware).forRoutes('*');
+  }
+}

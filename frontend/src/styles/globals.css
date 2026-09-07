@@ -1,0 +1,773 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Urbanist:wght@500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+.font-outfit {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-jakarta {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-sora {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-urbanist {
+  font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-grotesk {
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/*
+ * Tailwind v4 defaults `dark:` to prefers-color-scheme. This opts into
+ * class-based theming so the in-app ThemeToggle (which sets `.dark` on
+ * <html>) actually drives every `dark:` utility.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Workspace chrome tokens (sidebar / navbar / table surfaces).
+ * `@theme inline` keeps the utilities pointing at the CSS variables rather
+ * than inlining a fixed value, so swapping `.dark` re-themes them live.
+ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-rail: var(--rail);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+}
+
+@layer base {
+  :root {
+    --background: #f3f4f6;
+    --foreground: #0f172a;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --border: #e2e8f0;
+    --primary: #524b6e;
+    --primary-foreground: #ffffff;
+
+    /* Workspace chrome — light */
+    --canvas: #f7f7f8;
+    --surface: #ffffff;
+    --surface-2: #fafafa;
+    --surface-3: #f2f2f4;
+    --rail: #f4f4f5;
+    --hairline: #e7e7ea;
+    --ink: #18181b;
+    --ink-2: #52525b;
+    --ink-3: #a1a1aa;
+  }
+
+  .dark {
+    --background: #0c0c0e;
+    --foreground: #ededf0;
+    --card: #131315;
+    --card-foreground: #ededf0;
+    --border: #232326;
+    --primary: #7c729c;
+    --primary-foreground: #ffffff;
+
+    /* Workspace chrome — dark (near-black, hairline separated) */
+    --canvas: #0c0c0e;
+    --surface: #131315;
+    --surface-2: #17171a;
+    --surface-3: #1d1d21;
+    --rail: #09090b;
+    --hairline: #232326;
+    --ink: #ededf0;
+    --ink-2: #a1a1a8;
+    --ink-3: #6b6b73;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Eliminate native black focus outlines and enforce consistent theme focus */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select {
+  outline: none !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none !important;
+  border-color: #8b5cf6 !important;
+  box-shadow: none !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+.dark textarea:focus,
+.dark textarea:focus-visible {
+  border-color: #a78bfa !important;
+  box-shadow: none !important;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Elegant Custom Scrollbar for Popovers & Dropdowns */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: #334155 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ==========================================================================
+   Theme Customizer System (Live Color, Typography, Chrome & Animation)
+   ========================================================================== */
+
+/* Universal Font Cascade */
+html,
+body,
+button,
+input,
+optgroup,
+select,
+textarea,
+h1, h2, h3, h4, h5, h6,
+p, span, a, label, table, th, td {
+  font-family: var(--font-primary, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+/* Universal Corner Roundedness Cascade */
+:root {
+  --app-radius: 8px;
+}
+
+button:not(.rounded-full),
+input:not(.rounded-full),
+select:not(.rounded-full),
+textarea:not(.rounded-full),
+.rounded-md,
+[class*="rounded-md"]:not(.rounded-full) {
+  border-radius: var(--app-radius);
+}
+
+.rounded-lg,
+[class*="rounded-lg"]:not(.rounded-full) {
+  border-radius: calc(var(--app-radius) * 1.35);
+}
+
+.rounded-sm,
+[class*="rounded-sm"]:not(.rounded-full) {
+  border-radius: calc(var(--app-radius) * 0.6);
+}
+
+.rounded-xl,
+[class*="rounded-xl"]:not(.rounded-full) {
+  border-radius: calc(var(--app-radius) * 1.7);
+}
+
+/* Dynamic Primary Color Utilities & Overrides */
+.bg-primary-theme,
+.bg-violet-600 {
+  background-color: var(--primary, #7c3aed) !important;
+}
+
+.text-primary-theme,
+.text-violet-600 {
+  color: var(--primary, #7c3aed) !important;
+}
+
+.border-primary-theme,
+.border-violet-600 {
+  border-color: var(--primary, #7c3aed) !important;
+}
+
+.hover\:bg-violet-700:hover {
+  background-color: var(--primary-hover, #6d28d9) !important;
+}
+
+.hover\:text-violet-600:hover,
+.hover\:text-violet-700:hover {
+  color: var(--primary-hover, #6d28d9) !important;
+}
+
+/* Tab active underlines */
+.border-b-2.border-blue-600,
+.border-b-2.border-violet-600 {
+  border-color: var(--primary, #7c3aed) !important;
+  color: var(--primary, #7c3aed) !important;
+}
+
+/* Checkbox & Radio checked state */
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+  background-color: var(--primary, #7c3aed) !important;
+  border-color: var(--primary, #7c3aed) !important;
+}
+
+/* Layout Density Cascade */
+html[data-density="compact"] table th,
+html[data-density="compact"] table td {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+  font-size: 0.775rem !important;
+}
+
+html[data-density="spacious"] table th,
+html[data-density="spacious"] table td {
+  padding-top: 1.1rem !important;
+  padding-bottom: 1.1rem !important;
+  font-size: 0.9rem !important;
+}
+
+/* Customizer Dark Sidebar Override */
+html[data-dark-sidebar="true"] aside {
+  background-color: #0c0d12 !important;
+  border-color: #1a1b24 !important;
+}
+
+html[data-dark-sidebar="true"] aside .bg-rail {
+  background-color: #07080b !important;
+  border-color: #1a1b24 !important;
+}
+
+html[data-dark-sidebar="true"] aside .bg-surface {
+  background-color: #0c0d12 !important;
+}
+
+html[data-dark-sidebar="true"] aside .text-ink {
+  color: #ffffff !important;
+}
+
+html[data-dark-sidebar="true"] aside .text-ink-2 {
+  color: #cbd5e1 !important;
+}
+
+html[data-dark-sidebar="true"] aside .text-ink-3 {
+  color: #94a3b8 !important;
+}
+
+html[data-dark-sidebar="true"] aside .border-hairline {
+  border-color: #1a1b24 !important;
+}
+
+html[data-dark-sidebar="true"] aside .hover\:bg-surface-2:hover {
+  background-color: #171822 !important;
+}
+
+html[data-dark-sidebar="true"] aside a:not([style*="color"]):hover {
+  background-color: #171822 !important;
+  color: #ffffff !important;
+}
+
+html[data-dark-sidebar="true"] aside a[style*="color: var(--primary)"] {
+  color: var(--primary) !important;
+}
+
+html[data-dark-sidebar="true"] aside a[style*="color: var(--primary)"]:hover {
+  background-color: #171822 !important;
+  color: var(--primary) !important;
+}
+
+/* Customizer Dark Navbar Override */
+html[data-dark-navbar="true"] header {
+  background-color: #0c0d12 !important;
+  border-color: #1a1b24 !important;
+}
+
+html[data-dark-navbar="true"] header .text-ink,
+html[data-dark-navbar="true"] header .text-slate-800,
+html[data-dark-navbar="true"] header .text-slate-900 {
+  color: #ffffff !important;
+}
+
+html[data-dark-navbar="true"] header .text-ink-2,
+html[data-dark-navbar="true"] header .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+
+html[data-dark-navbar="true"] header .text-ink-3,
+html[data-dark-navbar="true"] header .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html[data-dark-navbar="true"] header .border-hairline {
+  border-color: #1a1b24 !important;
+}
+
+html[data-dark-navbar="true"] header input {
+  background-color: #14151d !important;
+  border-color: #232432 !important;
+  color: #ffffff !important;
+}
+
+html[data-dark-navbar="true"] header input::placeholder {
+  color: #64748b !important;
+}
+
+html[data-dark-navbar="true"] header .hover\:bg-surface-2:hover,
+html[data-dark-navbar="true"] header .hover\:bg-slate-100:hover {
+  background-color: #171822 !important;
+}
+
+/* Dynamic Primary Color on Focus */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  border-color: var(--primary, #7c3aed) !important;
+}
+
+/* Slow Ambient Spin Keyframe for Settings Gear */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+.animate-spin-slow:hover {
+  animation: spin-slow 2s linear infinite;
+}
+
+
+
+
+/* ---------------------------------------------------------------------------
+   Careers — rotating wireframe globe
+   Rings are real 3D geometry inside a `preserve-3d` container, so the only
+   animated property is a single transform on the parent: no layout, no paint.
+--------------------------------------------------------------------------- */
+.careers-globe-scene {
+  perspective: 1400px;
+}
+
+.careers-globe {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  /* Slight tilt so the poles sit off-axis, the way a globe reads. */
+  transform: rotateX(-14deg);
+  animation: careers-globe-spin 46s linear infinite;
+}
+
+.careers-globe-ring,
+.careers-globe-parallel {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 197, 255, 0.16);
+  transform-style: preserve-3d;
+}
+
+.careers-globe-ring {
+  inset: 0;
+}
+
+.careers-globe-parallel {
+  left: 50%;
+  /* `top` is supplied per-ring; the pivot stays the ring's own centre. */
+  transform: translate(-50%, -50%) rotateX(90deg);
+  border-color: rgba(148, 197, 255, 0.13);
+}
+
+@keyframes careers-globe-spin {
+  from {
+    transform: rotateX(-14deg) rotateY(0deg);
+  }
+  to {
+    transform: rotateX(-14deg) rotateY(360deg);
+  }
+}
+
+/* Respect a reader who has asked the OS to stop motion. */
+@media (prefers-reduced-motion: reduce) {
+  .careers-globe {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Careers — radar sweep (About band)
+   Flat, outward, pulsing: the counterpart to the globe's solid rotation.
+   Everything inherits `currentColor`, so one text utility on the parent themes
+   the whole motif for light and dark.
+
+   Every layer centres itself explicitly with top/left/translate rather than
+   leaning on abspos static position, and the animated layers carry that
+   translate through their keyframes so the transform never fights it.
+--------------------------------------------------------------------------- */
+.careers-radar {
+  position: absolute;
+}
+
+.careers-radar-grid,
+.careers-radar-pulse,
+.careers-radar-sweep,
+.careers-radar-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.careers-radar-grid {
+  border: 1px solid currentColor;
+  opacity: 0.5;
+}
+
+.careers-radar-axis {
+  position: absolute;
+  background-color: currentColor;
+  opacity: 0.32;
+}
+
+.careers-radar-axis-x {
+  top: 50%;
+  left: 0;
+  height: 1px;
+  width: 100%;
+}
+
+.careers-radar-axis-y {
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+
+/* Ring launched from the centre; four of them are staggered by delay. */
+.careers-radar-pulse {
+  height: 100%;
+  width: 100%;
+  border: 1.5px solid currentColor;
+  opacity: 0;
+  animation: careers-radar-pulse 6.4s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+}
+
+.careers-radar-sweep {
+  height: 100%;
+  width: 100%;
+  background: conic-gradient(
+    from 0deg,
+    currentColor 0deg,
+    transparent 46deg,
+    transparent 360deg
+  );
+  opacity: 0.3;
+  -webkit-mask-image: radial-gradient(circle, #000 0%, #000 99%, transparent 100%);
+  mask-image: radial-gradient(circle, #000 0%, #000 99%, transparent 100%);
+  animation: careers-radar-sweep 7s linear infinite;
+}
+
+.careers-radar-core {
+  height: 10px;
+  width: 10px;
+  background-color: currentColor;
+  opacity: 0.85;
+}
+
+@keyframes careers-radar-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.06);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes careers-radar-sweep {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .careers-radar-pulse,
+  .careers-radar-sweep {
+    animation: none;
+  }
+  .careers-radar-pulse {
+    opacity: 0.3;
+  }
+  .careers-radar-sweep {
+    opacity: 0.2;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Careers — scroll reveal
+   Class-swap rather than an autoplaying animation, so nothing runs until the
+   element is near the viewport.
+--------------------------------------------------------------------------- */
+.careers-reveal {
+  opacity: 0;
+  transition:
+    opacity 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.careers-reveal-up {
+  transform: translateY(28px);
+}
+.careers-reveal-left {
+  transform: translateX(-32px);
+}
+.careers-reveal-right {
+  transform: translateX(32px);
+}
+.careers-reveal-scale {
+  transform: scale(0.96);
+}
+
+.careers-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+  /* Released after the entrance so long pages don't hold dozens of layers. */
+  will-change: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Careers — motif: perspective grid drift (What We Do)
+--------------------------------------------------------------------------- */
+.careers-grid-drift {
+  position: absolute;
+  overflow: hidden;
+  perspective: 320px;
+  perspective-origin: 50% 0%;
+}
+
+.careers-grid-drift-plane {
+  position: absolute;
+  inset: -60% -20% -20% -20%;
+  background-image:
+    linear-gradient(to right, currentColor 1px, transparent 1px),
+    linear-gradient(to bottom, currentColor 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: rotateX(72deg);
+  transform-origin: 50% 100%;
+  animation: careers-grid-drift 9s linear infinite;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 45%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 45%, transparent);
+}
+
+/* One tile of travel, so the loop is invisible. */
+@keyframes careers-grid-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 64px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Careers — motif: wave bands (Locations)
+--------------------------------------------------------------------------- */
+.careers-wave {
+  position: absolute;
+  overflow: hidden;
+}
+
+.careers-wave-band {
+  position: absolute;
+  left: 0;
+  height: 120px;
+  /* Double width so a -50% slide returns to an identical phase. */
+  width: 200%;
+  animation: careers-wave-slide 26s linear infinite;
+}
+
+@keyframes careers-wave-slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Careers — motif: aurora fields (Open roles)
+--------------------------------------------------------------------------- */
+.careers-aurora {
+  position: absolute;
+  overflow: hidden;
+}
+
+.careers-aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  opacity: 0.5;
+}
+
+.careers-aurora-blob-1 {
+  top: -12%;
+  left: 4%;
+  height: 46%;
+  width: 34%;
+  background: rgba(139, 92, 246, 0.55);
+  animation: careers-aurora-1 28s ease-in-out infinite;
+}
+
+.careers-aurora-blob-2 {
+  bottom: -18%;
+  right: 8%;
+  height: 52%;
+  width: 38%;
+  background: rgba(34, 211, 238, 0.45);
+  animation: careers-aurora-2 34s ease-in-out infinite;
+}
+
+.careers-aurora-blob-3 {
+  top: 24%;
+  right: 38%;
+  height: 38%;
+  width: 26%;
+  background: rgba(244, 63, 94, 0.3);
+  animation: careers-aurora-3 40s ease-in-out infinite;
+}
+
+@keyframes careers-aurora-1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(18%, 22%) scale(1.18);
+  }
+}
+
+@keyframes careers-aurora-2 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1.08);
+  }
+  50% {
+    transform: translate(-22%, -16%) scale(0.92);
+  }
+}
+
+@keyframes careers-aurora-3 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(0.95);
+  }
+  50% {
+    transform: translate(-14%, 18%) scale(1.22);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Careers — motif: rising motes (Culture & perks)
+--------------------------------------------------------------------------- */
+.careers-motes {
+  position: absolute;
+  overflow: hidden;
+}
+
+.careers-mote {
+  position: absolute;
+  bottom: -8%;
+  border-radius: 9999px;
+  background-color: currentColor;
+  animation-name: careers-mote-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes careers-mote-rise {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-118vh) translateX(24px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .careers-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .careers-grid-drift-plane,
+  .careers-wave-band,
+  .careers-aurora-blob,
+  .careers-mote {
+    animation: none;
+  }
+}

@@ -1,0 +1,77 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: peopleos-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: peopleos
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - peopleos-network
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # One-shot helper service to initiate single-node replica set for ACID transactions
+  mongo-init-replica:
+    image: mongo:7.0
+    container_name: peopleos-mongo-init
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - peopleos-network
+    restart: "no"
+    entrypoint:
+      - "mongosh"
+      - "--host"
+      - "mongodb:27017"
+      - "-u"
+      - "admin"
+      - "-p"
+      - "password123"
+      - "--authenticationDatabase"
+      - "admin"
+      - "--eval"
+      - |
+        try {
+          rs.status();
+        } catch (e) {
+          rs.initiate({
+            _id: "rs0",
+            members: [{ _id: 0, host: "localhost:27017" }]
+          });
+        }
+
+  redis:
+    image: redis:7-alpine
+    container_name: peopleos-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - peopleos-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo_data:
+  redis_data:
+
+networks:
+  peopleos-network:
+    driver: bridge

@@ -1,0 +1,570 @@
+import mongoose from 'mongoose';
+import * as dotenv from 'dotenv';
+import { generateUuid } from '../common/utils/uuid.util';
+
+dotenv.config({ path: ['.env', '../.env'] });
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/peopleos';
+
+async function seedEmployees() {
+  console.log('Connecting to MongoDB at:', MONGODB_URI);
+  await mongoose.connect(MONGODB_URI);
+
+  const db = mongoose.connection.db;
+  if (!db) throw new Error('Database connection not established');
+
+  const orgsCollection = db.collection<any>('organizations');
+  const deptsCollection = db.collection<any>('departments');
+  const desigsCollection = db.collection<any>('designations');
+  const locsCollection = db.collection<any>('locations');
+  const empsCollection = db.collection<any>('employees');
+
+  const org = await orgsCollection.findOne({ isDeleted: false });
+  if (!org) throw new Error('Organization not found');
+  const orgId = String(org._id);
+
+  const [departments, designations, locations] = await Promise.all([
+    deptsCollection.find({ organizationId: orgId }).toArray(),
+    desigsCollection.find({ organizationId: orgId }).toArray(),
+    locsCollection.find({ organizationId: orgId }).toArray(),
+  ]);
+
+  if (departments.length === 0 || designations.length === 0) {
+    throw new Error('Please run seed-departments and seed-locations-designations first.');
+  }
+
+  const deptMap = new Map(departments.map((d) => [d.code, String(d._id)]));
+  const desigMap = new Map(designations.map((d) => [d.code, String(d._id)]));
+  const defaultLocId = locations[0] ? String(locations[0]._id) : null;
+  const bangaloreLocId = locations.find((l) => l.city === 'Bengaluru') ? String(locations.find((l) => l.city === 'Bengaluru')?._id) : defaultLocId;
+  const londonLocId = locations.find((l) => l.city === 'London') ? String(locations.find((l) => l.city === 'London')?._id) : defaultLocId;
+
+  // Clear existing employees for clean re-seed
+  await empsCollection.deleteMany({ organizationId: orgId });
+  console.log('Cleared existing employees.');
+
+  // 1. CEO (Top of Hierarchy)
+  const ceoId = generateUuid();
+  // 2. CTO
+  const ctoId = generateUuid();
+  // 3. VP Engineering
+  const vpEngId = generateUuid();
+  // 4. Engineering Manager
+  const emId = generateUuid();
+
+  const mockEmployees = [
+    {
+      _id: ceoId,
+      organizationId: orgId,
+      employeeCode: 'EMP-00001',
+      firstName: 'Alexander',
+      lastName: 'Vance',
+      displayName: 'Alex Vance',
+      gender: 'Male',
+      dateOfBirth: '1982-04-14',
+      maritalStatus: 'Married',
+      nationality: 'American',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'alex.vance@peopleos.internal',
+      personalEmail: 'alex.vance.personal@gmail.com',
+      phone: '+1 (415) 890-1200',
+      currentAddress: {
+        addressLine1: '450 Marina Blvd',
+        city: 'San Francisco',
+        state: 'California',
+        country: 'United States',
+        postalCode: '94123',
+      },
+      emergencyContacts: [
+        { name: 'Sarah Vance', relationship: 'Spouse', phone: '+1 (415) 890-1299', isPrimary: true },
+      ],
+      departmentId: deptMap.get('ENG') || departments[0]._id,
+      designationId: desigMap.get('DES-CEO-20') || designations[0]._id,
+      locationId: defaultLocId,
+      managerId: null,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2020-01-15',
+      confirmationDate: '2020-04-15',
+      education: [
+        { institution: 'Stanford University', degree: 'M.S. in Computer Science', fieldOfStudy: 'Distributed Systems', startDate: '2004', endDate: '2006' },
+      ],
+      skills: [
+        { name: 'Executive Strategy', proficiency: 'EXPERT' },
+        { name: 'Enterprise SaaS', proficiency: 'EXPERT' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: ctoId,
+      organizationId: orgId,
+      employeeCode: 'EMP-00002',
+      firstName: 'Elena',
+      lastName: 'Rostova',
+      displayName: 'Elena Rostova',
+      gender: 'Female',
+      dateOfBirth: '1985-09-22',
+      maritalStatus: 'Single',
+      nationality: 'German',
+      avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'elena.rostova@peopleos.internal',
+      personalEmail: 'elena.rostova@outlook.com',
+      phone: '+49 30 901820',
+      currentAddress: {
+        addressLine1: 'Friedrichstraße 44',
+        city: 'Berlin',
+        state: 'Berlin',
+        country: 'Germany',
+        postalCode: '10117',
+      },
+      emergencyContacts: [
+        { name: 'Markus Rostova', relationship: 'Brother', phone: '+49 30 901829', isPrimary: true },
+      ],
+      departmentId: deptMap.get('ENG') || departments[0]._id,
+      designationId: desigMap.get('DES-CTO-19') || designations[0]._id,
+      locationId: defaultLocId,
+      managerId: ceoId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2020-03-01',
+      confirmationDate: '2020-06-01',
+      education: [
+        { institution: 'Technical University of Munich', degree: 'Ph.D. in Computer Science', fieldOfStudy: 'Cloud Architecture', startDate: '2008', endDate: '2012' },
+      ],
+      skills: [
+        { name: 'System Architecture', proficiency: 'EXPERT' },
+        { name: 'Kubernetes', proficiency: 'EXPERT' },
+        { name: 'Microservices', proficiency: 'EXPERT' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: vpEngId,
+      organizationId: orgId,
+      employeeCode: 'EMP-00003',
+      firstName: 'Marcus',
+      lastName: 'Chen',
+      displayName: 'Marcus Chen',
+      gender: 'Male',
+      dateOfBirth: '1987-11-05',
+      maritalStatus: 'Married',
+      nationality: 'Canadian',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'marcus.chen@peopleos.internal',
+      personalEmail: 'marcus.chen@gmail.com',
+      phone: '+1 (416) 555-0199',
+      currentAddress: {
+        addressLine1: '77 King St West',
+        city: 'Toronto',
+        state: 'Ontario',
+        country: 'Canada',
+        postalCode: 'M5K 1G8',
+      },
+      emergencyContacts: [
+        { name: 'Chloe Chen', relationship: 'Spouse', phone: '+1 (416) 555-0198', isPrimary: true },
+      ],
+      departmentId: deptMap.get('ENG') || departments[0]._id,
+      designationId: desigMap.get('DES-VPE-17') || designations[0]._id,
+      locationId: defaultLocId,
+      managerId: ctoId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2021-02-10',
+      confirmationDate: '2021-05-10',
+      skills: [
+        { name: 'Engineering Leadership', proficiency: 'EXPERT' },
+        { name: 'Go / Node.js', proficiency: 'EXPERT' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: emId,
+      organizationId: orgId,
+      employeeCode: 'EMP-00004',
+      firstName: 'Priya',
+      lastName: 'Nair',
+      displayName: 'Priya Nair',
+      gender: 'Female',
+      dateOfBirth: '1990-07-19',
+      maritalStatus: 'Married',
+      nationality: 'Indian',
+      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'priya.nair@peopleos.internal',
+      personalEmail: 'priya.nair@yahoo.com',
+      phone: '+91 98450 12345',
+      currentAddress: {
+        addressLine1: '402 Palm Meadows, Whitefield',
+        city: 'Bengaluru',
+        state: 'Karnataka',
+        country: 'India',
+        postalCode: '560066',
+      },
+      emergencyContacts: [
+        { name: 'Rohan Nair', relationship: 'Spouse', phone: '+91 98450 54321', isPrimary: true },
+      ],
+      departmentId: deptMap.get('ENG-FE') || departments[0]._id,
+      designationId: desigMap.get('DES-EMG-12') || designations[0]._id,
+      locationId: bangaloreLocId,
+      managerId: vpEngId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2021-06-15',
+      confirmationDate: '2021-09-15',
+      skills: [
+        { name: 'React', proficiency: 'EXPERT' },
+        { name: 'TypeScript', proficiency: 'EXPERT' },
+        { name: 'Team Mentorship', proficiency: 'EXPERT' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: generateUuid(),
+      organizationId: orgId,
+      employeeCode: 'EMP-00005',
+      firstName: 'David',
+      lastName: 'Kim',
+      displayName: 'David Kim',
+      gender: 'Male',
+      dateOfBirth: '1994-01-28',
+      maritalStatus: 'Single',
+      nationality: 'South Korean',
+      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'david.kim@peopleos.internal',
+      personalEmail: 'david.kim94@gmail.com',
+      phone: '+1 (512) 800-4321',
+      currentAddress: {
+        addressLine1: '1200 Congress Ave',
+        city: 'Austin',
+        state: 'Texas',
+        country: 'United States',
+        postalCode: '78701',
+      },
+      emergencyContacts: [
+        { name: 'Min-ho Kim', relationship: 'Father', phone: '+1 (512) 800-4322', isPrimary: true },
+      ],
+      departmentId: deptMap.get('ENG-FE') || departments[0]._id,
+      designationId: desigMap.get('DES-SSE-08') || designations[0]._id,
+      locationId: defaultLocId,
+      managerId: emId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2022-01-10',
+      confirmationDate: '2022-04-10',
+      skills: [
+        { name: 'React', proficiency: 'EXPERT' },
+        { name: 'Tailwind CSS', proficiency: 'EXPERT' },
+        { name: 'Next.js', proficiency: 'INTERMEDIATE' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: generateUuid(),
+      organizationId: orgId,
+      employeeCode: 'EMP-00006',
+      firstName: 'Sophia',
+      lastName: 'Martinez',
+      displayName: 'Sophia Martinez',
+      gender: 'Female',
+      dateOfBirth: '1996-03-12',
+      maritalStatus: 'Single',
+      nationality: 'Spanish',
+      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'sophia.martinez@peopleos.internal',
+      personalEmail: 'sophia.martinez@gmail.com',
+      phone: '+34 91 555 1234',
+      currentAddress: {
+        addressLine1: 'Gran Via 28',
+        city: 'Madrid',
+        state: 'Madrid',
+        country: 'Spain',
+        postalCode: '28013',
+      },
+      emergencyContacts: [
+        { name: 'Isabella Martinez', relationship: 'Mother', phone: '+34 91 555 4321', isPrimary: true },
+      ],
+      departmentId: deptMap.get('PROD') || departments[0]._id,
+      designationId: desigMap.get('DES-UID-06') || designations[0]._id,
+      locationId: londonLocId,
+      managerId: ceoId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2022-04-01',
+      confirmationDate: '2022-07-01',
+      skills: [
+        { name: 'Figma', proficiency: 'EXPERT' },
+        { name: 'Design Systems', proficiency: 'EXPERT' },
+        { name: 'User Research', proficiency: 'INTERMEDIATE' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: generateUuid(),
+      organizationId: orgId,
+      employeeCode: 'EMP-00007',
+      firstName: 'Rajesh',
+      lastName: 'Kulkarni',
+      displayName: 'Rajesh Kulkarni',
+      gender: 'Male',
+      dateOfBirth: '1992-08-30',
+      maritalStatus: 'Married',
+      nationality: 'Indian',
+      avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'rajesh.kulkarni@peopleos.internal',
+      personalEmail: 'rajesh.k@gmail.com',
+      phone: '+91 98230 45678',
+      currentAddress: {
+        addressLine1: 'Flat 304, Green Acres, Hinjawadi',
+        city: 'Pune',
+        state: 'Maharashtra',
+        country: 'India',
+        postalCode: '411057',
+      },
+      emergencyContacts: [
+        { name: 'Sunita Kulkarni', relationship: 'Spouse', phone: '+91 98230 87654', isPrimary: true },
+      ],
+      departmentId: deptMap.get('ENG-BE') || departments[0]._id,
+      designationId: desigMap.get('DES-SSE-08') || designations[0]._id,
+      locationId: bangaloreLocId,
+      managerId: vpEngId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2022-06-15',
+      confirmationDate: '2022-09-15',
+      skills: [
+        { name: 'NestJS', proficiency: 'EXPERT' },
+        { name: 'MongoDB / PostgreSQL', proficiency: 'EXPERT' },
+        { name: 'GraphQL', proficiency: 'INTERMEDIATE' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: generateUuid(),
+      organizationId: orgId,
+      employeeCode: 'EMP-00008',
+      firstName: 'Emily',
+      lastName: 'Watson',
+      displayName: 'Emily Watson',
+      gender: 'Female',
+      dateOfBirth: '1989-12-04',
+      maritalStatus: 'Married',
+      nationality: 'British',
+      avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'emily.watson@peopleos.internal',
+      personalEmail: 'emily.watson@btinternet.com',
+      phone: '+44 20 7946 0912',
+      currentAddress: {
+        addressLine1: '14 Kensington Square',
+        city: 'London',
+        state: 'Greater London',
+        country: 'United Kingdom',
+        postalCode: 'W8 5HH',
+      },
+      emergencyContacts: [
+        { name: 'James Watson', relationship: 'Spouse', phone: '+44 20 7946 0913', isPrimary: true },
+      ],
+      departmentId: deptMap.get('HR') || departments[0]._id,
+      designationId: desigMap.get('DES-DHR-16') || designations[0]._id,
+      locationId: londonLocId,
+      managerId: ceoId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2021-08-01',
+      confirmationDate: '2021-11-01',
+      skills: [
+        { name: 'Talent Management', proficiency: 'EXPERT' },
+        { name: 'Employee Relations', proficiency: 'EXPERT' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: generateUuid(),
+      organizationId: orgId,
+      employeeCode: 'EMP-00009',
+      firstName: 'Lucas',
+      lastName: 'Dubois',
+      displayName: 'Lucas Dubois',
+      gender: 'Male',
+      dateOfBirth: '1995-05-18',
+      maritalStatus: 'Single',
+      nationality: 'French',
+      avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'lucas.dubois@peopleos.internal',
+      personalEmail: 'lucas.dubois@orange.fr',
+      phone: '+33 1 42 68 55 00',
+      currentAddress: {
+        addressLine1: '18 Rue de la Paix',
+        city: 'Paris',
+        state: 'Île-de-France',
+        country: 'France',
+        postalCode: '75002',
+      },
+      emergencyContacts: [
+        { name: 'Claire Dubois', relationship: 'Sister', phone: '+33 1 42 68 55 01', isPrimary: true },
+      ],
+      departmentId: deptMap.get('ENG-OPS') || departments[0]._id,
+      designationId: desigMap.get('DES-OPS-07') || designations[0]._id,
+      locationId: defaultLocId,
+      managerId: ctoId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2023-01-16',
+      confirmationDate: '2023-04-16',
+      skills: [
+        { name: 'Docker / Kubernetes', proficiency: 'EXPERT' },
+        { name: 'Terraform', proficiency: 'INTERMEDIATE' },
+        { name: 'AWS Cloud', proficiency: 'EXPERT' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: generateUuid(),
+      organizationId: orgId,
+      employeeCode: 'EMP-00010',
+      firstName: 'Ananya',
+      lastName: 'Iyer',
+      displayName: 'Ananya Iyer',
+      gender: 'Female',
+      dateOfBirth: '1998-10-10',
+      maritalStatus: 'Single',
+      nationality: 'Indian',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'ananya.iyer@peopleos.internal',
+      personalEmail: 'ananya.iyer@gmail.com',
+      phone: '+91 98400 67890',
+      currentAddress: {
+        addressLine1: 'Apt 12B, Skyline Towers',
+        city: 'Bengaluru',
+        state: 'Karnataka',
+        country: 'India',
+        postalCode: '560037',
+      },
+      emergencyContacts: [
+        { name: 'Srinivasan Iyer', relationship: 'Father', phone: '+91 98400 09876', isPrimary: true },
+      ],
+      departmentId: deptMap.get('ENG-QA') || departments[0]._id,
+      designationId: desigMap.get('DES-AQA-03') || designations[0]._id,
+      locationId: bangaloreLocId,
+      managerId: emId,
+      employmentType: 'FULL_TIME',
+      status: 'PROBATION',
+      joiningDate: '2026-06-01',
+      confirmationDate: '2026-09-01',
+      skills: [
+        { name: 'Cypress / Playwright', proficiency: 'INTERMEDIATE' },
+        { name: 'API Testing', proficiency: 'INTERMEDIATE' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: generateUuid(),
+      organizationId: orgId,
+      employeeCode: 'EMP-00011',
+      firstName: 'Tariq',
+      lastName: 'Al-Mansoor',
+      displayName: 'Tariq Al-Mansoor',
+      gender: 'Male',
+      dateOfBirth: '1991-02-14',
+      maritalStatus: 'Married',
+      nationality: 'Emirati',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'tariq.mansoor@peopleos.internal',
+      personalEmail: 'tariq.mansoor@gmail.com',
+      phone: '+971 4 362 7000',
+      currentAddress: {
+        addressLine1: 'Villa 12, Jumeirah 1',
+        city: 'Dubai',
+        state: 'Dubai',
+        country: 'United Arab Emirates',
+        postalCode: '00000',
+      },
+      emergencyContacts: [
+        { name: 'Fatima Al-Mansoor', relationship: 'Spouse', phone: '+971 4 362 7001', isPrimary: true },
+      ],
+      departmentId: deptMap.get('SALES') || departments[0]._id,
+      designationId: desigMap.get('DES-VPS-18') || designations[0]._id,
+      locationId: defaultLocId,
+      managerId: ceoId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2022-09-01',
+      confirmationDate: '2022-12-01',
+      skills: [
+        { name: 'Enterprise Sales', proficiency: 'EXPERT' },
+        { name: 'Negotiation', proficiency: 'EXPERT' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      _id: generateUuid(),
+      organizationId: orgId,
+      employeeCode: 'EMP-00012',
+      firstName: 'Zoe',
+      lastName: 'Kowalski',
+      displayName: 'Zoe Kowalski',
+      gender: 'Female',
+      dateOfBirth: '1997-11-20',
+      maritalStatus: 'Single',
+      nationality: 'Polish',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      workEmail: 'zoe.kowalski@peopleos.internal',
+      personalEmail: 'zoe.kowalski@gmail.com',
+      phone: '+48 22 555 0123',
+      currentAddress: {
+        addressLine1: 'Marszałkowska 84',
+        city: 'Warsaw',
+        state: 'Mazowieckie',
+        country: 'Poland',
+        postalCode: '00-514',
+      },
+      emergencyContacts: [
+        { name: 'Jan Kowalski', relationship: 'Father', phone: '+48 22 555 0124', isPrimary: true },
+      ],
+      departmentId: deptMap.get('FIN') || departments[0]._id,
+      designationId: desigMap.get('DES-SFA-10') || designations[0]._id,
+      locationId: londonLocId,
+      managerId: ceoId,
+      employmentType: 'FULL_TIME',
+      status: 'ACTIVE',
+      joiningDate: '2023-03-01',
+      confirmationDate: '2023-06-01',
+      skills: [
+        { name: 'Financial Modeling', proficiency: 'EXPERT' },
+        { name: 'Budget Forecasting', proficiency: 'INTERMEDIATE' },
+      ],
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ];
+
+  await empsCollection.insertMany(mockEmployees);
+  console.log(`✅ Successfully seeded ${mockEmployees.length} enterprise employees with reporting hierarchies!`);
+  await mongoose.disconnect();
+}
+
+seedEmployees().catch((err) => {
+  console.error('❌ Error seeding employees:', err);
+  process.exit(1);
+});
