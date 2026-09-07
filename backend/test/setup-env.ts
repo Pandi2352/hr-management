@@ -13,6 +13,11 @@ process.env.MONGODB_URI =
 
 process.env.NODE_ENV = 'test';
 
+// Acceptance tests assert behaviour against the source of truth, so they run
+// with the cache off. CACHE_STATUS=DISABLED is a supported configuration, not a
+// degradation — see releases/release1/CACHE_HELPER_GUIDE.md.
+process.env.CACHE_STATUS = 'DISABLED';
+
 // Deterministic secrets so a missing .env never turns into a confusing
 // "secretOrPrivateKey must have a value" failure mid-suite.
 process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'e2e-access-secret';

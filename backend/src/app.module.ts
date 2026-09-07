@@ -8,6 +8,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuditApiModule } from './modules/audit/audit.module';
 import { RecruitmentModule } from './modules/recruitment/recruitment.module';
 import { AuditModule } from './common/audit/audit.module';
+import { CacheModule } from './common/cache';
 import { RequestContextMiddleware } from './common/audit/request-context';
 
 @Module({
@@ -17,6 +18,7 @@ import { RequestContextMiddleware } from './common/audit/request-context';
       envFilePath: ['.env', '../.env'],
     }),
     DatabaseModule,
+    CacheModule,
     AuditModule,
     AuthModule,
     OrganizationModule,

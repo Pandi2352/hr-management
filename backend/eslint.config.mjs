@@ -31,7 +31,28 @@ export default tseslint.config(
       // Keep the rule on and use `void err` where the intent is truly "ignore".
       'no-empty': ['error', { allowEmptyCatch: true }],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      // The Redis driver is an implementation detail of common/cache. Keeping
+      // it there is what makes the client swappable and the cache removable;
+      // one direct import elsewhere quietly ends that.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'redis',
+              message:
+                'Import CacheService from common/cache instead. Only common/cache/cache/RedisCacheHelper.ts may touch the driver.',
+            },
+          ],
+        },
+      ],
     },
+  },
+  {
+    // The whole cache directory may touch the driver — redis.provider.ts
+    // constructs it, cache.service.ts needs its type. Nothing outside may.
+    files: ['src/common/cache/**/*.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   {
     // Seed scripts are CLI entrypoints — their console output is the interface.
