@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Camera, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Camera, Loader2, Sparkles, Lock } from 'lucide-react';
 import { Button, Input, SelectField, Avatar } from '../../../components/ui';
 import { useToast } from '../../../components/ui/toast';
+import { useAuth } from '../../auth/context/AuthContext';
 import { employeesApi } from '../api/employees.api';
 import { organizationApi } from '../../organization/api/organization.api';
 import type { Department, Designation, LocationItem } from '../../organization/types/organization.types';
@@ -14,12 +15,22 @@ export function EmployeeEditPage() {
   const toast = useToast();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
+  const { user } = useAuth();
+  const isHrOrAdmin = Boolean(
+    user?.roles?.some((r) =>
+      ['ADMIN', 'HR', 'HR_ADMIN', 'SUPER_ADMIN', 'ORG_ADMIN', 'Admin', 'HR Manager', 'HR Admin'].includes(r)
+    ) ||
+    user?.permissions?.includes('EMPLOYEE_UPDATE') ||
+    user?.permissions?.includes('EMPLOYEE_CREATE')
+  );
+
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
+  const [isGeneratingCode, setIsGeneratingCode] = useState<boolean>(false);
 
   // Editable Form State
   const [formData, setFormData] = useState<{
@@ -36,6 +47,7 @@ export function EmployeeEditPage() {
     countryOfBirth: string;
     stateOfBirth: string;
     avatarUrl: string;
+    employeeCode: string;
     workEmail: string;
     personalEmail: string;
     phone: string;
@@ -66,6 +78,7 @@ export function EmployeeEditPage() {
     countryOfBirth: '',
     stateOfBirth: '',
     avatarUrl: '',
+    employeeCode: '',
     workEmail: '',
     personalEmail: '',
     phone: '',
@@ -113,6 +126,7 @@ export function EmployeeEditPage() {
           countryOfBirth: emp.countryOfBirth || '',
           stateOfBirth: emp.stateOfBirth || '',
           avatarUrl: emp.avatarUrl || '',
+          employeeCode: emp.employeeCode || '',
           workEmail: emp.workEmail || '',
           personalEmail: emp.personalEmail || '',
           phone: emp.phone || '',
@@ -137,6 +151,19 @@ export function EmployeeEditPage() {
     }
     loadData();
   }, [id, navigate, toast]);
+
+  const handleAutoGenerateCode = async () => {
+    setIsGeneratingCode(true);
+    try {
+      const res = await employeesApi.generateEmployeeCode();
+      handleChange('employeeCode', res.employeeCode);
+      toast.success(`Generated ID: ${res.employeeCode}`, 'ID Assigned');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to auto-generate employee ID');
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -450,14 +477,105 @@ export function EmployeeEditPage() {
 
         {/* Section 3: Employment & Organizational Assignment */}
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
-            Employment &amp; Organizational Assignment
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Employment &amp; Organizational Assignment
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Official employee status, structural alignment, and corporate credentials
+              </p>
+            </div>
+            {!isHrOrAdmin && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                <Lock className="h-3 w-3" />
+                Managed by HR Administrator
+              </span>
+            )}
+          </div>
+
+          {!isHrOrAdmin && (
+            <div className="mb-4 p-3 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/80 flex items-start gap-2.5">
+              <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-800 dark:text-amber-300">
+                <span className="font-semibold">Protected Organizational Attributes:</span> Organizational identity, job titles, departments, work email, and employee IDs are managed strictly by HR Administration. You may update your personal contact details, residential address, and profile photo.
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Employee ID with Auto-Generate Button */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
+                  Employee ID / Code
+                </label>
+                {isHrOrAdmin && (
+                  <button
+                    type="button"
+                    onClick={handleAutoGenerateCode}
+                    disabled={isGeneratingCode}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    {isGeneratingCode ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    <span>Auto-Generate</span>
+                  </button>
+                )}
+              </div>
+              {isHrOrAdmin ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={formData.employeeCode}
+                    onChange={(e) => handleChange('employeeCode', e.target.value)}
+                    placeholder="e.g. EMP-00001"
+                    className="uppercase font-mono flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAutoGenerateCode}
+                    disabled={isGeneratingCode}
+                    className="shrink-0 h-9 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-slate-300 dark:border-slate-700"
+                    title="Generate next sequential Employee ID based on organization prefix"
+                  >
+                    {isGeneratingCode ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5 text-[var(--primary)]" />
+                    )}
+                    <span>Generate</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md">
+                  <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    {formData.employeeCode || employee.employeeCode}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                    <Lock className="h-2.5 w-2.5" />
+                    Locked
+                  </span>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-400 mt-1">
+                {isHrOrAdmin
+                  ? 'Sequential code adhering to active Organization Prefix.'
+                  : 'Assigned by HR Admin; cannot be edited by employee.'}
+              </p>
+            </div>
+
+            {/* Account Status */}
             <SelectField
               label="Account Status"
               value={formData.status}
               onChange={(e) => handleChange('status', e.target.value)}
+              disabled={!isHrOrAdmin}
+              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
               options={[
                 { value: 'ACTIVE', label: 'ACTIVE' },
                 { value: 'PROBATION', label: 'PROBATION' },
@@ -468,15 +586,107 @@ export function EmployeeEditPage() {
                 { value: 'INACTIVE', label: 'INACTIVE' },
               ]}
             />
+
+            {/* Work Email */}
+            {isHrOrAdmin ? (
+              <Input
+                label="Work Email"
+                required
+                type="email"
+                value={formData.workEmail}
+                onChange={(e) => handleChange('workEmail', e.target.value)}
+                placeholder="e.g. marcus.chen@company.com"
+                error={fieldErrors.workEmail}
+              />
+            ) : (
+              <div>
+                <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1 block">
+                  Work Email
+                </label>
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md">
+                  <span className="font-mono text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {formData.workEmail}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                    <Lock className="h-2.5 w-2.5" />
+                    Locked
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Official corporate email managed by IT/HR.</p>
+              </div>
+            )}
+
+            {/* Joining Date */}
             <Input
-              label="Work Email"
-              required
-              type="email"
-              value={formData.workEmail}
-              onChange={(e) => handleChange('workEmail', e.target.value)}
-              placeholder="e.g. marcus.chen@company.com"
-              error={fieldErrors.workEmail}
+              label="Joining Date"
+              type="date"
+              value={formData.joiningDate}
+              onChange={(e) => handleChange('joiningDate', e.target.value)}
+              disabled={!isHrOrAdmin}
+              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
             />
+
+            {/* Department */}
+            <SelectField
+              label="Department"
+              value={formData.departmentId}
+              onChange={(e) => handleChange('departmentId', e.target.value)}
+              placeholder="Select Department..."
+              disabled={!isHrOrAdmin}
+              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
+              options={departments.map((d) => ({ value: d._id, label: d.name }))}
+            />
+
+            {/* Designation */}
+            <SelectField
+              label="Designation"
+              value={formData.designationId}
+              onChange={(e) => handleChange('designationId', e.target.value)}
+              placeholder="Select Designation..."
+              disabled={!isHrOrAdmin}
+              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
+              options={designations.map((d) => ({ value: d._id, label: `${d.title} (Grade ${d.grade})` }))}
+            />
+
+            {/* Location */}
+            <SelectField
+              label="Location"
+              value={formData.locationId}
+              onChange={(e) => handleChange('locationId', e.target.value)}
+              placeholder="Select Location..."
+              disabled={!isHrOrAdmin}
+              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
+              options={locations.map((l) => ({ value: l._id, label: `${l.name} (${l.city})` }))}
+            />
+
+            {/* Employment Type */}
+            <SelectField
+              label="Employment Type"
+              value={formData.employmentType}
+              onChange={(e) => handleChange('employmentType', e.target.value)}
+              disabled={!isHrOrAdmin}
+              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
+              options={[
+                { value: 'FULL_TIME', label: 'Full Time' },
+                { value: 'PART_TIME', label: 'Part Time' },
+                { value: 'CONTRACT', label: 'Contract' },
+                { value: 'INTERN', label: 'Intern' },
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* Section 4: Personal Contact Information (Always Editable) */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              Personal Contact Details
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Direct personal communication channels maintained by the employee
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <Input
               label="Personal Email"
               type="email"
@@ -485,48 +695,10 @@ export function EmployeeEditPage() {
               placeholder="e.g. marcus.chen@gmail.com"
             />
             <Input
-              label="Phone"
+              label="Phone Number"
               value={formData.phone}
               onChange={(e) => handleChange('phone', e.target.value)}
               placeholder="e.g. +1 (555) 019-2834"
-            />
-            <Input
-              label="Joining Date"
-              type="date"
-              value={formData.joiningDate}
-              onChange={(e) => handleChange('joiningDate', e.target.value)}
-            />
-            <SelectField
-              label="Department"
-              value={formData.departmentId}
-              onChange={(e) => handleChange('departmentId', e.target.value)}
-              placeholder="Select Department..."
-              options={departments.map((d) => ({ value: d._id, label: d.name }))}
-            />
-            <SelectField
-              label="Designation"
-              value={formData.designationId}
-              onChange={(e) => handleChange('designationId', e.target.value)}
-              placeholder="Select Designation..."
-              options={designations.map((d) => ({ value: d._id, label: `${d.title} (Grade ${d.grade})` }))}
-            />
-            <SelectField
-              label="Location"
-              value={formData.locationId}
-              onChange={(e) => handleChange('locationId', e.target.value)}
-              placeholder="Select Location..."
-              options={locations.map((l) => ({ value: l._id, label: `${l.name} (${l.city})` }))}
-            />
-            <SelectField
-              label="Employment Type"
-              value={formData.employmentType}
-              onChange={(e) => handleChange('employmentType', e.target.value)}
-              options={[
-                { value: 'FULL_TIME', label: 'Full Time' },
-                { value: 'PART_TIME', label: 'Part Time' },
-                { value: 'CONTRACT', label: 'Contract' },
-                { value: 'INTERN', label: 'Intern' },
-              ]}
             />
           </div>
         </div>

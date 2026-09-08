@@ -45,6 +45,9 @@ export class Organization {
   @Prop({ required: false, trim: true, default: 'Private Limited' })
   organizationType: string;
 
+  @Prop({ required: false, trim: true, default: 'EMP' })
+  employeeIdPrefix: string;
+
   @Prop({ required: false, trim: true, default: 'United States' })
   registrationCountry: string;
 

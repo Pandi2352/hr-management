@@ -76,6 +76,11 @@ export class UpdateOrganizationDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(10)
+  employeeIdPrefix?: string;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(100)
   registrationCountry?: string;
 

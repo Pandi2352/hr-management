@@ -649,6 +649,35 @@ export function OrganizationProfilePage() {
                   </p>
                 )}
               </div>
+
+              <div>
+                <label className="block text-[11px] font-medium tracking-wide uppercase text-slate-400 dark:text-slate-500 mb-1">
+                  Employee ID Prefix
+                </label>
+                {isEditing ? (
+                  <div>
+                    <Input
+                      value={formData.employeeIdPrefix || ''}
+                      onChange={(e) => setFormData({ ...formData, employeeIdPrefix: e.target.value.toUpperCase() })}
+                      placeholder="e.g. EMP, NEX, ACME"
+                      maxLength={10}
+                      className="rounded-md font-mono text-xs uppercase"
+                    />
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                      Prefix used for generating sequential Employee IDs (e.g. {(formData.employeeIdPrefix || 'EMP').trim() || 'EMP'}-00001)
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-mono font-bold bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
+                      {profile?.employeeIdPrefix || 'EMP'}
+                    </span>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                      Sample Employee ID: {(profile?.employeeIdPrefix || 'EMP')}-00001
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

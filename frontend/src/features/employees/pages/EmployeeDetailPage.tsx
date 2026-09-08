@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../../components/ui/toast';
 import { Avatar } from '../../../components/ui';
+import { useAuth } from '../../auth/context/AuthContext';
 import { employeesApi } from '../api/employees.api';
 import { EmployeeHeaderBanner } from '../components/EmployeeHeaderBanner';
 import { CredentialsModal } from '../components/CredentialsModal';
@@ -18,6 +19,15 @@ export function EmployeeDetailPage() {
   const toast = useToast();
 
   const initialTab = searchParams.get('tab') || 'overview';
+  const { user } = useAuth();
+  const isHrOrAdmin = Boolean(
+    user?.roles?.some((r) =>
+      ['ADMIN', 'HR', 'HR_ADMIN', 'SUPER_ADMIN', 'ORG_ADMIN', 'Admin', 'HR Manager', 'HR Admin'].includes(r)
+    ) ||
+    user?.permissions?.includes('EMPLOYEE_UPDATE') ||
+    user?.permissions?.includes('EMPLOYEE_CREATE')
+  );
+
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -82,8 +92,8 @@ export function EmployeeDetailPage() {
     { id: 'education', label: '4. Education & Experience' },
     { id: 'skills', label: '5. Skills' },
     { id: 'documents', label: '6. Document Vault' },
-    { id: 'audit', label: '7. Audit History' },
-    { id: 'timeline', label: '8. Career Milestones' },
+    ...(isHrOrAdmin ? [{ id: 'audit', label: '7. Audit History' }] : []),
+    { id: 'timeline', label: isHrOrAdmin ? '8. Career Milestones' : '7. Career Milestones' },
   ];
 
   return (
@@ -93,9 +103,9 @@ export function EmployeeDetailPage() {
         employee={employee}
         onBack={() => navigate('/employees')}
         onEdit={() => navigate(`/employees/${employee._id}/edit`)}
-        onShareCredentials={() => setShowCredentials(true)}
-        onStatusChange={() => setShowStatusModal(true)}
-        onResendCredentials={handleResendCredentials}
+        onShareCredentials={isHrOrAdmin ? () => setShowCredentials(true) : undefined}
+        onStatusChange={isHrOrAdmin ? () => setShowStatusModal(true) : undefined}
+        onResendCredentials={isHrOrAdmin ? handleResendCredentials : undefined}
         onAvatarUpdated={(newUrl) => setEmployee((prev) => (prev ? { ...prev, avatarUrl: newUrl } : null))}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -367,7 +377,7 @@ export function EmployeeDetailPage() {
         )}
 
         {/* TAB 7: AUDIT HISTORY */}
-        {activeTab === 'audit' && (
+        {activeTab === 'audit' && isHrOrAdmin && (
           <div className="space-y-3">
             <h3 className="mb-3 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-3">
               Audit Timeline

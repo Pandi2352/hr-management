@@ -158,6 +158,7 @@ export class OrganizationService {
         timezone: 'Asia/Kolkata',
         currency: 'USD',
         fiscalYearStartMonth: 'January',
+        employeeIdPrefix: 'EMP',
         status: 'ACTIVE',
       });
     }

@@ -30,6 +30,7 @@ export interface OrganizationProfile {
   dateFormat?: string;
   timeFormat?: string;
   numberFormat?: string;
+  employeeIdPrefix?: string;
   status: 'ACTIVE' | 'INACTIVE';
   createdAt?: string;
   updatedAt?: string;

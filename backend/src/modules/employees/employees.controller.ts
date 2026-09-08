@@ -90,6 +90,14 @@ export class EmployeesController {
     return ResultEntity.ok(data, 'Avatar uploaded successfully');
   }
 
+  @Get('generate-code')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_READ)
+  async generateEmployeeCode(@Request() req: any) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.employeesService.generateEmployeeCode(orgId);
+    return ResultEntity.ok(data);
+  }
+
   @Get(':id')
   @RequirePermissions(PERMISSIONS.EMPLOYEE_READ)
   async getEmployeeById(@Request() req: any, @Param('id') id: string): Promise<any> {

@@ -14,6 +14,7 @@ import { Location, LocationDocument } from '../organization/schemas/location.sch
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuditAction, AuditResource } from '../../common/audit/audit.constants';
+import { PERMISSIONS } from '../../common/constants';
 import {
   CreateEmployeeDto,
   UpdateEmployeeDto,
@@ -480,6 +481,12 @@ export class EmployeesService {
     return { message: `Document "${document.title}" removed.` };
   }
 
+  // 3.0. GENERATE NEXT SEQUENTIAL EMPLOYEE CODE
+  async generateEmployeeCode(orgId: string): Promise<{ employeeCode: string }> {
+    const employeeCode = await this.provisioningService.generateUniqueEmployeeCode(orgId);
+    return { employeeCode };
+  }
+
   // 3. CREATE EMPLOYEE VIA PROVISIONING ENGINE
   async createEmployee(dto: CreateEmployeeDto, orgId: string, userId: string) {
     // 1. Atomic Employee ID Generation with collision retry
@@ -552,24 +559,62 @@ export class EmployeesService {
 
     await this.assertEmployeeInScope(existing, orgId, scopeUser);
 
-    if (dto.workEmail && dto.workEmail.toLowerCase().trim() !== existing.workEmail) {
+    const isHrOrAdmin = !scopeUser || Boolean(
+      scopeUser.roles?.some((r) =>
+        ['ADMIN', 'HR', 'HR_ADMIN', 'SUPER_ADMIN', 'ORG_ADMIN', 'Admin', 'HR Manager', 'HR Admin'].includes(r)
+      ) ||
+      scopeUser.permissions?.includes(PERMISSIONS.EMPLOYEE_UPDATE) ||
+      scopeUser.permissions?.includes(PERMISSIONS.EMPLOYEE_CREATE)
+    );
+
+    const updatePayload: any = { ...dto };
+
+    // If regular employee (non HR/Admin), protect administrative and organizational assignments
+    if (scopeUser && !isHrOrAdmin) {
+      delete updatePayload.employeeCode;
+      delete updatePayload.status;
+      delete updatePayload.departmentId;
+      delete updatePayload.designationId;
+      delete updatePayload.locationId;
+      delete updatePayload.costCenterId;
+      delete updatePayload.employmentType;
+      delete updatePayload.joiningDate;
+      delete updatePayload.workEmail;
+      delete updatePayload.managerId;
+    }
+
+    if (updatePayload.employeeCode && updatePayload.employeeCode.trim().toUpperCase() !== existing.employeeCode) {
+      const formattedCode = updatePayload.employeeCode.trim().toUpperCase();
+      const duplicateCode = await this.empModel.findOne({
+        _id: { $ne: id },
+        organizationId: orgId,
+        employeeCode: formattedCode,
+        isDeleted: false,
+      });
+      if (duplicateCode) {
+        throw new ConflictException(`Employee ID ${formattedCode} is already assigned to another employee.`);
+      }
+      updatePayload.employeeCode = formattedCode;
+    }
+
+    if (updatePayload.workEmail && updatePayload.workEmail.toLowerCase().trim() !== existing.workEmail) {
       const duplicate = await this.empModel.findOne({
         _id: { $ne: id },
         organizationId: orgId,
-        workEmail: dto.workEmail.toLowerCase().trim(),
+        workEmail: updatePayload.workEmail.toLowerCase().trim(),
         isDeleted: false,
       });
       if (duplicate) {
-        throw new ConflictException(`Work email ${dto.workEmail} is already registered to another employee.`);
+        throw new ConflictException(`Work email ${updatePayload.workEmail} is already registered to another employee.`);
       }
+      updatePayload.workEmail = updatePayload.workEmail.toLowerCase().trim();
     }
 
     const updated = await this.empModel.findByIdAndUpdate(
       id,
       {
-        ...dto,
-        workEmail: dto.workEmail ? dto.workEmail.toLowerCase().trim() : existing.workEmail,
-        displayName: dto.displayName || `${dto.firstName || existing.firstName} ${dto.lastName || existing.lastName}`.trim(),
+        ...updatePayload,
+        displayName: updatePayload.displayName || `${updatePayload.firstName || existing.firstName} ${updatePayload.lastName || existing.lastName}`.trim(),
       },
       { new: true },
     );

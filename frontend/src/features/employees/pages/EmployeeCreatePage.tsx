@@ -13,6 +13,7 @@ import {
   X,
   Loader2,
   Info,
+  Sparkles,
 } from 'lucide-react';
 import { Button, Input, SelectField, Avatar } from '../../../components/ui';
 import { CredentialsModal } from '../components/CredentialsModal';
@@ -38,6 +39,7 @@ export function EmployeeCreatePage() {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
+  const [isGeneratingCode, setIsGeneratingCode] = useState<boolean>(false);
   const [createdCredentials, setCreatedCredentials] = useState<{
     employeeId: string;
     displayName: string;
@@ -187,6 +189,19 @@ export function EmployeeCreatePage() {
 
   const handleRemoveAvatar = () => {
     setFormData((prev) => ({ ...prev, avatarUrl: '' }));
+  };
+
+  const handleAutoGenerateCode = async () => {
+    setIsGeneratingCode(true);
+    try {
+      const res = await employeesApi.generateEmployeeCode();
+      handleChange('employeeCode', res.employeeCode);
+      toast.success(`Generated ID: ${res.employeeCode}`, 'ID Assigned');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to auto-generate employee ID');
+    } finally {
+      setIsGeneratingCode(false);
+    }
   };
 
   const handleNext = () => {
@@ -647,15 +662,51 @@ export function EmployeeCreatePage() {
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Employee Code (Optional, Auto-Generated if blank)
-                  </label>
-                  <Input
-                    value={formData.employeeCode}
-                    onChange={(e) => handleChange('employeeCode', e.target.value)}
-                    placeholder="e.g. EMP-00101"
-                    className="mt-1 uppercase font-mono"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
+                      Employee ID / Code
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAutoGenerateCode}
+                      disabled={isGeneratingCode}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer disabled:opacity-50"
+                    >
+                      {isGeneratingCode ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
+                      <span>Auto-Generate</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={formData.employeeCode}
+                      onChange={(e) => handleChange('employeeCode', e.target.value)}
+                      placeholder="e.g. EMP-00001"
+                      className="uppercase font-mono flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAutoGenerateCode}
+                      disabled={isGeneratingCode}
+                      className="shrink-0 h-9 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-slate-300 dark:border-slate-700"
+                      title="Generate next sequential Employee ID based on organization prefix"
+                    >
+                      {isGeneratingCode ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 text-[var(--primary)]" />
+                      )}
+                      <span>Generate</span>
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Follows next sequential order formatted with Organization Prefix.
+                  </p>
                 </div>
                 <SelectField
                   label="Department Assignment"

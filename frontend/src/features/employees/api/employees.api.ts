@@ -36,6 +36,13 @@ export const employeesApi = {
     return response.data.data;
   },
 
+  generateEmployeeCode: async (): Promise<{ employeeCode: string }> => {
+    const response = await apiClient.get<{ success: boolean; data: { employeeCode: string } }>(
+      '/employees/generate-code'
+    );
+    return response.data.data;
+  },
+
   createEmployee: async (dto: Partial<Employee>): Promise<Employee> => {
     const response = await apiClient.post<{ success: boolean; data: Employee }>('/employees', dto);
     return response.data.data;

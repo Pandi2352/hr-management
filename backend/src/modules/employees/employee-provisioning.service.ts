@@ -40,7 +40,25 @@ export class EmployeeProvisioningService {
       return formatted;
     }
 
-    // Determine highest sequential numeric ID currently in organization
+    // Determine highest sequential numeric ID currently in organization using its configured prefix
+    let prefix = 'EMP';
+    try {
+      let org = null;
+      if (orgId) {
+        org = await this.orgModel.findOne({ _id: orgId, isDeleted: false }).lean();
+      }
+      if (!org) {
+        org = await this.orgModel.findOne({ isDeleted: false }).lean();
+      }
+      if (org?.employeeIdPrefix && org.employeeIdPrefix.trim()) {
+        prefix = org.employeeIdPrefix.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '') || 'EMP';
+      }
+    } catch {
+      prefix = 'EMP';
+    }
+
+    const regex = new RegExp(`^${prefix}[-_]?(\\d+)$`, 'i');
+
     const employees = await this.empModel
       .find({ organizationId: orgId }, { employeeCode: 1 })
       .lean();
@@ -48,7 +66,7 @@ export class EmployeeProvisioningService {
     let maxNumber = 0;
     for (const emp of employees) {
       if (emp.employeeCode) {
-        const match = emp.employeeCode.match(/EMP-(\d+)/i);
+        const match = emp.employeeCode.match(regex);
         if (match && match[1]) {
           const num = parseInt(match[1], 10);
           if (num > maxNumber) maxNumber = num;
@@ -58,10 +76,10 @@ export class EmployeeProvisioningService {
 
     let nextNumber = maxNumber + 1;
     let attempts = 0;
-    const MAX_ATTEMPTS = 20;
+    const MAX_ATTEMPTS = 50;
 
     while (attempts < MAX_ATTEMPTS) {
-      const candidate = `EMP-${String(nextNumber).padStart(5, '0')}`;
+      const candidate = `${prefix}-${String(nextNumber).padStart(5, '0')}`;
       const conflict = await this.empModel.findOne({
         organizationId: orgId,
         employeeCode: candidate,
@@ -76,7 +94,7 @@ export class EmployeeProvisioningService {
     }
 
     // Fallback if sequence is heavily fragmented
-    return `EMP-${Date.now().toString().slice(-5)}`;
+    return `${prefix}-${Date.now().toString().slice(-5)}`;
   }
 
   /**
