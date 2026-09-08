@@ -75,7 +75,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               "block w-full h-9 rounded-md border bg-white px-3 text-xs text-slate-900 placeholder:text-slate-400 transition-colors focus:outline-none",
               error
                 ? "border-rose-300 focus:border-rose-400 dark:border-rose-500/50 dark:focus:border-rose-400"
-                : "border-slate-300 hover:border-slate-400 focus:border-violet-400 dark:border-slate-800 dark:hover:border-slate-700 dark:focus:border-violet-400",
+                : "border-slate-300 hover:border-slate-400 focus:border-[var(--primary)] dark:border-slate-800 dark:hover:border-slate-700 dark:focus:border-[var(--primary)]",
               "dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500",
               leftIcon && "pl-9",
               (clearable || isPasswordToggle || rightAction || isLoading) && "pr-9",

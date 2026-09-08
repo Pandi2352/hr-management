@@ -226,7 +226,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
             error
               ? 'border-rose-300 dark:border-rose-500/50'
               : isOpen
-              ? 'border-violet-400 dark:border-violet-400 ring-0 outline-none'
+              ? 'border-[var(--primary)] ring-0 outline-none'
               : 'border-slate-300 hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-700'
           )}
         >
@@ -282,7 +282,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={searchPlaceholder}
-                    className="w-full h-7 pl-8 pr-6 text-xs rounded border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:border-violet-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:border-violet-400"
+                    className="w-full h-7 pl-8 pr-6 text-xs rounded border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:border-[var(--primary)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:border-[var(--primary)]"
                   />
                   {searchQuery && (
                     <button
@@ -307,11 +307,11 @@ export const SelectField: React.FC<SelectFieldProps> = ({
                   onClick={() => handleSelect('')}
                   className={cn(
                     'px-3 py-1.5 text-xs cursor-pointer flex items-center justify-between text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60',
-                    !currentValue && 'bg-violet-50/70 font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300'
+                    !currentValue && 'bg-[var(--primary-light)] font-semibold text-[var(--primary)]'
                   )}
                 >
                   <span>{placeholder}</span>
-                  {!currentValue && <Check className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />}
+                  {!currentValue && <Check className="h-3.5 w-3.5 text-[var(--primary)]" />}
                 </div>
               )}
 
@@ -329,10 +329,10 @@ export const SelectField: React.FC<SelectFieldProps> = ({
                       className={cn(
                         'px-3 py-2 text-xs flex items-center justify-between transition-colors',
                         opt.disabled
-                          ? 'cursor-not-allowed opacity-40 text-slate-400'
+                           ? 'cursor-not-allowed opacity-40 text-slate-400'
                           : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60',
                         isSelected
-                          ? 'bg-violet-50/70 font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300'
+                          ? 'bg-[var(--primary-light)] font-semibold text-[var(--primary)]'
                           : 'text-slate-800 dark:text-slate-200'
                       )}
                     >
@@ -343,7 +343,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
                         )}
                       </div>
                       {isSelected && (
-                        <Check className="h-3.5 w-3.5 shrink-0 text-violet-600 dark:text-violet-400 ml-2" />
+                        <Check className="h-3.5 w-3.5 shrink-0 text-[var(--primary)] ml-2" />
                       )}
                     </div>
                   );

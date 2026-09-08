@@ -169,6 +169,18 @@ export class Employee {
   nationality?: string;
 
   @Prop({ default: '' })
+  countryOfBirth?: string;
+
+  @Prop({ default: '', trim: true })
+  stateOfBirth?: string;
+
+  @Prop({ default: '', trim: true })
+  bloodGroup?: string;
+
+  @Prop({ default: '', trim: true })
+  nationalId?: string;
+
+  @Prop({ default: '' })
   avatarUrl?: string;
 
   // Contact

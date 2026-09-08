@@ -43,6 +43,11 @@
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-light: var(--primary-light);
+  --color-primary-ring: var(--primary-ring);
 }
 
 @layer base {
@@ -53,6 +58,10 @@
     --card-foreground: #0f172a;
     --border: #e2e8f0;
     --primary: #524b6e;
+    --primary-hover: #433c5b;
+    --primary-active: #37304a;
+    --primary-light: rgba(82, 75, 110, 0.1);
+    --primary-ring: rgba(82, 75, 110, 0.35);
     --primary-foreground: #ffffff;
 
     /* Workspace chrome — light */
@@ -74,6 +83,10 @@
     --card-foreground: #ededf0;
     --border: #232326;
     --primary: #7c729c;
+    --primary-hover: #6a6187;
+    --primary-active: #585072;
+    --primary-light: rgba(124, 114, 156, 0.15);
+    --primary-ring: rgba(124, 114, 156, 0.35);
     --primary-foreground: #ffffff;
 
     /* Workspace chrome — dark (near-black, hairline separated) */

@@ -24,12 +24,28 @@ export function EmployeeEditPage() {
   // Editable Form State
   const [formData, setFormData] = useState<{
     firstName: string;
+    middleName: string;
     lastName: string;
     displayName: string;
+    gender: string;
+    dateOfBirth: string;
+    maritalStatus: string;
+    bloodGroup: string;
+    nationalId: string;
+    nationality: string;
+    countryOfBirth: string;
+    stateOfBirth: string;
     avatarUrl: string;
     workEmail: string;
     personalEmail: string;
     phone: string;
+    currentAddress: {
+      addressLine1?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      postalCode?: string;
+    };
     departmentId: string;
     designationId: string;
     locationId: string;
@@ -38,12 +54,28 @@ export function EmployeeEditPage() {
     joiningDate: string;
   }>({
     firstName: '',
+    middleName: '',
     lastName: '',
     displayName: '',
+    gender: 'Male',
+    dateOfBirth: '',
+    maritalStatus: 'Single',
+    bloodGroup: '',
+    nationalId: '',
+    nationality: '',
+    countryOfBirth: '',
+    stateOfBirth: '',
     avatarUrl: '',
     workEmail: '',
     personalEmail: '',
     phone: '',
+    currentAddress: {
+      addressLine1: '',
+      city: '',
+      state: '',
+      country: '',
+      postalCode: '',
+    },
     departmentId: '',
     designationId: '',
     locationId: '',
@@ -69,12 +101,28 @@ export function EmployeeEditPage() {
 
         setFormData({
           firstName: emp.firstName || '',
+          middleName: emp.middleName || '',
           lastName: emp.lastName || '',
           displayName: emp.displayName || '',
+          gender: emp.gender || 'Male',
+          dateOfBirth: emp.dateOfBirth || '',
+          maritalStatus: emp.maritalStatus || 'Single',
+          bloodGroup: emp.bloodGroup || '',
+          nationalId: emp.nationalId || '',
+          nationality: emp.nationality || '',
+          countryOfBirth: emp.countryOfBirth || '',
+          stateOfBirth: emp.stateOfBirth || '',
           avatarUrl: emp.avatarUrl || '',
           workEmail: emp.workEmail || '',
           personalEmail: emp.personalEmail || '',
           phone: emp.phone || '',
+          currentAddress: {
+            addressLine1: emp.currentAddress?.addressLine1 || '',
+            city: emp.currentAddress?.city || '',
+            state: emp.currentAddress?.state || '',
+            country: emp.currentAddress?.country || '',
+            postalCode: emp.currentAddress?.postalCode || '',
+          },
           departmentId: emp.departmentId || '',
           designationId: emp.designationId || '',
           locationId: emp.locationId || '',
@@ -101,6 +149,13 @@ export function EmployeeEditPage() {
         return copy;
       });
     }
+  };
+
+  const handleAddressChange = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      currentAddress: { ...prev.currentAddress, [field]: value },
+    }));
   };
 
   const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,8 +242,8 @@ export function EmployeeEditPage() {
 
       <form onSubmit={handleSave} className="rounded-md border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950 space-y-6">
         {/* Profile Picture Change Card */}
-        <div className="p-4 rounded-md border border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20">
-          <label className="text-[11px] font-bold tracking-wider uppercase text-indigo-900 dark:text-indigo-300 block mb-2">
+        <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
+          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-700 dark:text-slate-300 block mb-2">
             Profile Photo (Square Format)
           </label>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -197,7 +252,7 @@ export function EmployeeEditPage() {
                 src={formData.avatarUrl || null}
                 name={formData.displayName || `${formData.firstName} ${formData.lastName}`.trim()}
                 size="xl"
-                className="rounded-md border-2 border-indigo-300 dark:border-indigo-700"
+                className="rounded-md border border-slate-300 dark:border-slate-700"
               />
             </div>
 
@@ -216,7 +271,7 @@ export function EmployeeEditPage() {
                   variant="outline"
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={isUploadingAvatar}
-                  className="flex items-center gap-1.5 cursor-pointer text-xs border-indigo-300 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"
+                  className="flex items-center gap-1.5 cursor-pointer text-xs"
                 >
                   {isUploadingAvatar ? (
                     <>
@@ -247,90 +302,233 @@ export function EmployeeEditPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <Input
-            label="First Name"
-            required
-            value={formData.firstName}
-            onChange={(e) => handleChange('firstName', e.target.value)}
-            placeholder="e.g. Marcus"
-            error={fieldErrors.firstName}
-          />
-          <Input
-            label="Last Name"
-            required
-            value={formData.lastName}
-            onChange={(e) => handleChange('lastName', e.target.value)}
-            placeholder="e.g. Chen"
-            error={fieldErrors.lastName}
-          />
-          <Input
-            label="Display Name"
-            value={formData.displayName}
-            onChange={(e) => handleChange('displayName', e.target.value)}
-            placeholder="e.g. Mark Chen"
-          />
-          <SelectField
-            label="Account Status"
-            value={formData.status}
-            onChange={(e) => handleChange('status', e.target.value)}
-            options={[
-              { value: 'ACTIVE', label: 'ACTIVE' },
-              { value: 'PROBATION', label: 'PROBATION' },
-              { value: 'ON_LEAVE', label: 'ON_LEAVE' },
-              { value: 'SUSPENDED', label: 'SUSPENDED' },
-              { value: 'RESIGNED', label: 'RESIGNED' },
-              { value: 'TERMINATED', label: 'TERMINATED' },
-              { value: 'INACTIVE', label: 'INACTIVE' },
-            ]}
-          />
-          <Input
-            label="Work Email"
-            required
-            type="email"
-            value={formData.workEmail}
-            onChange={(e) => handleChange('workEmail', e.target.value)}
-            placeholder="e.g. marcus.chen@company.com"
-            error={fieldErrors.workEmail}
-          />
-          <Input
-            label="Phone"
-            value={formData.phone}
-            onChange={(e) => handleChange('phone', e.target.value)}
-            placeholder="e.g. +1 (555) 019-2834"
-          />
-          <SelectField
-            label="Department"
-            value={formData.departmentId}
-            onChange={(e) => handleChange('departmentId', e.target.value)}
-            placeholder="Select Department..."
-            options={departments.map((d) => ({ value: d._id, label: d.name }))}
-          />
-          <SelectField
-            label="Designation"
-            value={formData.designationId}
-            onChange={(e) => handleChange('designationId', e.target.value)}
-            placeholder="Select Designation..."
-            options={designations.map((d) => ({ value: d._id, label: `${d.title} (Grade ${d.grade})` }))}
-          />
-          <SelectField
-            label="Location"
-            value={formData.locationId}
-            onChange={(e) => handleChange('locationId', e.target.value)}
-            placeholder="Select Location..."
-            options={locations.map((l) => ({ value: l._id, label: `${l.name} (${l.city})` }))}
-          />
-          <SelectField
-            label="Employment Type"
-            value={formData.employmentType}
-            onChange={(e) => handleChange('employmentType', e.target.value)}
-            options={[
-              { value: 'FULL_TIME', label: 'Full Time' },
-              { value: 'PART_TIME', label: 'Part Time' },
-              { value: 'CONTRACT', label: 'Contract' },
-              { value: 'INTERN', label: 'Intern' },
-            ]}
-          />
+        {/* Section 1: Personal Information */}
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+            Personal Information
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <Input
+              label="First Name"
+              required
+              value={formData.firstName}
+              onChange={(e) => handleChange('firstName', e.target.value)}
+              placeholder="e.g. Marcus"
+              error={fieldErrors.firstName}
+            />
+            <Input
+              label="Middle Name"
+              value={formData.middleName}
+              onChange={(e) => handleChange('middleName', e.target.value)}
+              placeholder="e.g. Alexander"
+            />
+            <Input
+              label="Last Name"
+              required
+              value={formData.lastName}
+              onChange={(e) => handleChange('lastName', e.target.value)}
+              placeholder="e.g. Chen"
+              error={fieldErrors.lastName}
+            />
+            <Input
+              label="Preferred Name"
+              value={formData.displayName}
+              onChange={(e) => handleChange('displayName', e.target.value)}
+              placeholder="e.g. Mark Chen"
+            />
+            <Input
+              label="Date of Birth"
+              type="date"
+              value={formData.dateOfBirth}
+              onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+            />
+            <SelectField
+              label="Gender"
+              value={formData.gender}
+              onChange={(e) => handleChange('gender', e.target.value)}
+              options={[
+                { value: 'Male', label: 'Male' },
+                { value: 'Female', label: 'Female' },
+                { value: 'Non-Binary', label: 'Non-Binary' },
+                { value: 'Other', label: 'Prefer not to say' },
+              ]}
+            />
+            <SelectField
+              label="Marital Status"
+              value={formData.maritalStatus}
+              onChange={(e) => handleChange('maritalStatus', e.target.value)}
+              options={[
+                { value: 'Single', label: 'Single' },
+                { value: 'Married', label: 'Married' },
+                { value: 'Divorced', label: 'Divorced' },
+                { value: 'Widowed', label: 'Widowed' },
+                { value: 'Other', label: 'Other' },
+              ]}
+            />
+            <SelectField
+              label="Blood Group"
+              value={formData.bloodGroup}
+              onChange={(e) => handleChange('bloodGroup', e.target.value)}
+              placeholder="Select Blood Group..."
+              options={[
+                { value: 'A+', label: 'A+' },
+                { value: 'A-', label: 'A-' },
+                { value: 'B+', label: 'B+' },
+                { value: 'B-', label: 'B-' },
+                { value: 'AB+', label: 'AB+' },
+                { value: 'AB-', label: 'AB-' },
+                { value: 'O+', label: 'O+' },
+                { value: 'O-', label: 'O-' },
+                { value: 'Unknown', label: 'Unknown / Not Provided' },
+              ]}
+            />
+            <Input
+              label="National ID / SSN / Tax ID"
+              value={formData.nationalId}
+              onChange={(e) => handleChange('nationalId', e.target.value)}
+              placeholder="e.g. SSN-XXX-XX-1234 or National ID"
+            />
+            <Input
+              label="Nationality"
+              value={formData.nationality}
+              onChange={(e) => handleChange('nationality', e.target.value)}
+              placeholder="e.g. Canadian"
+            />
+            <Input
+              label="Country of Birth"
+              value={formData.countryOfBirth}
+              onChange={(e) => handleChange('countryOfBirth', e.target.value)}
+              placeholder="e.g. Canada"
+            />
+            <Input
+              label="State / Province of Birth"
+              value={formData.stateOfBirth}
+              onChange={(e) => handleChange('stateOfBirth', e.target.value)}
+              placeholder="e.g. Ontario / California"
+            />
+          </div>
+        </div>
+
+        {/* Section 2: Residential Address */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+            Residential Address
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <Input
+              label="Street Address"
+              value={formData.currentAddress.addressLine1}
+              onChange={(e) => handleAddressChange('addressLine1', e.target.value)}
+              placeholder="e.g. 100 Market Street, Suite 400"
+            />
+            <Input
+              label="City"
+              value={formData.currentAddress.city}
+              onChange={(e) => handleAddressChange('city', e.target.value)}
+              placeholder="e.g. San Francisco"
+            />
+            <Input
+              label="State / Province"
+              value={formData.currentAddress.state}
+              onChange={(e) => handleAddressChange('state', e.target.value)}
+              placeholder="e.g. California"
+            />
+            <Input
+              label="Country"
+              value={formData.currentAddress.country}
+              onChange={(e) => handleAddressChange('country', e.target.value)}
+              placeholder="e.g. United States"
+            />
+            <Input
+              label="Postal / Zip Code"
+              value={formData.currentAddress.postalCode}
+              onChange={(e) => handleAddressChange('postalCode', e.target.value)}
+              placeholder="e.g. 94105"
+            />
+          </div>
+        </div>
+
+        {/* Section 3: Employment & Organizational Assignment */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+            Employment &amp; Organizational Assignment
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <SelectField
+              label="Account Status"
+              value={formData.status}
+              onChange={(e) => handleChange('status', e.target.value)}
+              options={[
+                { value: 'ACTIVE', label: 'ACTIVE' },
+                { value: 'PROBATION', label: 'PROBATION' },
+                { value: 'ON_LEAVE', label: 'ON_LEAVE' },
+                { value: 'SUSPENDED', label: 'SUSPENDED' },
+                { value: 'RESIGNED', label: 'RESIGNED' },
+                { value: 'TERMINATED', label: 'TERMINATED' },
+                { value: 'INACTIVE', label: 'INACTIVE' },
+              ]}
+            />
+            <Input
+              label="Work Email"
+              required
+              type="email"
+              value={formData.workEmail}
+              onChange={(e) => handleChange('workEmail', e.target.value)}
+              placeholder="e.g. marcus.chen@company.com"
+              error={fieldErrors.workEmail}
+            />
+            <Input
+              label="Personal Email"
+              type="email"
+              value={formData.personalEmail}
+              onChange={(e) => handleChange('personalEmail', e.target.value)}
+              placeholder="e.g. marcus.chen@gmail.com"
+            />
+            <Input
+              label="Phone"
+              value={formData.phone}
+              onChange={(e) => handleChange('phone', e.target.value)}
+              placeholder="e.g. +1 (555) 019-2834"
+            />
+            <Input
+              label="Joining Date"
+              type="date"
+              value={formData.joiningDate}
+              onChange={(e) => handleChange('joiningDate', e.target.value)}
+            />
+            <SelectField
+              label="Department"
+              value={formData.departmentId}
+              onChange={(e) => handleChange('departmentId', e.target.value)}
+              placeholder="Select Department..."
+              options={departments.map((d) => ({ value: d._id, label: d.name }))}
+            />
+            <SelectField
+              label="Designation"
+              value={formData.designationId}
+              onChange={(e) => handleChange('designationId', e.target.value)}
+              placeholder="Select Designation..."
+              options={designations.map((d) => ({ value: d._id, label: `${d.title} (Grade ${d.grade})` }))}
+            />
+            <SelectField
+              label="Location"
+              value={formData.locationId}
+              onChange={(e) => handleChange('locationId', e.target.value)}
+              placeholder="Select Location..."
+              options={locations.map((l) => ({ value: l._id, label: `${l.name} (${l.city})` }))}
+            />
+            <SelectField
+              label="Employment Type"
+              value={formData.employmentType}
+              onChange={(e) => handleChange('employmentType', e.target.value)}
+              options={[
+                { value: 'FULL_TIME', label: 'Full Time' },
+                { value: 'PART_TIME', label: 'Part Time' },
+                { value: 'CONTRACT', label: 'Contract' },
+                { value: 'INTERN', label: 'Intern' },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="pt-4 border-t border-slate-100 dark:border-slate-900 flex items-center justify-between">

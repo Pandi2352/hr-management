@@ -86,7 +86,11 @@ export interface Employee {
   gender?: string;
   dateOfBirth?: string;
   maritalStatus?: string;
+  bloodGroup?: string;
   nationality?: string;
+  countryOfBirth?: string;
+  stateOfBirth?: string;
+  nationalId?: string;
   avatarUrl?: string;
   workEmail: string;
   userId?: string | null;

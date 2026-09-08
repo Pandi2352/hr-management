@@ -166,22 +166,59 @@ export function EmployeeDetailPage() {
         {/* TAB 2: PERSONAL & CONTACT */}
         {activeTab === 'personal' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Gender</span>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.gender || '—'}</p>
-              </div>
-              <div>
-                <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Date of Birth</span>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.dateOfBirth || '—'}</p>
-              </div>
-              <div>
-                <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Marital Status</span>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.maritalStatus || '—'}</p>
-              </div>
-              <div>
-                <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Nationality</span>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.nationality || '—'}</p>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
+                Personal Information
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6">
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">First Name</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.firstName || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Middle Name</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.middleName || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Last Name</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.lastName || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Preferred Name</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.displayName || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Date of Birth</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.dateOfBirth || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Gender</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.gender || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Marital Status</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.maritalStatus || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Blood Group</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.bloodGroup || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">National ID / Tax ID</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.nationalId || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Nationality</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.nationality || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Country of Birth</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.countryOfBirth || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">State / Province of Birth</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.stateOfBirth || '—'}</p>
+                </div>
               </div>
             </div>
 

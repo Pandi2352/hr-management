@@ -91,7 +91,7 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
               size="sm"
               variant="outline"
               onClick={onResendCredentials}
-              className="text-xs cursor-pointer text-[#524b6e] dark:text-indigo-400 border-indigo-200 dark:border-indigo-900 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+              className="text-xs cursor-pointer text-[var(--primary)] border-[var(--primary)]/30 hover:bg-[var(--primary-light)]"
             >
               Resend Onboarding Email
             </Button>
@@ -154,7 +154,7 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
               </div>
               <button
                 type="button"
-                className="absolute -bottom-1 -right-1 p-1 bg-[#524b6e] text-white rounded-md hover:bg-[#433c5b] transition-colors border border-white dark:border-slate-900 cursor-pointer"
+                className="absolute -bottom-1 -right-1 p-1 bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-hover)] transition-colors border border-white dark:border-slate-900 cursor-pointer"
                 title="Change employee profile photo"
                 disabled={isUploadingAvatar}
               >
@@ -171,7 +171,7 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
-                <span className="font-mono text-[#524b6e] font-semibold dark:text-indigo-400">
+                <span className="font-mono text-[var(--primary)] font-semibold">
                   {employee.employeeCode}
                 </span>
                 <span>•</span>
@@ -192,7 +192,7 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
               onClick={() => onTabChange(tab.id)}
               className={`px-3.5 py-2 text-xs font-semibold whitespace-nowrap border-b-2 transition-all cursor-pointer ${
                 activeTab === tab.id
-                  ? 'border-[#524b6e] text-[#524b6e] dark:border-indigo-400 dark:text-indigo-400'
+                  ? 'border-[var(--primary)] text-[var(--primary)] font-bold'
                   : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >

@@ -57,13 +57,17 @@ export function EmployeeCreatePage() {
   const [formData, setFormData] = useState({
     // Step 1: Identity & Avatar
     firstName: '',
-    lastName: '',
     middleName: '',
+    lastName: '',
     displayName: '',
     gender: 'Male',
     dateOfBirth: '',
     maritalStatus: 'Single',
+    bloodGroup: '',
     nationality: '',
+    countryOfBirth: '',
+    stateOfBirth: '',
+    nationalId: '',
     avatarUrl: '',
 
     // Step 2: Employment
@@ -260,13 +264,17 @@ export function EmployeeCreatePage() {
     try {
       const payload: any = {
         firstName: formData.firstName,
+        middleName: formData.middleName || undefined,
         lastName: formData.lastName,
-        middleName: formData.middleName,
         displayName: formData.displayName || `${formData.firstName} ${formData.lastName}`.trim(),
         gender: formData.gender,
-        dateOfBirth: formData.dateOfBirth,
+        dateOfBirth: formData.dateOfBirth || undefined,
         maritalStatus: formData.maritalStatus,
-        nationality: formData.nationality,
+        bloodGroup: formData.bloodGroup || undefined,
+        nationality: formData.nationality || undefined,
+        countryOfBirth: formData.countryOfBirth || undefined,
+        stateOfBirth: formData.stateOfBirth || undefined,
+        nationalId: formData.nationalId || undefined,
         avatarUrl: formData.avatarUrl || undefined,
 
         employeeCode: formData.employeeCode || undefined,
@@ -350,7 +358,7 @@ export function EmployeeCreatePage() {
             </div>
             <div className="w-24 sm:w-28 h-2 bg-slate-100 dark:bg-slate-800 rounded-md overflow-hidden border border-slate-200 dark:border-slate-800">
               <div
-                className="h-full bg-[#524b6e] dark:bg-indigo-600 transition-all duration-300 rounded-md"
+                className="h-full bg-[var(--primary)] transition-all duration-300 rounded-md"
                 style={{ width: `${(currentStep / 5) * 100}%` }}
               />
             </div>
@@ -376,7 +384,7 @@ export function EmployeeCreatePage() {
                 disabled={step.id > currentStep}
                 className={`flex flex-col items-center text-center p-2.5 rounded-md transition-colors border text-left ${
                   isCurrent
-                    ? 'border-[#524b6e] bg-[#524b6e]/5 dark:border-indigo-400 dark:bg-indigo-950/20'
+                    ? 'border-[var(--primary)] bg-[var(--primary-light)]'
                     : isCompleted
                     ? 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/40 cursor-pointer'
                     : 'border-transparent bg-transparent opacity-50 cursor-not-allowed'
@@ -387,7 +395,7 @@ export function EmployeeCreatePage() {
                     isCompleted
                       ? 'bg-emerald-600 text-white'
                       : isCurrent
-                      ? 'bg-[#524b6e] text-white dark:bg-indigo-600'
+                      ? 'bg-[var(--primary)] text-white'
                       : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
                   }`}
                 >
@@ -396,7 +404,7 @@ export function EmployeeCreatePage() {
                 <span
                   className={`mt-1.5 text-xs font-semibold ${
                     isCurrent
-                      ? 'text-[#524b6e] dark:text-indigo-400 font-bold'
+                      ? 'text-[var(--primary)] font-bold'
                       : isCompleted
                       ? 'text-slate-800 dark:text-slate-200'
                       : 'text-slate-400 dark:text-slate-500'
@@ -420,7 +428,7 @@ export function EmployeeCreatePage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-md bg-[#524b6e] text-white dark:bg-indigo-600">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
                   <User className="h-4 w-4" />
                 </div>
                 <div>
@@ -520,6 +528,12 @@ export function EmployeeCreatePage() {
                   error={fieldErrors.firstName}
                 />
                 <Input
+                  label="Middle Name"
+                  value={formData.middleName}
+                  onChange={(e) => handleChange('middleName', e.target.value)}
+                  placeholder="e.g. Alexander"
+                />
+                <Input
                   label="Last Name"
                   required
                   value={formData.lastName}
@@ -528,10 +542,16 @@ export function EmployeeCreatePage() {
                   error={fieldErrors.lastName}
                 />
                 <Input
-                  label="Preferred / Display Name"
+                  label="Preferred Name"
                   value={formData.displayName}
                   onChange={(e) => handleChange('displayName', e.target.value)}
                   placeholder="e.g. Mark Chen"
+                />
+                <Input
+                  label="Date of Birth"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => handleChange('dateOfBirth', e.target.value)}
                 />
                 <SelectField
                   label="Gender"
@@ -544,17 +564,58 @@ export function EmployeeCreatePage() {
                     { value: 'Other', label: 'Prefer not to say' },
                   ]}
                 />
+                <SelectField
+                  label="Marital Status"
+                  value={formData.maritalStatus}
+                  onChange={(e) => handleChange('maritalStatus', e.target.value)}
+                  options={[
+                    { value: 'Single', label: 'Single' },
+                    { value: 'Married', label: 'Married' },
+                    { value: 'Divorced', label: 'Divorced' },
+                    { value: 'Widowed', label: 'Widowed' },
+                    { value: 'Other', label: 'Other' },
+                  ]}
+                />
+                <SelectField
+                  label="Blood Group"
+                  value={formData.bloodGroup}
+                  onChange={(e) => handleChange('bloodGroup', e.target.value)}
+                  placeholder="Select Blood Group..."
+                  options={[
+                    { value: 'A+', label: 'A+' },
+                    { value: 'A-', label: 'A-' },
+                    { value: 'B+', label: 'B+' },
+                    { value: 'B-', label: 'B-' },
+                    { value: 'AB+', label: 'AB+' },
+                    { value: 'AB-', label: 'AB-' },
+                    { value: 'O+', label: 'O+' },
+                    { value: 'O-', label: 'O-' },
+                    { value: 'Unknown', label: 'Unknown / Not Provided' },
+                  ]}
+                />
                 <Input
-                  label="Date of Birth"
-                  type="date"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                  label="National ID / SSN / Tax ID"
+                  value={formData.nationalId}
+                  onChange={(e) => handleChange('nationalId', e.target.value)}
+                  placeholder="e.g. SSN-XXX-XX-1234 or National ID"
                 />
                 <Input
                   label="Nationality"
                   value={formData.nationality}
                   onChange={(e) => handleChange('nationality', e.target.value)}
                   placeholder="e.g. Canadian"
+                />
+                <Input
+                  label="Country of Birth"
+                  value={formData.countryOfBirth}
+                  onChange={(e) => handleChange('countryOfBirth', e.target.value)}
+                  placeholder="e.g. Canada"
+                />
+                <Input
+                  label="State / Province of Birth"
+                  value={formData.stateOfBirth}
+                  onChange={(e) => handleChange('stateOfBirth', e.target.value)}
+                  placeholder="e.g. Ontario / California"
                 />
               </div>
             </div>
@@ -566,7 +627,7 @@ export function EmployeeCreatePage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-md bg-[#524b6e] text-white dark:bg-indigo-600">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
                   <Building2 className="h-4 w-4" />
                 </div>
                 <div>
@@ -671,15 +732,15 @@ export function EmployeeCreatePage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-md bg-[#524b6e] text-white dark:bg-indigo-600">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
                   <Mail className="h-4 w-4" />
                 </div>
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                    Communication &amp; Credential Dispatch
+                    Communication &amp; Residential Address
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Personal onboarding destination, corporate email domain, and emergency contact
+                    Personal onboarding destination, corporate email domain, residential address and emergency contact
                   </p>
                 </div>
               </div>
@@ -697,22 +758,24 @@ export function EmployeeCreatePage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <Input
-                  label="Personal Email (Onboarding Delivery)"
-                  required
-                  type="email"
-                  value={formData.personalEmail}
-                  onChange={(e) => handleChange('personalEmail', e.target.value)}
-                  placeholder="e.g. marcus.chen@gmail.com"
-                  helperText="Onboarding credentials & portal login URL will be dispatched here."
-                  error={fieldErrors.personalEmail}
-                />
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Corporate Work Email (Auto-Generated if Blank)
-                  </label>
+              {/* Sub-section 1: Email & Telephone */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+                  Contact Information
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   <Input
+                    label="Personal Email (Onboarding Delivery)"
+                    required
+                    type="email"
+                    value={formData.personalEmail}
+                    onChange={(e) => handleChange('personalEmail', e.target.value)}
+                    placeholder="e.g. marcus.chen@gmail.com"
+                    helperText="Onboarding credentials & portal login URL will be dispatched here."
+                    error={fieldErrors.personalEmail}
+                  />
+                  <Input
+                    label="Corporate Work Email (Auto-Generated if Blank)"
                     type="email"
                     value={formData.workEmail}
                     onChange={(e) => handleChange('workEmail', e.target.value)}
@@ -721,54 +784,86 @@ export function EmployeeCreatePage() {
                         ? `e.g. ${formData.firstName.toLowerCase()}.${formData.lastName.toLowerCase()}@peopleos.internal`
                         : 'e.g. firstname.lastname@company.com'
                     }
-                    className="mt-1"
+                    helperText="Leave blank to auto-generate from employee name."
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Leave blank to auto-generate from employee name.
-                  </span>
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Direct Phone Number
-                  </label>
                   <Input
+                    label="Direct Phone Number"
                     value={formData.phone}
                     onChange={(e) => handleChange('phone', e.target.value)}
                     placeholder="e.g. +1 (555) 234-5678"
-                    className="mt-1"
                   />
                 </div>
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Residential City
-                  </label>
+              </div>
+
+              {/* Sub-section 2: Residential Address */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+                  Residential Address
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   <Input
+                    label="Street Address"
+                    value={formData.currentAddress.addressLine1}
+                    onChange={(e) => handleAddressChange('addressLine1', e.target.value)}
+                    placeholder="e.g. 100 Market Street, Suite 400"
+                  />
+                  <Input
+                    label="City"
                     value={formData.currentAddress.city}
                     onChange={(e) => handleAddressChange('city', e.target.value)}
                     placeholder="e.g. San Francisco"
-                    className="mt-1"
+                  />
+                  <Input
+                    label="State / Province"
+                    value={formData.currentAddress.state}
+                    onChange={(e) => handleAddressChange('state', e.target.value)}
+                    placeholder="e.g. California"
+                  />
+                  <Input
+                    label="Country"
+                    value={formData.currentAddress.country}
+                    onChange={(e) => handleAddressChange('country', e.target.value)}
+                    placeholder="e.g. United States"
+                  />
+                  <Input
+                    label="Postal / Zip Code"
+                    value={formData.currentAddress.postalCode}
+                    onChange={(e) => handleAddressChange('postalCode', e.target.value)}
+                    placeholder="e.g. 94105"
                   />
                 </div>
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Emergency Contact Name
-                  </label>
+              </div>
+
+              {/* Sub-section 3: Emergency Contact */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+                  Emergency Contact
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   <Input
+                    label="Emergency Contact Name"
                     value={formData.emergencyContact.name}
                     onChange={(e) => handleEmergencyChange('name', e.target.value)}
                     placeholder="e.g. Chloe Chen"
-                    className="mt-1"
                   />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Emergency Phone
-                  </label>
+                  <SelectField
+                    label="Relationship"
+                    value={formData.emergencyContact.relationship}
+                    onChange={(e) => handleEmergencyChange('relationship', e.target.value)}
+                    options={[
+                      { value: 'Spouse', label: 'Spouse' },
+                      { value: 'Parent', label: 'Parent' },
+                      { value: 'Sibling', label: 'Sibling' },
+                      { value: 'Child', label: 'Child' },
+                      { value: 'Friend', label: 'Friend' },
+                      { value: 'Other', label: 'Other' },
+                    ]}
+                  />
                   <Input
+                    label="Emergency Phone"
                     value={formData.emergencyContact.phone}
                     onChange={(e) => handleEmergencyChange('phone', e.target.value)}
                     placeholder="e.g. +1 (555) 999-0000"
-                    className="mt-1"
                   />
                 </div>
               </div>
@@ -781,7 +876,7 @@ export function EmployeeCreatePage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-md bg-[#524b6e] text-white dark:bg-indigo-600">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
                   <GraduationCap className="h-4 w-4" />
                 </div>
                 <div>
@@ -854,7 +949,7 @@ export function EmployeeCreatePage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-md bg-[#524b6e] text-white dark:bg-indigo-600">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
                   <FileCheck2 className="h-4 w-4" />
                 </div>
                 <div>
@@ -955,6 +1050,114 @@ export function EmployeeCreatePage() {
                 </div>
               </div>
 
+              {/* Personal Information Review */}
+              <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Personal Information Details
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(1)}
+                    className="text-[11px] text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                  >
+                    Edit Personal Info
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">First Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.firstName || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Middle Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.middleName || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Last Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.lastName || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Preferred Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.displayName || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Date of Birth</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.dateOfBirth || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Gender</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.gender || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Marital Status</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.maritalStatus || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Blood Group</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.bloodGroup || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">National ID / Tax ID</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.nationalId || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Nationality</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.nationality || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Country of Birth</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.countryOfBirth || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">State / Province of Birth</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.stateOfBirth || '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Residential & Contact Summary Review */}
+              <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Residential &amp; Emergency Contact
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(3)}
+                    className="text-[11px] text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                  >
+                    Edit Contact &amp; Address
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Residential Address</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      {[
+                        formData.currentAddress.addressLine1,
+                        formData.currentAddress.city,
+                        formData.currentAddress.state,
+                        formData.currentAddress.country,
+                        formData.currentAddress.postalCode,
+                      ].filter(Boolean).join(', ') || 'Not specified'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Direct Phone</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.phone || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Emergency Contact</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      {formData.emergencyContact.name
+                        ? `${formData.emergencyContact.name} (${formData.emergencyContact.relationship}) - ${formData.emergencyContact.phone}`
+                        : '—'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Upon clicking <strong>&quot;Complete Onboarding&quot;</strong>, the employee record will be provisioned, temporary login credentials created, and the profile activated in the directory.
               </p>
@@ -994,7 +1197,7 @@ export function EmployeeCreatePage() {
               size="sm"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex items-center gap-1.5 cursor-pointer text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="flex items-center gap-1.5 cursor-pointer text-xs"
             >
               <Check className="h-3.5 w-3.5" />
               <span>{isSubmitting ? 'Onboarding...' : 'Complete Onboarding'}</span>
