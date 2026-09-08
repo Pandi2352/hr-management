@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Table as TableIcon, List, LayoutGrid, Map as MapIcon, Plus } from "lucide-react";
 import { cn } from "../../utils/cn";
 
-export type ViewKey = "table" | "list" | "kanban" | "map";
+export type ViewKey = "table" | "list" | "cards" | "map";
 
 export interface ViewToolbarProps {
   activeView: ViewKey;
@@ -18,7 +18,7 @@ export interface ViewToolbarProps {
 const VIEW_META: Record<ViewKey, { label: string; icon: typeof TableIcon }> = {
   table: { label: "Table View", icon: TableIcon },
   list: { label: "List View", icon: List },
-  kanban: { label: "Kanban", icon: LayoutGrid },
+  cards: { label: "Card View", icon: LayoutGrid },
   map: { label: "Map", icon: MapIcon },
 };
 

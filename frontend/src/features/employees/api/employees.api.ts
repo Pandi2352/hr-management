@@ -1,5 +1,10 @@
 import { apiClient } from '../../../utils/apiClient';
-import type { DocumentItem, Employee, EmployeeFilterParams } from '../types/employees.types';
+import type {
+  DocumentItem,
+  Employee,
+  EmployeeFilterParams,
+  EmployeeStats,
+} from '../types/employees.types';
 import type { PaginatedResponse } from '../../../types/pagination.types';
 
 export const employeesApi = {
@@ -12,6 +17,18 @@ export const employeesApi = {
       data: response.data.data,
       meta: response.data.meta,
     };
+  },
+
+  /**
+   * Server-side aggregation for the directory's headline tiles. One request in
+   * place of the three paginated probes the page used to fire on every filter
+   * change to derive the same numbers.
+   */
+  getStats: async (): Promise<EmployeeStats> => {
+    const response = await apiClient.get<{ success: boolean; data: EmployeeStats }>(
+      '/employees/stats'
+    );
+    return response.data.data;
   },
 
   getEmployeeById: async (id: string): Promise<Employee> => {

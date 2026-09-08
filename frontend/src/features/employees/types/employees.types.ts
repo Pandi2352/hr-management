@@ -147,3 +147,13 @@ export interface EmployeeFilterParams {
   status?: string;
   employmentType?: string;
 }
+
+/** Response of `GET /employees/stats` — server-side aggregation for the directory tiles. */
+export interface EmployeeStats {
+  total: number;
+  newJoinersThisMonth: number;
+  departmentCount: number;
+  byStatus: Record<string, number>;
+  byEmploymentType: Record<string, number>;
+  byDepartment: { departmentId: string | null; name: string; code: string; count: number }[];
+}

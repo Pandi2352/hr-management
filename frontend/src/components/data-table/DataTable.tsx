@@ -287,7 +287,7 @@ export function DataTable<T extends { _id?: string; id?: string; status?: string
         </div>
       ) : viewMode === 'cards' && renderCard ? (
         /* Grid Card View */
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {paginatedData.map((item) => (
             <React.Fragment key={item._id || item.id}>
               {renderCard(item)}

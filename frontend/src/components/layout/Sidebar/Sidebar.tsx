@@ -32,7 +32,6 @@ import { cn } from "../../../utils/cn";
 import { Tooltip } from "../../ui/tooltip";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import { useCustomizer } from "../../../features/customizer";
-import logoImg from "../../../assets/peopleos_logo.jpg";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -40,6 +39,31 @@ interface SidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }
+
+/**
+ * Per-destination icon colours.
+ *
+ * Written out as literal class strings rather than built from the tint name —
+ * Tailwind scans source text, so an interpolated `text-${tint}-600` is never
+ * generated and the icon would fall back to inheriting.
+ *
+ * The 600/400 pair keeps every hue legible on both the light and dark rail
+ * without changing weight; the active row is marked by its background and
+ * label weight, not by recolouring the icon.
+ */
+const NAV_TINTS: Record<string, { icon: string }> = {
+  indigo: { icon: 'text-indigo-600 dark:text-indigo-400' },
+  violet: { icon: 'text-violet-600 dark:text-violet-400' },
+  blue: { icon: 'text-blue-600 dark:text-blue-400' },
+  sky: { icon: 'text-sky-600 dark:text-sky-400' },
+  cyan: { icon: 'text-cyan-600 dark:text-cyan-400' },
+  teal: { icon: 'text-teal-600 dark:text-teal-400' },
+  emerald: { icon: 'text-emerald-600 dark:text-emerald-400' },
+  amber: { icon: 'text-amber-600 dark:text-amber-400' },
+  orange: { icon: 'text-orange-600 dark:text-orange-400' },
+  rose: { icon: 'text-rose-600 dark:text-rose-400' },
+  fuchsia: { icon: 'text-fuchsia-600 dark:text-fuchsia-400' },
+};
 
 export function Sidebar({
   collapsed,
@@ -54,40 +78,46 @@ export function Sidebar({
 
   // Far-left rail: quick jumps with modern cohesive icons
   const railItems = [
-    { id: "search", icon: MagnifyingGlass, label: "Search Directory", href: "/employees" },
-    { id: "contacts", icon: AddressBook, label: "Contacts Directory", href: "/contacts" },
-    { id: "calendar", icon: CalendarCheck, label: "Attendance Calendar", href: "/attendance" },
-    { id: "id-card", icon: IdentificationCard, label: "Employee Directory", href: "/employees" },
-    { id: "chat", icon: ChatTeardropDots, label: "Approvals & Requests", href: "/approvals" },
-    { id: "tree", icon: TreeStructure, label: "Organization Structure", href: "/organization/departments" },
+    { id: "search", icon: MagnifyingGlass, label: "Search Directory", href: "/employees", tint: "blue" },
+    { id: "contacts", icon: AddressBook, label: "Contacts Directory", href: "/contacts", tint: "sky" },
+    { id: "calendar", icon: CalendarCheck, label: "Attendance Calendar", href: "/attendance", tint: "teal" },
+    { id: "id-card", icon: IdentificationCard, label: "Employee Directory", href: "/employees", tint: "violet" },
+    { id: "chat", icon: ChatTeardropDots, label: "Approvals & Requests", href: "/approvals", tint: "rose" },
+    { id: "tree", icon: TreeStructure, label: "Organization Structure", href: "/organization/departments", tint: "cyan" },
   ];
 
+  /*
+   * Each destination carries its own hue. The colour is a wayfinding aid, not
+   * decoration: the same tint appears in the rail and the expanded list, so a
+   * destination stays recognisable at a glance in either. Every row still
+   * carries its label and its own icon shape, so colour is never the only cue.
+   */
   const workspaceItems = [
-    { title: "Dashboard", icon: SquaresFour, href: "/", exact: true },
-    { title: "Org Profile", icon: Buildings, href: "/organization/profile" },
-    { title: "Departments", icon: CirclesThreePlus, href: "/organization/departments", exact: true },
-    { title: "Hierarchy Tree", icon: TreeStructure, href: "/organization/departments/tree" },
-    { title: "Designations", icon: Certificate, href: "/organization/designations" },
-    { title: "Locations", icon: MapPinArea, href: "/organization/locations" },
-    { title: "Cost Centers", icon: Coins, href: "/organization/cost-centers" },
-    { title: "Employees", icon: UserList, href: "/employees" },
+    { title: "Dashboard", icon: SquaresFour, href: "/", exact: true, tint: "indigo" },
+    { title: "Org Profile", icon: Buildings, href: "/organization/profile", tint: "violet" },
+    { title: "Departments", icon: CirclesThreePlus, href: "/organization/departments", exact: true, tint: "sky" },
+    { title: "Hierarchy Tree", icon: TreeStructure, href: "/organization/departments/tree", tint: "cyan" },
+    { title: "Designations", icon: Certificate, href: "/organization/designations", tint: "teal" },
+    { title: "Locations", icon: MapPinArea, href: "/organization/locations", tint: "emerald" },
+    { title: "Cost Centers", icon: Coins, href: "/organization/cost-centers", tint: "amber" },
+    { title: "Employees", icon: UserList, href: "/employees", tint: "blue" },
   ];
 
   const governanceItems = [
-    { title: "Users Roster", icon: UserGear, href: "/security/users" },
-    { title: "Roles & Permissions", icon: ShieldCheck, href: "/security/roles" },
-    { title: "Security Policies", icon: LockKey, href: "/security/settings" },
-    { title: "Audit Trail", icon: ClockCounterClockwise, href: "/audit/logs" },
-    { title: "Login History", icon: SignIn, href: "/audit/login-history" },
+    { title: "Users Roster", icon: UserGear, href: "/security/users", tint: "violet" },
+    { title: "Roles & Permissions", icon: ShieldCheck, href: "/security/roles", tint: "indigo" },
+    { title: "Security Policies", icon: LockKey, href: "/security/settings", tint: "rose" },
+    { title: "Audit Trail", icon: ClockCounterClockwise, href: "/audit/logs", tint: "orange" },
+    { title: "Login History", icon: SignIn, href: "/audit/login-history", tint: "cyan" },
   ];
 
   const operationsItems = [
-    { title: "Contacts", icon: AddressBook, href: "/contacts" },
-    { title: "Recruitment", icon: UserPlus, href: "/recruitment" },
-    { title: "Attendance", icon: ClockUser, href: "/attendance" },
-    { title: "Payroll", icon: Receipt, href: "/payroll" },
-    { title: "Leaves", icon: AirplaneTilt, href: "/leave" },
-    { title: "Approvals", icon: SealCheck, href: "/approvals", soon: true },
+    { title: "Contacts", icon: AddressBook, href: "/contacts", tint: "sky" },
+    { title: "Recruitment", icon: UserPlus, href: "/recruitment", tint: "fuchsia" },
+    { title: "Attendance", icon: ClockUser, href: "/attendance", tint: "teal" },
+    { title: "Payroll", icon: Receipt, href: "/payroll", tint: "emerald" },
+    { title: "Leaves", icon: AirplaneTilt, href: "/leave", tint: "amber" },
+    { title: "Approvals", icon: SealCheck, href: "/approvals", soon: true, tint: "rose" },
   ];
 
   const isItemActive = (href: string, exact?: boolean) =>
@@ -104,9 +134,11 @@ export function Sidebar({
     href: string;
     exact?: boolean;
     soon?: boolean;
+    tint?: string;
   }) => {
     const active = isItemActive(item.href, item.exact);
     const Icon = item.icon;
+    const tone = NAV_TINTS[item.tint ?? "indigo"] ?? NAV_TINTS.indigo;
 
     return (
       <Link
@@ -115,16 +147,15 @@ export function Sidebar({
         onClick={onCloseMobile}
         className={cn(
           "group flex items-center gap-2.5 rounded-md px-2 py-[5px] text-[12.5px] transition-colors",
-          active
-            ? "font-semibold"
-            : "text-ink-2 hover:bg-surface-2 hover:text-ink",
+          active ? "bg-surface-2 font-semibold text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
         )}
-        style={active ? { color: "var(--primary)" } : undefined}
       >
+        {/* Colour lives on the icon stroke itself — no chip, no fill. The hue
+            is what makes a destination recognisable before the label is read. */}
         <Icon
           className={cn(
-            "h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-105",
-            active ? "text-[var(--primary)]" : "text-ink-3 group-hover:text-ink-2",
+            "h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110",
+            tone.icon,
           )}
           weight={active ? "duotone" : "regular"}
         />
@@ -175,6 +206,7 @@ export function Sidebar({
               {railItems.map((item) => {
                 const Icon = item.icon;
                 const active = isItemActive(item.href);
+                const tone = NAV_TINTS[item.tint] ?? NAV_TINTS.indigo;
 
                 return (
                   <Tooltip key={item.id} content={item.label} placement="right" delay={100}>
@@ -182,15 +214,15 @@ export function Sidebar({
                       to={item.href}
                       onClick={onCloseMobile}
                       className={cn(
-                        "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-                        active
-                          ? "font-semibold"
-                          : "text-ink-3 hover:bg-surface-2 hover:text-ink-2",
+                        "group flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+                        active ? "bg-surface-2" : "hover:bg-surface-2",
                       )}
-                      style={active ? { color: "var(--primary)" } : undefined}
                     >
                       <Icon
-                        className="h-[18px] w-[18px] transition-transform duration-150 group-hover:scale-105"
+                        className={cn(
+                          "h-[18px] w-[18px] transition-transform duration-150 group-hover:scale-110",
+                          tone.icon,
+                        )}
                         weight={active ? "duotone" : "regular"}
                       />
                     </Link>
@@ -234,11 +266,14 @@ export function Sidebar({
         {/* ============ 2. NAV PANEL ============ */}
         {!collapsed && (
           <div className="flex w-[178px] shrink-0 flex-col overflow-hidden bg-surface">
-            {/* Workspace & Organization switcher */}
+            {/*
+              Workspace & Organization switcher.
+
+              No logo here: the rail already shows it a few pixels to the left
+              at the same height, so a second copy read as a duplicate rather
+              than as branding. The rail carries the mark, this carries the name.
+            */}
             <div className="flex h-12 items-center gap-2 border-b border-hairline px-2.5">
-              <div className="h-6 w-6 shrink-0 rounded-md overflow-hidden border border-hairline bg-slate-900 shadow-xs flex items-center justify-center">
-                <img src="/branding/nexora_ai_logo.jpg" alt="Nexora Technologies" className="h-full w-full object-cover" />
-              </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] font-bold text-ink leading-tight">Nexora Technologies</div>
                 <div className="truncate text-[10px] text-ink-3 font-medium">PeopleOS</div>

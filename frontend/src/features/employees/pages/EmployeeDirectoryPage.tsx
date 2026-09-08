@@ -2,20 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   UserPlus,
+  Users,
+  UserCheck,
+  Hourglass,
   Download,
   Mail,
   Phone,
   Building2,
-  Briefcase,
   Eye,
   Edit2,
   Trash2,
   Filter,
   RefreshCw,
   Send,
+  MoreHorizontal,
 } from 'lucide-react';
-import { Button, SelectField, Avatar, Tooltip } from '../../../components/ui';
-import { StatTile, StatTileRow } from '../../../components/ui/StatTile';
+import { Button, SelectField, Avatar, Tooltip, Dropdown, SearchInput } from '../../../components/ui';
+import { cn } from '../../../utils/cn';
+import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable, type Column } from '../../../components/data-table/DataTable';
 import { ViewToolbar, ToolbarAction } from '../../../components/data-table/ViewToolbar';
 import { ConfirmDialog } from '../../../components/overlay/ConfirmDialog';
@@ -23,8 +27,59 @@ import { useToast } from '../../../components/ui/toast';
 import { StatusTransitionModal } from '../components/StatusTransitionModal';
 import { employeesApi } from '../api/employees.api';
 import { organizationApi } from '../../organization/api/organization.api';
-import type { Employee } from '../types/employees.types';
+import type { Employee, EmployeeStats } from '../types/employees.types';
 import type { Department, Designation } from '../../organization/types/organization.types';
+
+/** Human-readable lifecycle labels for the card view. */
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE: 'Active',
+  PROBATION: 'Probation',
+  ON_LEAVE: 'On Leave',
+  SUSPENDED: 'Suspended',
+  RESIGNED: 'Resigned',
+  TERMINATED: 'Terminated',
+  INACTIVE: 'Inactive',
+};
+
+/**
+ * Card tinting per status: a quiet pill at rest, the whole card washing to the
+ * status colour on hover. Colour is never the only signal — the pill always
+ * carries the label too.
+ */
+const STATUS_CARD_TONE: Record<string, { pill: string; card: string }> = {
+  ACTIVE: {
+    pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400',
+    card: 'hover:border-emerald-200 hover:bg-emerald-50/70 dark:hover:border-emerald-900 dark:hover:bg-emerald-950/20',
+  },
+  PROBATION: {
+    pill: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
+    card: 'hover:border-amber-200 hover:bg-amber-50/70 dark:hover:border-amber-900 dark:hover:bg-amber-950/20',
+  },
+  ON_LEAVE: {
+    pill: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
+    card: 'hover:border-rose-200 hover:bg-rose-50/70 dark:hover:border-rose-900 dark:hover:bg-rose-950/20',
+  },
+  SUSPENDED: {
+    pill: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
+    card: 'hover:border-rose-200 hover:bg-rose-50/70 dark:hover:border-rose-900 dark:hover:bg-rose-950/20',
+  },
+  RESIGNED: {
+    pill: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    card: 'hover:bg-surface-2',
+  },
+  TERMINATED: {
+    pill: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    card: 'hover:bg-surface-2',
+  },
+  INACTIVE: {
+    pill: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    card: 'hover:bg-surface-2',
+  },
+  DEFAULT: {
+    pill: 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    card: 'hover:bg-surface-2',
+  },
+};
 
 export function EmployeeDirectoryPage() {
   const navigate = useNavigate();
@@ -47,12 +102,12 @@ export function EmployeeDirectoryPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
-  // Server-side totals for the headline tiles (null = unavailable)
-  const [headcount, setHeadcount] = useState<{
-    total: number;
-    active: number;
-    probation: number;
-  } | null>(null);
+  // Server-side aggregation for the headline tiles (null = unavailable)
+  const [stats, setStats] = useState<EmployeeStats | null>(null);
+
+  // Debounced so typing does not fire a request per keystroke
+  const [search, setSearch] = useState<string>('');
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
 
   // Lifted out of DataTable so the switcher can sit in the view toolbar
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
@@ -83,6 +138,7 @@ export function EmployeeDirectoryPage() {
       const res = await employeesApi.getEmployees({
         page,
         pageSize,
+        search: debouncedSearch.trim() || undefined,
         departmentId: selectedDept !== 'ALL' ? selectedDept : undefined,
         designationId: selectedDesig !== 'ALL' ? selectedDesig : undefined,
         employmentType: selectedType !== 'ALL' ? selectedType : undefined,
@@ -95,38 +151,24 @@ export function EmployeeDirectoryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, selectedDept, selectedDesig, selectedType, selectedStatus, toast]);
+  }, [page, pageSize, debouncedSearch, selectedDept, selectedDesig, selectedType, selectedStatus, toast]);
 
   /*
-   * Headline counts come from the server's own totals (pageSize=1, read meta),
-   * not from the current page — a page-local tally would under-report badly on
-   * any multi-page result. There is no employee stats endpoint to call instead.
+   * One server-side aggregation for the headline tiles.
+   *
+   * This previously fired three paginated probes (pageSize=1, read meta) and
+   * repeated all three on every filter change. `GET /employees/stats` returns
+   * the same figures — plus new joiners and the department count — in a single
+   * request, and because the tiles are organization-wide totals it only needs
+   * to run once rather than on every filter change.
    */
-  const fetchHeadlineCounts = useCallback(async () => {
-    const scope = {
-      departmentId: selectedDept !== 'ALL' ? selectedDept : undefined,
-      designationId: selectedDesig !== 'ALL' ? selectedDesig : undefined,
-      employmentType: selectedType !== 'ALL' ? selectedType : undefined,
-      pageSize: 1,
-      page: 1,
-    };
-
+  const fetchStats = useCallback(async () => {
     try {
-      const [all, active, probation] = await Promise.all([
-        employeesApi.getEmployees(scope),
-        employeesApi.getEmployees({ ...scope, status: 'ACTIVE' }),
-        employeesApi.getEmployees({ ...scope, status: 'PROBATION' }),
-      ]);
-
-      setHeadcount({
-        total: all.meta?.totalItems ?? 0,
-        active: active.meta?.totalItems ?? 0,
-        probation: probation.meta?.totalItems ?? 0,
-      });
+      setStats(await employeesApi.getStats());
     } catch {
-      setHeadcount(null); // Tiles fall back to "—" rather than showing a stale figure
+      setStats(null); // Tiles fall back to "—" rather than showing a stale figure
     }
-  }, [selectedDept, selectedDesig, selectedType]);
+  }, []);
 
   const handleStatusChange = async (status: string, reason?: string, effectiveDate?: string) => {
     if (!statusModalTarget) return;
@@ -162,9 +204,20 @@ export function EmployeeDirectoryPage() {
     fetchEmployees();
   }, [fetchEmployees]);
 
+  // Organization-wide totals: fetched once, not per filter change.
   useEffect(() => {
-    fetchHeadlineCounts();
-  }, [fetchHeadlineCounts]);
+    fetchStats();
+  }, [fetchStats]);
+
+  // 350ms after the last keystroke, so a search fires one request rather than
+  // one per character.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -194,6 +247,72 @@ export function EmployeeDirectoryPage() {
       setIsDeleting(false);
     }
   };
+
+  /** Headline counters, same treatment as the security roster. */
+  const metricCards = [
+    {
+      label: 'Total Headcount',
+      value: stats ? stats.total.toLocaleString() : '—',
+      icon: Users,
+      from: 'from-indigo-500',
+      to: 'to-violet-600',
+      ring: 'ring-indigo-500/20',
+    },
+    {
+      label: 'Active',
+      value: stats ? (stats.byStatus.ACTIVE ?? 0).toLocaleString() : '—',
+      icon: UserCheck,
+      from: 'from-emerald-500',
+      to: 'to-teal-500',
+      ring: 'ring-emerald-500/20',
+    },
+    {
+      label: 'On Probation',
+      value: stats ? (stats.byStatus.PROBATION ?? 0).toLocaleString() : '—',
+      icon: Hourglass,
+      from: 'from-amber-500',
+      to: 'to-orange-500',
+      ring: 'ring-amber-500/20',
+    },
+    {
+      label: 'New This Month',
+      value: stats ? stats.newJoinersThisMonth.toLocaleString() : '—',
+      icon: UserPlus,
+      from: 'from-sky-500',
+      to: 'to-cyan-500',
+      ring: 'ring-sky-500/20',
+    },
+    {
+      label: 'Departments',
+      value: (stats?.departmentCount ?? departments.length).toLocaleString(),
+      icon: Building2,
+      from: 'from-rose-500',
+      to: 'to-pink-500',
+      ring: 'ring-rose-500/20',
+    },
+  ];
+
+  const activeFilterCount = [selectedDept, selectedDesig, selectedType, selectedStatus].filter(
+    (v) => v !== 'ALL',
+  ).length + (search.trim() ? 1 : 0);
+
+  const resetFilters = () => {
+    setSelectedDept('ALL');
+    setSelectedDesig('ALL');
+    setSelectedType('ALL');
+    setSelectedStatus('ALL');
+    setSearch('');
+    setPage(1);
+  };
+
+  const formatHiredDate = (value: string) =>
+    value
+      ? new Date(value).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      : '—';
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -390,130 +509,196 @@ export function EmployeeDirectoryPage() {
   ];
 
   // Grid Card View Renderer
-  const renderCard = (employee: Employee) => (
-    <div className="flex flex-col justify-between rounded-md border border-hairline bg-surface p-5 transition-colors hover:bg-surface-2">
-      <div>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+  const renderCard = (employee: Employee) => {
+    const fullName = employee.displayName || `${employee.firstName} ${employee.lastName}`;
+    const tone = STATUS_CARD_TONE[employee.status] || STATUS_CARD_TONE.DEFAULT;
+
+    return (
+      <div
+        className={cn(
+          'group flex h-full flex-col overflow-hidden rounded-md border transition-colors',
+          'border-hairline bg-surface',
+          // The whole card takes on its status colour on hover, so scanning a
+          // wall of cards for who is on leave needs no legend.
+          tone.card,
+        )}
+      >
+        <div className="flex items-start justify-between gap-2 p-3 pb-0">
+          <span
+            className={cn(
+              'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium',
+              tone.pill,
+            )}
+          >
+            {STATUS_LABEL[employee.status] || employee.status}
+          </span>
+
+          <Dropdown
+            align="right"
+            trigger={
+              <button
+                type="button"
+                aria-label={`Actions for ${fullName}`}
+                className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-hairline bg-surface text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            }
+          >
+            <button
+              type="button"
+              onClick={() => navigate(`/employees/${employee._id}`)}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              View
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/employees/${employee._id}/edit`)}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(employee)}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[12px] text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </button>
+          </Dropdown>
+        </div>
+
+        {/* Identity */}
+        <div className="flex flex-col items-center px-4 pb-4 pt-1 text-center">
+          <button
+            type="button"
+            onClick={() => navigate(`/employees/${employee._id}`)}
+            className="cursor-pointer overflow-hidden rounded-md"
+          >
+            {/* twMerge lets the explicit size win over the `xl` preset. */}
             <Avatar
               src={employee.avatarUrl}
-              name={employee.displayName || `${employee.firstName} ${employee.lastName}`}
-              size="md"
+              name={fullName}
+              size="xl"
+              shape="rounded"
+              className="h-24 w-24"
             />
-            <div>
-              <h4
-                onClick={() => navigate(`/employees/${employee._id}`)}
-                className="text-sm font-bold text-slate-900 hover:text-[#524b6e] cursor-pointer transition-colors dark:text-slate-100 dark:hover:text-indigo-400"
-              >
-                {employee.displayName || `${employee.firstName} ${employee.lastName}`}
-              </h4>
-              <p className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
-                {employee.employeeCode}
-              </p>
-            </div>
-          </div>
-          {getStatusBadge(employee.status)}
-        </div>
+          </button>
 
-        <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-xs dark:border-slate-900">
-          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-            <Briefcase className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-            <span className="font-semibold truncate">{employee.designationTitle || 'Staff Member'}</span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-            <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-            <span className="truncate">{employee.departmentName || 'General Operations'}</span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-            <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-            <span className="truncate">{employee.workEmail}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-900 flex items-center justify-between">
-        <span className="text-[11px] text-slate-400">
-          Joined: {new Date(employee.joiningDate).toLocaleDateString()}
-        </span>
-        <div className="flex items-center gap-1">
-          <Button
-            size="sm"
-            variant="outline"
+          <h4
             onClick={() => navigate(`/employees/${employee._id}`)}
-            className="text-xs h-7 px-2.5"
+            className="mt-3 cursor-pointer truncate text-[15px] font-semibold text-ink transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+            title={fullName}
           >
-            Profile
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate(`/employees/${employee._id}/edit`)}
-            className="text-xs h-7 px-2"
-          >
-            <Edit2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="w-full space-y-2.5">
-      {/* Page Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-[15px] font-semibold leading-tight tracking-tight text-ink">
-            Employee Directory
-          </h1>
-          <p className="mt-0.5 text-[11px] leading-tight text-ink-3">
-            Master roster of all corporate personnel, reporting hierarchy, and team assignments.
+            {fullName}
+          </h4>
+          <p className="mt-0.5 truncate text-[12px] text-indigo-600 dark:text-indigo-400">
+            {employee.designationTitle || 'Staff Member'}
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => navigate('/employees/new')}
-          className="flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <UserPlus className="h-3.5 w-3.5" />
-          <span>Add Employee</span>
-        </Button>
-      </div>
+        {/* Details panel — pinned to the bottom so cards line up in the grid */}
+        <div className="mt-auto bg-indigo-50/60 px-4 py-3 dark:bg-indigo-950/20">
+          <div className="grid grid-cols-2 gap-x-3">
+            <div className="min-w-0 border-r border-indigo-200/70 pr-3 dark:border-indigo-900/60">
+              <div className="text-[11px] text-ink-3">Department</div>
+              <div className="truncate text-[12px] font-medium text-ink" title={employee.departmentName || undefined}>
+                {employee.departmentName || 'Unassigned'}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] text-ink-3">Hired Date</div>
+              <div className="truncate text-[12px] font-medium text-ink">
+                {formatHiredDate(employee.joiningDate)}
+              </div>
+            </div>
+          </div>
 
-      {/* Headline counts — server totals, scoped to the active filters */}
-      <StatTileRow>
-        <StatTile
-          label="Headcount"
-          value={headcount ? headcount.total.toLocaleString() : '—'}
-          unit="Employees"
-          swatch="bg-indigo-500"
-        />
-        <StatTile
-          label="Active"
-          value={headcount ? headcount.active.toLocaleString() : '—'}
-          unit="Employees"
-          swatch="bg-emerald-500"
-        />
-        <StatTile
-          label="On Probation"
-          value={headcount ? headcount.probation.toLocaleString() : '—'}
-          unit="Employees"
-          swatch="bg-amber-500"
-        />
-        <StatTile
-          label="Departments"
-          value={departments.length.toLocaleString()}
-          unit="Active units"
-          swatch="bg-violet-500"
-        />
-      </StatTileRow>
+          <div className="mt-3 space-y-1.5">
+            <a
+              href={`mailto:${employee.workEmail}`}
+              className="flex items-center gap-2 text-[12px] text-ink-2 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+            >
+              <Mail className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+              <span className="truncate" title={employee.workEmail}>
+                {employee.workEmail}
+              </span>
+            </a>
+            <a
+              href={employee.phone ? `tel:${employee.phone}` : undefined}
+              className={cn(
+                'flex items-center gap-2 text-[12px] text-ink-2',
+                employee.phone && 'transition-colors hover:text-indigo-600 dark:hover:text-indigo-400',
+              )}
+            >
+              <Phone className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+              <span className="truncate">{employee.phone || 'Not provided'}</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full space-y-2.5">
+      {/* Shared header, same as every other management page */}
+      <PageHeader
+        title="Employee Directory"
+        description="Master roster of all corporate personnel, reporting hierarchy, and team assignments."
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => navigate('/employees/new')}
+            className="flex items-center gap-1.5"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            <span>Add Employee</span>
+          </Button>
+        }
+      />
+
+      {/* Organization-wide totals from one aggregation endpoint */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {metricCards.map((card) => (
+          <div
+            key={card.label}
+            className={cn(
+              'flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3.5 ring-1 dark:border-slate-800 dark:bg-slate-950',
+              card.ring,
+            )}
+          >
+            <div
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gradient-to-br text-white',
+                card.from,
+                card.to,
+              )}
+            >
+              <card.icon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-lg font-bold leading-none text-slate-900 dark:text-slate-100">
+                {card.value}
+              </p>
+              <p className="mt-1 truncate text-[10px] text-slate-500 dark:text-slate-400">
+                {card.label}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* View switcher + table-scoped actions */}
       <ViewToolbar
-        activeView={viewMode === 'cards' ? 'kanban' : 'table'}
-        availableViews={['table', 'kanban']}
-        onViewChange={(view) => setViewMode(view === 'kanban' ? 'cards' : 'table')}
+        activeView={viewMode}
+        availableViews={['table', 'cards']}
+        onViewChange={(view) => setViewMode(view === 'cards' ? 'cards' : 'table')}
         actions={
           <>
             <ToolbarAction icon={Download} onClick={handleExport} disabled={isExporting}>
@@ -526,16 +711,78 @@ export function EmployeeDirectoryPage() {
         }
       />
 
-      {/* Multi-Dimensional Filter Bar */}
-      <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-hairline bg-surface px-2.5 py-2">
-        <div className="mr-0.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.06em] text-ink-3">
-          <Filter className="h-3 w-3" />
-          <span>Filters</span>
+      {/* Filter panel — pills for the common cuts, labelled inputs for the rest */}
+      <div className="space-y-3.5 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        {/* Quick status pills + live result count */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <Filter className="h-3 w-3 text-indigo-500" />
+              Status:
+            </span>
+            {[
+              { label: 'All Employees', value: 'ALL' },
+              { label: 'Active', value: 'ACTIVE' },
+              { label: 'Probation', value: 'PROBATION' },
+              { label: 'On Leave', value: 'ON_LEAVE' },
+              { label: 'Exited', value: 'RESIGNED' },
+            ].map((pill) => {
+              const isActive = selectedStatus === pill.value;
+              const count = pill.value === 'ALL' ? stats?.total : stats?.byStatus[pill.value];
+
+              return (
+                <button
+                  key={pill.value}
+                  type="button"
+                  onClick={() => {
+                    setSelectedStatus(pill.value);
+                    setPage(1);
+                  }}
+                  className={cn(
+                    'inline-flex cursor-pointer select-none items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors',
+                    isActive
+                      ? 'border-indigo-600 bg-indigo-600 text-white'
+                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800',
+                  )}
+                >
+                  <span>{pill.label}</span>
+                  {/* Counts come from the same aggregation as the tiles, so a
+                      pill shows its size before it is clicked. */}
+                  {count !== undefined && (
+                    <span
+                      className={cn(
+                        'rounded px-1 text-[10px] font-bold',
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            <span>{isLoading ? 'Loading…' : `${totalItems.toLocaleString()} matching records`}</span>
+          </div>
         </div>
 
-        {/* Department Filter */}
-        <div className="w-44">
+        {/* Five inputs across five columns — the row fills rather than leaving gaps */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <SearchInput
+            label="Search Directory"
+            value={search}
+            onChange={setSearch}
+            onClear={() => setSearch('')}
+            placeholder="Name, code or email..."
+          />
+
           <SelectField
+            label="Department"
             value={selectedDept}
             onChange={(e) => {
               setSelectedDept(e.target.value);
@@ -549,11 +796,9 @@ export function EmployeeDirectoryPage() {
               })),
             ]}
           />
-        </div>
 
-        {/* Designation Filter */}
-        <div className="w-44">
           <SelectField
+            label="Designation"
             value={selectedDesig}
             onChange={(e) => {
               setSelectedDesig(e.target.value);
@@ -567,11 +812,9 @@ export function EmployeeDirectoryPage() {
               })),
             ]}
           />
-        </div>
 
-        {/* Employment Type Filter */}
-        <div className="w-44">
           <SelectField
+            label="Employment Type"
             value={selectedType}
             onChange={(e) => {
               setSelectedType(e.target.value);
@@ -583,13 +826,12 @@ export function EmployeeDirectoryPage() {
               { value: 'PART_TIME', label: 'Part Time' },
               { value: 'CONTRACT', label: 'Contract' },
               { value: 'INTERN', label: 'Intern' },
+              { value: 'TEMPORARY', label: 'Temporary' },
             ]}
           />
-        </div>
 
-        {/* Status Lifecycle Filter */}
-        <div className="w-44">
           <SelectField
+            label="Lifecycle Status"
             value={selectedStatus}
             onChange={(e) => {
               setSelectedStatus(e.target.value);
@@ -607,20 +849,19 @@ export function EmployeeDirectoryPage() {
           />
         </div>
 
-        {(selectedDept !== 'ALL' || selectedDesig !== 'ALL' || selectedType !== 'ALL' || selectedStatus !== 'ALL') && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedDept('ALL');
-              setSelectedDesig('ALL');
-              setSelectedType('ALL');
-              setSelectedStatus('ALL');
-              setPage(1);
-            }}
-            className="cursor-pointer text-[11.5px] font-medium text-ink-2 underline-offset-2 hover:text-ink hover:underline"
-          >
-            Reset Filters
-          </button>
+        {activeFilterCount > 0 && (
+          <div className="flex items-center gap-2 border-t border-slate-100 pt-3 text-[11.5px] dark:border-slate-800">
+            <span className="text-ink-3">
+              {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'} applied
+            </span>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="cursor-pointer font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
+            >
+              Clear all
+            </button>
+          </div>
         )}
       </div>
 
