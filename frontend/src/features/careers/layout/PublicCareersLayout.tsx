@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { SignIn, ArrowUpRight, Heart, Globe, Sparkle, Buildings, EnvelopeSimple, Phone } from '@phosphor-icons/react';
+import { SignIn, ArrowUpRight, Heart, Globe, Sparkle, EnvelopeSimple, Phone } from '@phosphor-icons/react';
 import { ThemeToggle } from '../../../components/layout/Navbar/ThemeToggle';
 import { careersApi } from '../api/careers.api';
 import type { PublicCompanyInfo } from '../types/careers.types';

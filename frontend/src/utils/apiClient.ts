@@ -1,4 +1,5 @@
 import axios, {
+  AxiosHeaders,
   type AxiosError,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
@@ -94,8 +95,10 @@ apiClient.interceptors.response.use(
 
       const accessToken = await refreshPromise;
 
-      original.headers = original.headers ?? {};
-      (original.headers as Record<string, string>).Authorization = `Bearer ${accessToken}`;
+      if (!original.headers) {
+        original.headers = new AxiosHeaders();
+      }
+      original.headers.set('Authorization', `Bearer ${accessToken}`);
       return apiClient(original);
     } catch (refreshError) {
       clearSession();

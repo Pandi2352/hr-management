@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Clock,
   ShieldCheck,
-  Globe,
 } from '@phosphor-icons/react';
 
 export function ContactUsPage() {

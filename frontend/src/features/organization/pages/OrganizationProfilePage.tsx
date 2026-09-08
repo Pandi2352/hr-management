@@ -5,7 +5,7 @@ import { SelectField } from '../../../components/ui/SelectField';
 import { useToast } from '../../../components/ui/toast';
 import { organizationApi } from '../api/organization.api';
 import type { OrganizationProfile } from '../types/organization.types';
-import { Building2, Mail, Clock, Edit2 } from 'lucide-react';
+import { Mail, Clock, Edit2 } from 'lucide-react';
 
 const COMMON_TIMEZONES = [
   'Asia/Kolkata',
@@ -146,7 +146,7 @@ export function OrganizationProfilePage() {
             <div className="flex items-center gap-3.5">
               <div className="h-12 w-12 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 shadow-sm flex items-center justify-center shrink-0">
                 <img
-                  src={profile?.logoUrl || '/branding/nexora_ai_logo.jpg'}
+                  src={(profile as Record<string, any>)?.logoUrl || '/branding/nexora_ai_logo.jpg'}
                   alt={profile?.tradeName || 'Organization Logo'}
                   className="h-full w-full object-cover"
                 />

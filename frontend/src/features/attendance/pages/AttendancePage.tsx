@@ -1,4 +1,3 @@
-import React from 'react';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useToast } from '../../../components/ui/toast';
 import { AttendanceRateChart } from '../components/AttendanceRateChart';

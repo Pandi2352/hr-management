@@ -52,14 +52,14 @@ All architectural guidelines, functional requirements, and release roadmaps are 
 
 ---
 
-## 🚀 Recommended MVP Scope (Releases 1–3)
+## 🚀 MVP Scope & Release Roadmap
 
-The MVP is engineered to deliver immediate operational utility to companies without unnecessary bloat:
+The MVP is engineered to deliver immediate operational utility to companies across three initial phases:
 
 ```
 ┌─────────────────────────┬─────────────────────────┬─────────────────────────┐
 │       RELEASE 1         │       RELEASE 2         │       RELEASE 3         │
-│       Foundation        │   Employee Operations   │   Attendance & Leave    │
+│   Foundation (DONE ✅)  │   Employee Operations   │   Attendance & Leave    │
 ├─────────────────────────┼─────────────────────────┼─────────────────────────┤
 │ • Authentication (JWT)  │ • Lifecycle Transitions │ • Web Check-In / Out    │
 │ • User Account States   │ • Digital Onboarding    │ • Shift Scheduling      │
@@ -69,6 +69,66 @@ The MVP is engineered to deliver immediate operational utility to companies with
 │ • Immutable Audit Logs  │ • Holiday Calendars     │ • Team Leave Heatmap    │
 └─────────────────────────┴─────────────────────────┴─────────────────────────┘
 ```
+
+---
+
+## ✅ Release 1: Foundation — Completed Features
+
+### 1. Authentication & Security
+- Work email & password authentication with JWT access tokens (15m) & HTTP-only refresh cookies (7d)
+- Transparent Axios token refresh interceptor with automatic token rotation
+- Brute-force protection with automatic 30-minute account lockout after 5 consecutive failed attempts
+- Configurable password complexity policies (length, uppercase, lowercase, numbers, symbols)
+- Password reset flow with cryptographic tokens & expiry validation
+- Remote session revocation & multi-device session termination
+- Invitation acceptance & first-time password setup (`/auth/accept-invite`)
+
+### 2. Organization Management
+- Organization profile (legal name, tax ID, registration, timezone, currency, branding logo)
+- Multi-tier department management (CRUD, department head assignment, active status toggles)
+- Interactive hierarchical department tree visualization (`/organization/departments/tree`)
+- Standardized designations catalog with grade/seniority levels (1 to 10)
+- Branch office locations & physical facilities directory
+- Cost centers repository linked to departmental budgeting
+
+### 3. Employee Master Directory
+- Dual-mode employee directory (Grid Cards & High-Density Data Table)
+- Real-time fuzzy search by name, email, employee code, and department
+- Multi-attribute filters (Department, Designation, Employment Type, Status)
+- Cryptographic server-side employee ID generator (`EMP-XXXXX`)
+- Multi-step employee creation wizard with inline field validation
+- Tabbed employee profile (Personal, Employment, Contacts, Academics, Skills, Documents, Audit)
+- Document Vault (multi-format upload, PDF/image preview, HR verification status, secure download)
+- Employee lifecycle status transitions (`ACTIVE`, `PROBATION`, `ON_LEAVE`, `SUSPENDED`, `RESIGNED`, `TERMINATED`)
+- Safe soft delete with automatic credential access revocation
+
+### 4. User Management & Administrative Invitations
+- Administrative user accounts roster (`/security/users`)
+- Cryptographically signed single-use invitation token engine (32-byte tokens, bcrypt-hashed at rest)
+- Automated branded invitation email dispatch via Nodemailer
+- Invitation lifecycle controls (pending tab, resend triggers with rate limits, revocation)
+- Public invitation acceptance form with live password policy meter
+- User account lifecycle states (`INVITED`, `ACTIVE`, `SUSPENDED`, `INACTIVE`, `LOCKED`)
+- Remote session termination & administrative account unlock
+
+### 5. Roles & Access Governance (RBAC)
+- System roles (`SUPER_ADMIN`, `HR_ADMIN`, `MANAGER`, `EMPLOYEE`) & custom roles
+- Granular permission matrix (`<resource>:<action>`) across Employees, Organization, Users, and Audit
+- Dynamic RBAC enforcement guards (`JwtAuthGuard`, `@Permissions()`, `@Roles()`)
+- Role assignment and permission inspection interface (`/security/roles`)
+
+### 6. Audit & Compliance
+- Non-blocking immutable audit logging on all administrative state mutations
+- Field-level change tracking capturing before and after diffs (`old_value` vs `new_value`)
+- Forensic audit log viewer (`/audit/logs`) with side-by-side JSON diff inspection drawer
+- Authentication login history log (`/audit/login-history`) tracking IP, user-agent, and status
+- Suspicious activity detection for brute-force attempts and account lockouts
+
+### 7. Dashboards & Public Portal
+- HR Admin Dashboard (headcount metrics, department distribution, activity feed)
+- Employee Self-Service Dashboard (profile completion meter, personal quick links)
+- Public Careers Portal (`/careers`) with job listings and direct application modal
+- Public Contact Us page (`/contact`) with interactive inquiry submission
 
 ---
 

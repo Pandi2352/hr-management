@@ -9,7 +9,6 @@ import {
   BookOpen,
   Airplane,
   TrendUp,
-  Buildings,
   Users,
   Compass,
   CheckCircle,
@@ -20,14 +19,6 @@ import {
   MapPin,
   EnvelopeSimple,
   Phone,
-  Cpu,
-  Globe,
-  CaretLeft,
-  CaretRight,
-  Play,
-  Pause,
-  ArrowUpRight,
-  Lightning,
 } from '@phosphor-icons/react';
 import { JobCard } from '../components/JobCard';
 import { JobDetailModal } from '../components/JobDetailModal';
@@ -396,64 +387,35 @@ export function CareersPage() {
             </div>
 
             {/* Animated Multi-Image Interactive Showcase Card */}
-            <div className="lg:col-span-5 space-y-3">
+            <div
+              className="lg:col-span-5 space-y-3"
+              onMouseEnter={() => setIsAboutAutoPlaying(false)}
+              onMouseLeave={() => setIsAboutAutoPlaying(true)}
+            >
               {/* Interactive Tabs Header */}
-              <div className="flex items-center gap-1.5 p-1 rounded-md border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-                {[
-                  { label: 'Neural Labs', idx: 0 },
-                  { label: 'Quantum Core', idx: 1 },
-                  { label: 'Global Team', idx: 2 },
-                ].map((tab) => (
+              <div className="flex items-center gap-1 p-1 rounded-md border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md overflow-x-auto">
+                {aboutShowcases.map((sc, idx) => (
                   <button
-                    key={tab.idx}
+                    key={sc.id}
                     type="button"
-                    onClick={() => setAboutActiveIndex(tab.idx)}
-                    className={`flex-1 py-1.5 px-2.5 rounded-md text-[11px] font-outfit font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                      aboutActiveIndex === tab.idx
+                    onClick={() => setAboutActiveIndex(idx)}
+                    className={`flex-1 min-w-[72px] py-1.5 px-2 rounded-md text-[11px] font-outfit font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                      aboutActiveIndex === idx
                         ? 'bg-violet-600 text-white'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    {aboutActiveIndex === tab.idx && (
+                    {aboutActiveIndex === idx && (
                       <span className="h-1.5 w-1.5 rounded-md bg-white animate-pulse" />
                     )}
-                    <span>{tab.label}</span>
+                    <span>{sc.label}</span>
                   </button>
                 ))}
               </div>
 
               {/* Main Featured Interactive Image */}
               {(() => {
-                const showcases = [
-                  {
-                    title: 'Nexora Neural Engineering Labs',
-                    badge: 'Active Research Lab',
-                    badgeColor: 'text-emerald-400 border-emerald-800/60 bg-emerald-950/70',
-                    dotColor: 'bg-emerald-400',
-                    description: 'Pioneering autonomous enterprise models & distributed neural architectures.',
-                    image: '/branding/nexora_about_company.jpg',
-                    metric: '99.8% Precision',
-                  },
-                  {
-                    title: 'Supercomputing Quantum Core',
-                    badge: 'Cryogenic Supercluster',
-                    badgeColor: 'text-cyan-400 border-cyan-800/60 bg-cyan-950/70',
-                    dotColor: 'bg-cyan-400',
-                    description: 'Immense cylindrical quantum processors delivering 4.8 TB/s real-time throughput.',
-                    image: '/branding/nexora_quantum_core.jpg',
-                    metric: '4.8 TB/s Throughput',
-                  },
-                  {
-                    title: 'Global Research & Innovation Hub',
-                    badge: 'Remote-First Talent',
-                    badgeColor: 'text-violet-400 border-violet-800/60 bg-violet-950/70',
-                    dotColor: 'bg-violet-400',
-                    description: 'Collaborative engineering across San Francisco, London, Singapore & Bengaluru.',
-                    image: '/branding/nexora_culture_life.jpg',
-                    metric: '140+ Researchers',
-                  },
-                ];
-                const activeSc = showcases[aboutActiveIndex] || showcases[0];
+                const activeSc = aboutShowcases[aboutActiveIndex] || aboutShowcases[0];
 
                 return (
                   <div className="space-y-2.5">
@@ -467,7 +429,10 @@ export function CareersPage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/30 to-transparent pointer-events-none" />
 
                       {/* Live Top Floating Badge */}
-                      <div className="absolute top-3 right-3">
+                      <div className="absolute top-3 right-3 flex items-center gap-2">
+                        <span className="text-[9px] font-mono font-bold text-slate-300 bg-slate-950/80 px-2 py-1 rounded-md border border-slate-800">
+                          {activeSc.telemetry}
+                        </span>
                         <span
                           className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-md border backdrop-blur-md ${activeSc.badgeColor}`}
                         >
@@ -494,11 +459,11 @@ export function CareersPage() {
                       </div>
                     </div>
 
-                    {/* 3 Interactive Thumbnail Switcher Buttons */}
-                    <div className="grid grid-cols-3 gap-2">
-                      {showcases.map((sc, idx) => (
+                    {/* 5 Interactive Thumbnail Switcher Buttons */}
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {aboutShowcases.map((sc, idx) => (
                         <button
-                          key={idx}
+                          key={sc.id}
                           type="button"
                           onClick={() => setAboutActiveIndex(idx)}
                           className={`relative rounded-md overflow-hidden border transition-all cursor-pointer group text-left ${
@@ -510,11 +475,11 @@ export function CareersPage() {
                           <img
                             src={sc.image}
                             alt={sc.title}
-                            className="w-full h-14 object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-12 object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                           <div className="absolute inset-0 bg-slate-950/50 flex items-end p-1">
-                            <span className="text-[9px] font-outfit font-bold text-white truncate">
-                              {sc.badge}
+                            <span className="text-[8px] font-outfit font-bold text-white truncate">
+                              {sc.label}
                             </span>
                           </div>
                         </button>
