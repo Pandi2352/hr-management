@@ -29,10 +29,12 @@ import { InviteUserModal } from '../components/InviteUserModal';
 import { securityApi } from '../api/security.api';
 import type { UserAccount, Role, Invitation, UserMetrics } from '../types/security.types';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../auth/context/AuthContext';
 
 type RosterTab = 'USERS' | 'INVITATIONS';
 
 export function UsersListPage() {
+  const { user } = useAuth();
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<RosterTab>('USERS');
 
@@ -115,6 +117,27 @@ export function UsersListPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Real-time synchronization when profile picture changes in My Profile
+  useEffect(() => {
+    const handleProfileUpdate = (e: any) => {
+      const newAvatar = e?.detail?.avatarUrl;
+      if (newAvatar) {
+        setUsers(prev => prev.map(u => {
+          const isSelf = (user?.id && u._id === user.id) || 
+                         ((user as any)?._id && u._id === (user as any)._id) || 
+                         (user?.email && u.email?.toLowerCase() === user.email.toLowerCase());
+          return isSelf ? { ...u, avatarUrl: newAvatar } : u;
+        }));
+      }
+      fetchUsers();
+    };
+
+    window.addEventListener('user_profile_updated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('user_profile_updated', handleProfileUpdate);
+    };
+  }, [fetchUsers, user]);
 
   useEffect(() => {
     fetchMetrics();
@@ -263,24 +286,39 @@ export function UsersListPage() {
       header: 'User Account',
       accessorKey: 'email',
       sortable: true,
-      cell: (row) => (
-        <div className="flex items-center gap-3">
-          <Avatar
-            src={row.linkedEmployee?.avatarUrl}
-            name={`${row.firstName} ${row.lastName}`}
-            size="sm"
-          />
-          <div>
-            <span className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-              {row.firstName} {row.lastName}
-            </span>
-            <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
-              <Mail className="h-3 w-3" />
-              {row.email}
-            </span>
+      cell: (row) => {
+        const isSelf = !!user && (
+          user.id === row._id || 
+          (user as any)._id === row._id || 
+          user.email?.toLowerCase() === row.email?.toLowerCase()
+        );
+        const effectiveAvatar = (isSelf && user?.avatarUrl) ? user.avatarUrl : (row.avatarUrl || row.linkedEmployee?.avatarUrl);
+
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar
+              src={effectiveAvatar}
+              name={`${row.firstName} ${row.lastName}`}
+              size="sm"
+              shape="rounded"
+            />
+            <div>
+              <span className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                {row.firstName} {row.lastName}
+                {isSelf && (
+                  <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    You
+                  </span>
+                )}
+              </span>
+              <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
+                <Mail className="h-3 w-3" />
+                {row.email}
+              </span>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       header: 'Linked Employee',

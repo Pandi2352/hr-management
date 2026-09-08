@@ -24,15 +24,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const storedUser = localStorage.getItem("peopleos_user");
       const token = localStorage.getItem("peopleos_access_token");
+      const storedAvatar = localStorage.getItem("user_avatar");
 
       if (storedUser && token) {
-        setUser(JSON.parse(storedUser));
+        const parsed = JSON.parse(storedUser);
+        if (storedAvatar && !parsed.avatarUrl) {
+          parsed.avatarUrl = storedAvatar;
+        }
+        setUser(parsed);
       }
     } catch {
       // Ignored
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  // Listen for multi-component user profile updates
+  useEffect(() => {
+    const handleProfileUpdate = (e: any) => {
+      if (e.detail) {
+        setUser((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev, ...e.detail };
+          localStorage.setItem("peopleos_user", JSON.stringify(next));
+          return next;
+        });
+      }
+    };
+    window.addEventListener("user_profile_updated", handleProfileUpdate);
+    return () => window.removeEventListener("user_profile_updated", handleProfileUpdate);
   }, []);
 
   const login = async (payload: LoginPayload): Promise<AuthUser> => {
@@ -75,6 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!prev) return null;
       const updated = { ...prev, ...partialUser };
       localStorage.setItem("peopleos_user", JSON.stringify(updated));
+      if (partialUser.avatarUrl) {
+        localStorage.setItem("user_avatar", partialUser.avatarUrl);
+      }
+      window.dispatchEvent(
+        new CustomEvent("user_profile_updated", { detail: updated })
+      );
       return updated;
     });
   };

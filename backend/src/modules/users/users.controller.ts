@@ -15,9 +15,13 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Res,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { existsSync } from 'fs';
+import { basename, resolve } from 'path';
 import { UsersService } from './users.service';
 import { InvitationsService } from './invitations.service';
 import {
@@ -28,7 +32,7 @@ import {
   UpdateSecurityPolicyDto,
 } from './dto/users.dto';
 import { CreateInvitationDto } from './dto/invitation.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, Public } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/roles.decorator';
 import { PERMISSIONS } from '../../common/constants';
@@ -102,6 +106,21 @@ export class UsersController {
     const userId = req.user.userId;
     const result = await this.usersService.removeAvatar(userId);
     return ResultEntity.ok(result);
+  }
+
+  @Get('avatar/:filename')
+  @Public()
+  @ApiOperation({ summary: 'Serve uploaded user avatar image' })
+  async getAvatar(
+    @Param('filename') filename: string,
+    @Res() res: any,
+  ) {
+    const safeFilename = basename(filename);
+    const filePath = resolve(process.cwd(), 'uploads', 'avatars', safeFilename);
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('Avatar image not found.');
+    }
+    return res.sendFile(filePath);
   }
 
   // --- USER ROSTER ENDPOINTS ---

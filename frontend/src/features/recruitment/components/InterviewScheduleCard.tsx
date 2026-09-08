@@ -73,10 +73,10 @@ export const InterviewScheduleCard: React.FC<InterviewScheduleCardProps> = ({
                 <img
                   src={item.candidateAvatar}
                   alt={item.candidateName}
-                  className="h-8 w-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                  className="h-8 w-8 rounded-md object-cover border border-slate-200 dark:border-slate-700 shrink-0"
                 />
               ) : (
-                <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 font-bold text-xs flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-300">
+                <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-800 font-bold text-xs flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-300">
                   {item.candidateName
                     .split(' ')
                     .map((n) => n[0])

@@ -256,10 +256,10 @@ export const CandidateApplicationsTable: React.FC<CandidateApplicationsTableProp
                           <img
                             src={candidate.avatarUrl}
                             alt={candidate.name}
-                            className="h-8 w-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                            className="h-8 w-8 rounded-md object-cover border border-slate-200 dark:border-slate-700 shrink-0"
                           />
                         ) : (
-                          <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 font-bold text-xs flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0">
+                          <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-800 font-bold text-xs flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0">
                             {candidate.name
                               .split(' ')
                               .map((n) => n[0])

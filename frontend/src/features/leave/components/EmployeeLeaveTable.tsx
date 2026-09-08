@@ -210,7 +210,7 @@ export const EmployeeLeaveTable: React.FC<EmployeeLeaveTableProps> = ({
                       <img
                         src={record.avatarUrl}
                         alt={record.name}
-                        className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700 shrink-0"
+                        className="h-8 w-8 rounded-md object-cover ring-1 ring-slate-200 dark:ring-slate-700 shrink-0"
                       />
                       <span className="font-semibold">{record.name}</span>
                     </div>

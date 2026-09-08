@@ -90,6 +90,7 @@ export interface EnrichedUser {
   email: string;
   firstName: string;
   lastName: string;
+  avatarUrl?: string | null;
   status: UserStatus;
   roles: string[];
   permissions: string[];
@@ -292,6 +293,7 @@ export class UsersService implements OnModuleInit {
         email: u.email,
         firstName: u.firstName,
         lastName: u.lastName,
+        avatarUrl: u.avatarUrl || linkedEmp?.avatarUrl || null,
         status: u.status,
         roles: u.roles || [],
         permissions: u.permissions || [],
@@ -306,7 +308,7 @@ export class UsersService implements OnModuleInit {
               _id: linkedEmp._id,
               employeeCode: linkedEmp.employeeCode,
               displayName: linkedEmp.displayName || `${linkedEmp.firstName} ${linkedEmp.lastName}`,
-              avatarUrl: linkedEmp.avatarUrl,
+              avatarUrl: linkedEmp.avatarUrl || u.avatarUrl || null,
             }
           : null,
       };

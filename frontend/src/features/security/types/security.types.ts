@@ -21,6 +21,7 @@ export interface UserAccount {
   lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  avatarUrl?: string;
   linkedEmployee?: LinkedEmployee | null;
 }
 

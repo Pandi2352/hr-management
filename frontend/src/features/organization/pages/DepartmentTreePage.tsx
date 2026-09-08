@@ -15,6 +15,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
+import { PageHeader } from '../../../components/common/PageHeader';
 
 interface TreeNode extends Department {
   children: TreeNode[];
@@ -205,49 +206,44 @@ export function DepartmentTreePage() {
   return (
     <div className="space-y-6 w-full">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-800 pb-5">
-        <div className="flex items-center gap-3">
+      <PageHeader
+        title="Department Hierarchy Tree"
+        description="Drag and drop any department node to re-link parent/child reporting hierarchies across the organization."
+        leading={
           <Link to="/organization/departments">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-              Table View
+            <Button variant="outline" size="sm" className="flex items-center gap-1.5">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to Departments</span>
             </Button>
           </Link>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              Department Hierarchy
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Drag and drop any department node to re-link parent/child reporting hierarchies.
-            </p>
+        }
+        actions={
+          <div className="flex items-center gap-2.5">
+            <div className="w-56">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                onClear={() => setSearch('')}
+                placeholder="Filter nodes..."
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExpandedIds(new Set(departments.map((d) => d._id)))}
+            >
+              Expand All
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExpandedIds(new Set())}
+            >
+              Collapse All
+            </Button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="w-64">
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              onClear={() => setSearch('')}
-              placeholder="Find node..."
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setExpandedIds(new Set(departments.map((d) => d._id)))}
-          >
-            Expand All
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setExpandedIds(new Set())}
-          >
-            Collapse All
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Root Drop Zone */}
       <div
@@ -283,7 +279,7 @@ export function DepartmentTreePage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs dark:bg-slate-950 dark:border-slate-800 space-y-2">
+        <div className="rounded-md border border-slate-200 bg-surface p-6 dark:border-slate-800 space-y-2">
           {treeData.map((root) => renderNode(root, 0))}
         </div>
       )}

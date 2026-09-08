@@ -673,6 +673,7 @@ export class AuthService {
         roles: user.roles,
         permissions: user.permissions || [],
         organizationId: user.organizationId || null,
+        avatarUrl: user.avatarUrl || null,
       },
       accessToken,
       refreshToken,

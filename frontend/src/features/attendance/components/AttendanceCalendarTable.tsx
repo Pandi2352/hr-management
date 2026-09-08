@@ -171,10 +171,10 @@ export const AttendanceCalendarTable: React.FC<AttendanceCalendarTableProps> = (
                         <img
                           src={employee.avatarUrl}
                           alt={employee.name}
-                          className="h-8 w-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+                          className="h-8 w-8 rounded-md object-cover border border-slate-200 dark:border-slate-700 shrink-0"
                         />
                       ) : (
-                        <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0">
+                        <div className="h-8 w-8 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0">
                           {employee.name
                             .split(' ')
                             .map((n) => n[0])

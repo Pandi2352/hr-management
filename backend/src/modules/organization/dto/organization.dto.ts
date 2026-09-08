@@ -5,9 +5,32 @@ import {
   IsEmail,
   MaxLength,
   MinLength,
+  IsArray,
+  IsNumber,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateOrganizationDto {
+  @IsString()
+  @IsOptional()
+  _id?: string;
+
+  @IsOptional()
+  __v?: number;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsOptional()
+  createdAt?: string | Date;
+
+  @IsOptional()
+  updatedAt?: string | Date;
+
+  @IsOptional()
+  isDeleted?: boolean;
+
   @IsString()
   @IsNotEmpty({ message: 'Legal Name is required' })
   @MinLength(2, { message: 'Legal Name must be at least 2 characters' })
@@ -43,6 +66,69 @@ export class UpdateOrganizationDto {
   website?: string;
 
   @IsString()
+  @IsOptional()
+  logoUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  organizationType?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  registrationCountry?: string;
+
+  @IsString()
+  @IsOptional()
+  registrationDate?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  primaryContactPerson?: string;
+
+  @ValidateIf((o) => typeof o.supportEmail === 'string' && o.supportEmail.trim() !== '')
+  @IsEmail({}, { message: 'Valid support email is required' })
+  @IsOptional()
+  supportEmail?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(30)
+  supportPhone?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  addressLine1?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  addressLine2?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  city?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  state?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  country?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  postalCode?: string;
+
+  @IsString()
   @IsNotEmpty({ message: 'Timezone is required' })
   timezone: string;
 
@@ -53,6 +139,34 @@ export class UpdateOrganizationDto {
   @IsString()
   @IsNotEmpty({ message: 'Fiscal Year Start Month is required' })
   fiscalYearStartMonth: string;
+
+  @IsArray()
+  @IsOptional()
+  workingDays?: string[];
+
+  @IsNumber()
+  @IsOptional()
+  standardWorkingHours?: number;
+
+  @IsString()
+  @IsOptional()
+  workStartTime?: string;
+
+  @IsString()
+  @IsOptional()
+  workEndTime?: string;
+
+  @IsString()
+  @IsOptional()
+  dateFormat?: string;
+
+  @IsString()
+  @IsOptional()
+  timeFormat?: string;
+
+  @IsString()
+  @IsOptional()
+  numberFormat?: string;
 }
 
 export class CreateDepartmentDto {

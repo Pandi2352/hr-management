@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   MagnifyingGlass,
@@ -32,6 +33,7 @@ import { cn } from "../../../utils/cn";
 import { Tooltip } from "../../ui/tooltip";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import { useCustomizer } from "../../../features/customizer";
+import { organizationApi } from "../../../features/organization/api/organization.api";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -76,6 +78,81 @@ export function Sidebar({
   const { user } = useAuth();
   const { openCustomizer } = useCustomizer();
 
+  // Reactive branding states for real-time logo/name synchronization
+  const [orgLogo, setOrgLogo] = useState<string>(
+    () => localStorage.getItem("organization_logo") || "/branding/nexora_ai_logo.jpg"
+  );
+  const [orgName, setOrgName] = useState<string>(
+    () => localStorage.getItem("organization_name") || "Nexora Technologies"
+  );
+  const [userAvatar, setUserAvatar] = useState<string | null | undefined>(
+    () => user?.avatarUrl || localStorage.getItem("user_avatar")
+  );
+
+  useEffect(() => {
+    if (user?.avatarUrl) {
+      setUserAvatar(user.avatarUrl);
+    }
+    const handleUserUpdate = (e: any) => {
+      if (e.detail?.avatarUrl) {
+        setUserAvatar(e.detail.avatarUrl);
+      }
+    };
+    window.addEventListener("user_profile_updated", handleUserUpdate);
+    return () => window.removeEventListener("user_profile_updated", handleUserUpdate);
+  }, [user?.avatarUrl]);
+
+  useEffect(() => {
+    // 1. Initial sync from server to ensure fresh profile data
+    organizationApi
+      .getProfile()
+      .then((profile) => {
+        if (profile) {
+          const activeLogo = profile.logoUrl || "/branding/nexora_ai_logo.jpg";
+          const activeName = profile.tradeName || profile.legalName || "Nexora Technologies";
+          setOrgLogo(activeLogo);
+          setOrgName(activeName);
+          localStorage.setItem("organization_logo", activeLogo);
+          localStorage.setItem("organization_name", activeName);
+        }
+      })
+      .catch(() => {
+        // Retain fallback quietly
+      });
+
+    // 2. Real-time event listener: updates immediately when logo or profile changes in OrganizationProfilePage
+    const handleProfileUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ logoUrl?: string; name?: string }>;
+      if (customEvent.detail?.logoUrl !== undefined) {
+        setOrgLogo(customEvent.detail.logoUrl || "/branding/nexora_ai_logo.jpg");
+      }
+      if (customEvent.detail?.name) {
+        setOrgName(customEvent.detail.name);
+      }
+    };
+
+    window.addEventListener("organization_profile_updated", handleProfileUpdate);
+
+    // 3. Multi-tab synchronization
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "organization_logo" && e.newValue) {
+        setOrgLogo(e.newValue);
+      }
+      if (e.key === "organization_name" && e.newValue) {
+        setOrgName(e.newValue);
+      }
+      if (e.key === "user_avatar" && e.newValue) {
+        setUserAvatar(e.newValue);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("organization_profile_updated", handleProfileUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
   // Far-left rail: quick jumps with modern cohesive icons
   const railItems = [
     { id: "search", icon: MagnifyingGlass, label: "Search Directory", href: "/employees", tint: "blue" },
@@ -96,7 +173,6 @@ export function Sidebar({
     { title: "Dashboard", icon: SquaresFour, href: "/", exact: true, tint: "indigo" },
     { title: "Org Profile", icon: Buildings, href: "/organization/profile", tint: "violet" },
     { title: "Departments", icon: CirclesThreePlus, href: "/organization/departments", exact: true, tint: "sky" },
-    { title: "Hierarchy Tree", icon: TreeStructure, href: "/organization/departments/tree", tint: "cyan" },
     { title: "Designations", icon: Certificate, href: "/organization/designations", tint: "teal" },
     { title: "Locations", icon: MapPinArea, href: "/organization/locations", tint: "emerald" },
     { title: "Cost Centers", icon: Coins, href: "/organization/cost-centers", tint: "amber" },
@@ -197,9 +273,16 @@ export function Sidebar({
           <div className="flex w-full flex-col items-center">
             <Link
               to="/"
-              className="mb-4 flex h-7 w-7 items-center justify-center overflow-hidden rounded-md border border-hairline transition-opacity hover:opacity-80 bg-slate-900 shadow-xs"
+              className="mb-4 flex h-7 w-7 items-center justify-center overflow-hidden rounded-md border border-hairline transition-opacity hover:opacity-80 bg-slate-900"
             >
-              <img src="/branding/nexora_ai_logo.jpg" alt="Nexora Technologies" className="h-full w-full object-cover" />
+              <img
+                src={orgLogo}
+                alt={orgName}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/branding/nexora_ai_logo.jpg";
+                }}
+                className="h-full w-full object-cover"
+              />
             </Link>
 
             <nav className="flex w-full flex-col items-center gap-1.5">
@@ -275,7 +358,7 @@ export function Sidebar({
             */}
             <div className="flex h-12 items-center gap-2 border-b border-hairline px-2.5">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[12px] font-bold text-ink leading-tight">Nexora Technologies</div>
+                <div className="truncate text-[12px] font-bold text-ink leading-tight">{orgName}</div>
                 <div className="truncate text-[10px] text-ink-3 font-medium">PeopleOS</div>
               </div>
               <CaretUpDown className="ml-auto h-3.5 w-3.5 shrink-0 text-ink-3" weight="bold" />
@@ -305,12 +388,12 @@ export function Sidebar({
               onClick={onCloseMobile}
               className="flex items-center gap-2 border-t border-hairline px-2.5 py-2.5 transition-colors hover:bg-surface-2"
             >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--primary)] text-[10px] font-semibold text-white shadow-xs">
-                {user?.avatarUrl ? (
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--primary)] text-[10px] font-semibold text-white">
+                {userAvatar ? (
                   <img
-                    src={user.avatarUrl}
+                    src={userAvatar}
                     alt={displayName}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover rounded-md"
                   />
                 ) : (
                   initials

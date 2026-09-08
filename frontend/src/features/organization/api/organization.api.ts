@@ -14,7 +14,11 @@ export const organizationApi = {
     return res.data.data as OrganizationProfile;
   },
   updateProfile: async (data: Partial<OrganizationProfile>) => {
-    const res = await apiClient.patch('/organization/profile', data);
+    const { _id, __v, status, createdAt, updatedAt, isDeleted, ...payload } = data as any;
+    if (payload.supportEmail === '') {
+      delete payload.supportEmail;
+    }
+    const res = await apiClient.patch('/organization/profile', payload);
     return res.data.data as OrganizationProfile;
   },
 

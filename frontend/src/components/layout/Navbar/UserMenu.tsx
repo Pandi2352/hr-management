@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { User, LogOut, Shield, ChevronDown } from "lucide-react";
 import { Dropdown } from "../../ui/Dropdown";
@@ -9,6 +10,23 @@ export function UserMenu() {
   const { user } = useAuth();
   const { isDialogOpen, isLoggingOut, openLogoutDialog, closeLogoutDialog, confirmLogout } =
     useLogout();
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(
+    user?.avatarUrl || localStorage.getItem("user_avatar")
+  );
+
+  useEffect(() => {
+    if (user?.avatarUrl) {
+      setAvatarUrl(user.avatarUrl);
+    }
+    const handleProfileUpdate = (e: any) => {
+      if (e.detail?.avatarUrl) {
+        setAvatarUrl(e.detail.avatarUrl);
+      }
+    };
+    window.addEventListener("user_profile_updated", handleProfileUpdate);
+    return () => window.removeEventListener("user_profile_updated", handleProfileUpdate);
+  }, [user?.avatarUrl]);
 
   const displayName = user?.name || (user?.firstName ? `${user.firstName} ${user.lastName}` : "User");
   const displayEmail = user?.email || "user@peopleos.internal";
@@ -25,12 +43,12 @@ export function UserMenu() {
       <Dropdown
         trigger={
           <div className="flex items-center gap-2 rounded-md p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer select-none">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--primary)] font-semibold text-xs text-white shadow-xs">
-              {user?.avatarUrl ? (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--primary)] font-semibold text-xs text-white">
+              {avatarUrl ? (
                 <img
-                  src={user.avatarUrl}
+                  src={avatarUrl}
                   alt={displayName}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover rounded-md"
                 />
               ) : (
                 initials

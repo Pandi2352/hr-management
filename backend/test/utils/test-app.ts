@@ -38,7 +38,7 @@ export interface TestUser {
 export async function createTestApp(): Promise<TestContext> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
-  const app = configureApp(moduleRef.createNestApplication());
+  const app = configureApp(moduleRef.createNestApplication({ bodyParser: false }));
   await app.init();
 
   const connection = app.get<Connection>(getConnectionToken());

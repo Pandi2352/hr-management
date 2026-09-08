@@ -6,7 +6,7 @@ import { configureApp } from './bootstrap';
 async function bootstrap() {
   // bufferLogs holds framework output until useLogger installs the adapter, so
   // nothing emitted during bootstrap escapes in Nest's default format.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, bodyParser: false });
   app.useLogger(new NestLoggerAdapter());
 
   const logger = LoggerHelper.Instance.child('Bootstrap');

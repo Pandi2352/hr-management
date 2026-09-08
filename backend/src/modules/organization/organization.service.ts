@@ -170,22 +170,24 @@ export class OrganizationService {
     organizationId?: string,
   ): Promise<Organization> {
     const current = await this.getProfile(organizationId);
+    const { _id, __v, status, createdAt, updatedAt, isDeleted, ...updateFields } = dto as any;
     const updated = await this.orgModel.findByIdAndUpdate(
       current._id,
-      { $set: dto },
+      { $set: updateFields },
       { new: true },
     );
     if (!updated) throw new NotFoundException('Organization not found');
 
     await this.audit(
-      updated._id,
+      current._id,
       userId,
       'ORGANIZATION',
-      updated._id,
-      'ORGANIZATION_UPDATED',
+      current._id,
+      AuditAction.UPDATE,
       current,
       updated,
     );
+
     return updated;
   }
 
@@ -195,7 +197,7 @@ export class OrganizationService {
   async getDepartments(
     orgId: string,
     query: { search?: string; status?: string; page?: number; pageSize?: number },
-  ) {
+  ): Promise<any> {
     const filter: any = { organizationId: orgId, isDeleted: false };
     if (query.status && query.status !== 'ALL') {
       filter.status = query.status;
@@ -205,14 +207,30 @@ export class OrganizationService {
       filter.$or = [{ name: regex }, { code: regex }];
     }
 
+    // Aggregate live workforce headcounts per department
+    const memberCounts = await this.empModel.aggregate([
+      { $match: { organizationId: orgId, isDeleted: false, status: { $ne: 'TERMINATED' } } },
+      { $group: { _id: '$departmentId', count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(memberCounts.map((c) => [c._id, c.count]));
+
     if (query.page !== undefined || query.pageSize !== undefined) {
-      return paginate<Department>(this.deptModel, filter, {
+      const result = await paginate<Department>(this.deptModel, filter, {
         page: query.page,
         pageSize: query.pageSize,
       }, { createdAt: -1 });
+      const enrichedData = (result.data || []).map((dept: any) => ({
+        ...(dept.toObject ? dept.toObject() : dept),
+        memberCount: countMap.get(dept._id) ?? dept.memberCount ?? 0,
+      }));
+      return { ...result, data: enrichedData };
     }
 
-    return this.deptModel.find(filter).sort({ createdAt: -1 });
+    const depts = await this.deptModel.find(filter).sort({ createdAt: -1 }).lean();
+    return depts.map((d) => ({
+      ...d,
+      memberCount: countMap.get(d._id) ?? d.memberCount ?? 0,
+    }));
   }
 
   async getDepartmentById(id: string, orgId: string) {
@@ -389,7 +407,7 @@ export class OrganizationService {
   async getDesignations(
     orgId: string,
     query: { search?: string; status?: string; page?: number; pageSize?: number },
-  ) {
+  ): Promise<any> {
     const filter: any = { organizationId: orgId, isDeleted: false };
     if (query.status && query.status !== 'ALL') filter.status = query.status;
     if (query.search) {
@@ -397,14 +415,30 @@ export class OrganizationService {
       filter.$or = [{ title: regex }, { code: regex }];
     }
 
+    // Aggregate live workforce headcounts per designation
+    const counts = await this.empModel.aggregate([
+      { $match: { organizationId: orgId, isDeleted: false, status: { $ne: 'TERMINATED' } } },
+      { $group: { _id: '$designationId', count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c) => [c._id, c.count]));
+
     if (query.page !== undefined || query.pageSize !== undefined) {
-      return paginate<Designation>(this.desigModel, filter, {
+      const result = await paginate<Designation>(this.desigModel, filter, {
         page: query.page,
         pageSize: query.pageSize,
       }, { grade: -1, createdAt: -1 });
+      const enrichedData = (result.data || []).map((desig: any) => ({
+        ...(desig.toObject ? desig.toObject() : desig),
+        assignedEmployeeCount: countMap.get(desig._id) ?? 0,
+      }));
+      return { ...result, data: enrichedData };
     }
 
-    return this.desigModel.find(filter).sort({ grade: -1, createdAt: -1 });
+    const desigs = await this.desigModel.find(filter).sort({ grade: -1, createdAt: -1 }).lean();
+    return desigs.map((d) => ({
+      ...d,
+      assignedEmployeeCount: countMap.get(d._id) ?? 0,
+    }));
   }
 
   async createDesignation(dto: CreateDesignationDto, orgId: string, userId: string) {
@@ -439,7 +473,7 @@ export class OrganizationService {
         code: dto.code.trim().toUpperCase(),
         isDeleted: false,
       });
-      if (dup) throw new ConflictException(`Designation code "${dto.code}" already in use`);
+      if (dup) throw new ConflictException(`Designation code "${dto.code}" is already in use`);
     }
 
     const updated = await this.desigModel.findByIdAndUpdate(
@@ -467,7 +501,7 @@ export class OrganizationService {
   async getLocations(
     orgId: string,
     query: { search?: string; status?: string; page?: number; pageSize?: number },
-  ) {
+  ): Promise<any> {
     const filter: any = { organizationId: orgId, isDeleted: false };
     if (query.status && query.status !== 'ALL') filter.status = query.status;
     if (query.search) {
@@ -475,14 +509,30 @@ export class OrganizationService {
       filter.$or = [{ name: regex }, { city: regex }, { country: regex }];
     }
 
+    // Aggregate live workforce headcounts per location
+    const counts = await this.empModel.aggregate([
+      { $match: { organizationId: orgId, isDeleted: false, status: { $ne: 'TERMINATED' } } },
+      { $group: { _id: '$locationId', count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c) => [c._id, c.count]));
+
     if (query.page !== undefined || query.pageSize !== undefined) {
-      return paginate<Location>(this.locModel, filter, {
+      const result = await paginate<Location>(this.locModel, filter, {
         page: query.page,
         pageSize: query.pageSize,
       }, { createdAt: -1 });
+      const enrichedData = (result.data || []).map((loc: any) => ({
+        ...(loc.toObject ? loc.toObject() : loc),
+        employeeCount: countMap.get(loc._id) ?? 0,
+      }));
+      return { ...result, data: enrichedData };
     }
 
-    return this.locModel.find(filter).sort({ createdAt: -1 });
+    const locs = await this.locModel.find(filter).sort({ createdAt: -1 }).lean();
+    return locs.map((l) => ({
+      ...l,
+      employeeCount: countMap.get(l._id) ?? 0,
+    }));
   }
 
   async createLocation(dto: CreateLocationDto, orgId: string, userId: string) {

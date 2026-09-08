@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import * as express from 'express';
 import * as cookieParser from 'cookie-parser';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
@@ -13,6 +14,8 @@ import { HttpLoggingInterceptor } from './common/logger';
  * exception filter proves nothing about real request handling.
  */
 export function configureApp(app: INestApplication): INestApplication {
+  app.use(express.json({ limit: '20mb' }));
+  app.use(express.urlencoded({ limit: '20mb', extended: true }));
   app.use(cookieParser());
   app.setGlobalPrefix('api/v1');
 

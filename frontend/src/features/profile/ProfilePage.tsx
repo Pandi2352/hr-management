@@ -122,7 +122,16 @@ export function ProfilePage() {
           if (data.phone) setPhone(data.phone);
           if (data.location) setLocation(data.location);
           if (data.bio) setBio(data.bio);
-          if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
+          if (data.avatarUrl) {
+            setAvatarUrl(data.avatarUrl);
+            updateUser({ avatarUrl: data.avatarUrl });
+            localStorage.setItem('user_avatar', data.avatarUrl);
+            window.dispatchEvent(
+              new CustomEvent('user_profile_updated', {
+                detail: { avatarUrl: data.avatarUrl, name: data.name },
+              })
+            );
+          }
         }
       })
       .catch(() => {
@@ -155,16 +164,25 @@ export function ProfilePage() {
 
     try {
       const res = await profileApi.uploadAvatar(file);
-      if (res.avatarUrl) {
-        setAvatarUrl(res.avatarUrl);
-        updateUser({ avatarUrl: res.avatarUrl });
-      } else {
-        updateUser({ avatarUrl: localPreview });
-      }
+      const effectiveUrl = res.avatarUrl || localPreview;
+      setAvatarUrl(effectiveUrl);
+      updateUser({ avatarUrl: effectiveUrl });
+      localStorage.setItem('user_avatar', effectiveUrl);
+      window.dispatchEvent(
+        new CustomEvent('user_profile_updated', {
+          detail: { avatarUrl: effectiveUrl, name: fullName },
+        })
+      );
       toast.success('Profile picture uploaded successfully', 'Photo Updated');
     } catch {
       // Offline fallback: persist local preview in session
       updateUser({ avatarUrl: localPreview });
+      localStorage.setItem('user_avatar', localPreview);
+      window.dispatchEvent(
+        new CustomEvent('user_profile_updated', {
+          detail: { avatarUrl: localPreview, name: fullName },
+        })
+      );
       toast.success('Profile picture updated successfully', 'Photo Updated');
     } finally {
       setIsUploadingAvatar(false);
@@ -236,8 +254,8 @@ export function ProfilePage() {
         className="hidden"
       />
 
-      {/* 1. Top Profile Header Banner Card (Full Width matching screenshot) */}
-      <div className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs transition-colors">
+      {/* 1. Top Profile Header Banner Card (Full Width) */}
+      <div className="w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Left: Avatar + Info + Badges */}
           <div className="flex items-center gap-4">
@@ -246,13 +264,13 @@ export function ProfilePage() {
               <img
                 src={avatarUrl}
                 alt={fullName}
-                className="h-20 w-20 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 shadow-sm transition-transform group-hover:scale-105"
+                className="h-20 w-20 rounded-md object-cover ring-2 ring-slate-100 dark:ring-slate-800 transition-transform group-hover:scale-105"
               />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingAvatar}
-                className="absolute top-0 right-0 p-1.5 rounded-full bg-blue-600 text-white shadow-md hover:bg-blue-700 transition-colors cursor-pointer ring-2 ring-white dark:ring-slate-900 disabled:opacity-50"
+                className="absolute -top-1.5 -right-1.5 p-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors cursor-pointer ring-2 ring-white dark:ring-slate-900 disabled:opacity-50"
                 title="Upload new profile picture"
               >
                 {isUploadingAvatar ? (
@@ -274,13 +292,13 @@ export function ProfilePage() {
 
               {/* 3 Status Badges: Administrator (blue), Designer (orange), Active (green) */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-600 text-white shadow-2xs">
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-600 text-white">
                   Administrator
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500 text-white shadow-2xs">
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-orange-500 text-white">
                   Designer
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-600 text-white shadow-2xs">
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-600 text-white">
                   Active
                 </span>
               </div>
@@ -292,7 +310,7 @@ export function ProfilePage() {
             <button
               type="button"
               onClick={handleMessageAction}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors cursor-pointer"
             >
               <MessageSquare className="h-3.5 w-3.5" />
               <span>Message</span>
@@ -660,7 +678,7 @@ export function ProfilePage() {
                   </p>
                 </div>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                 Current Device
               </span>
             </div>
