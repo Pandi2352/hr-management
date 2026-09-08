@@ -32,6 +32,9 @@ import { ContactsPage } from "../features/contacts/pages/ContactsPage";
 import { PublicCareersLayout } from "../features/careers/layout/PublicCareersLayout";
 import { CareersPage } from "../features/careers/pages/CareersPage";
 import { ContactUsPage } from "../features/careers/pages/ContactUsPage";
+import { OnboardingTrackerPage } from "../features/lifecycle/pages/OnboardingTrackerPage";
+import { OnboardingChecklistDetailPage } from "../features/lifecycle/pages/OnboardingChecklistDetailPage";
+import { EmployeeSelfOnboardingPage } from "../features/lifecycle/pages/EmployeeSelfOnboardingPage";
 import { UnauthorizedPage } from "../pages/UnauthorizedPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ProtectedRoute, PublicRoute } from "../features/auth/guards/AuthGuards";
@@ -144,6 +147,28 @@ export const router = createBrowserRouter([
             element: <EmployeeEditPage />,
           },
         ],
+      },
+      {
+        path: "lifecycle",
+        children: [
+          {
+            path: "onboarding",
+            children: [
+              {
+                index: true,
+                element: <OnboardingTrackerPage />,
+              },
+              {
+                path: ":id",
+                element: <OnboardingChecklistDetailPage />,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        path: "onboarding/wizard",
+        element: <EmployeeSelfOnboardingPage />,
       },
       {
         path: "contacts",

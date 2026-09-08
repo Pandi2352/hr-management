@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Users,
+  UserCheck,
   CalendarCheck,
   CalendarDays,
   CheckSquare,
@@ -28,6 +29,11 @@ export const sidebarConfig: NavGroup[] = [
         title: "Employees",
         href: "/employees",
         icon: Users,
+      },
+      {
+        title: "Onboarding",
+        href: "/lifecycle/onboarding",
+        icon: UserCheck,
       },
       {
         title: "Attendance",

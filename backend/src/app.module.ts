@@ -7,6 +7,7 @@ import { EmployeesModule } from './modules/employees/employees.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuditApiModule } from './modules/audit/audit.module';
 import { RecruitmentModule } from './modules/recruitment/recruitment.module';
+import { OnboardingModule } from './modules/lifecycle/onboarding/onboarding.module';
 import { AuditModule } from './common/audit/audit.module';
 import { CacheModule } from './common/cache';
 import { RequestContextMiddleware } from './common/audit/request-context';
@@ -26,6 +27,7 @@ import { RequestContextMiddleware } from './common/audit/request-context';
     UsersModule,
     AuditApiModule,
     RecruitmentModule,
+    OnboardingModule,
   ],
 })
 export class AppModule implements NestModule {
