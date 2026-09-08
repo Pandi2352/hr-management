@@ -17,6 +17,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ResultEntity } from '../../common/response';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -59,17 +60,14 @@ export class AuthController {
       path: '/api/v1/auth',
     });
 
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: 'Session refreshed',
-      data: {
+    return ResultEntity.ok(
+        {
         user: result.user,
         accessToken: result.accessToken,
         expiresIn: result.expiresIn,
-      },
-    };
+        },
+        'Session refreshed',
+      );
   }
 
   @Post('change-password')
@@ -81,13 +79,7 @@ export class AuthController {
   async changePassword(@Req() req: any, @Body() changePasswordDto: ChangePasswordDto) {
     const userId = req.user.userId;
     const result = await this.authService.changePassword(userId, changePasswordDto);
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: result.message,
-      data: null,
-    };
+    return ResultEntity.ok(null, result.message);
   }
 
   @Post('logout')
@@ -110,13 +102,7 @@ export class AuthController {
       path: '/api/v1/auth',
     });
 
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: result.message,
-      data: null,
-    };
+    return ResultEntity.ok(null, result.message);
   }
 
   @Post('logout-all')
@@ -138,13 +124,7 @@ export class AuthController {
       path: '/api/v1/auth',
     });
 
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: result.message,
-      data: null,
-    };
+    return ResultEntity.ok(null, result.message);
   }
 
   @Post('forgot-password')
@@ -153,13 +133,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'OTP dispatched successfully' })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     const result = await this.authService.forgotPassword(forgotPasswordDto);
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: result.message,
-      data: { expiresIn: result.expiresIn },
-    };
+    return ResultEntity.ok({ expiresIn: result.expiresIn }, result.message);
   }
 
   @Post('reset-password/validate')
@@ -168,13 +142,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Token is valid' })
   async validateResetToken(@Body() body: { token: string }) {
     const result = await this.authService.validateResetToken(body.token);
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: 'Password reset link is valid',
-      data: { valid: result.valid, email: result.email },
-    };
+    return ResultEntity.ok({ valid: result.valid, email: result.email }, 'Password reset link is valid');
   }
 
   @Post('reset-password-with-token')
@@ -183,13 +151,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Password reset successful' })
   async resetPasswordWithToken(@Body() body: { token: string; password: string }) {
     const result = await this.authService.resetPasswordWithToken(body);
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: result.message,
-      data: null,
-    };
+    return ResultEntity.ok(null, result.message);
   }
 
   @Post('reset-password')
@@ -198,13 +160,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Password reset successful' })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     const result = await this.authService.resetPasswordWithOtp(resetPasswordDto);
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: result.message,
-      data: null,
-    };
+    return ResultEntity.ok(null, result.message);
   }
 
   @Post('login')
@@ -239,17 +195,14 @@ export class AuthController {
       path: '/api/v1/auth',
     });
 
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: 'Login successful',
-      data: {
+    return ResultEntity.ok(
+        {
         user: result.user,
         accessToken: result.accessToken,
         expiresIn: result.expiresIn,
         rememberMe: !!loginDto.rememberMe,
-      },
-    };
+        },
+        'Login successful',
+      );
   }
 }

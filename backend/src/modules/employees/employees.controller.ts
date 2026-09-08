@@ -31,6 +31,7 @@ import {
   ChangeEmployeeStatusDto,
 } from './dto/employee.dto';
 import { OrganizationService } from '../organization/organization.service';
+import { ResultEntity } from '../../common/response';
 
 @Controller('employees')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -53,11 +54,7 @@ export class EmployeesController {
   async getEmployees(@Request() req: any, @Query() query: EmployeeQueryDto) {
     const orgId = await this.getOrgId(req);
     const result = await this.employeesService.getEmployees(orgId, query, req.user);
-    return {
-      success: true,
-      data: result.data,
-      meta: result.meta,
-    };
+    return ResultEntity.ok(result.data, undefined, result.meta);
   }
 
   @Get('stats')
@@ -65,7 +62,7 @@ export class EmployeesController {
   async getStats(@Request() req: any) {
     const orgId = await this.getOrgId(req);
     const data = await this.employeesService.getStats(orgId, req.user);
-    return { success: true, data };
+    return ResultEntity.ok(data);
   }
 
   @Get('export')
@@ -73,9 +70,9 @@ export class EmployeesController {
   async exportEmployees(@Request() req: any, @Query() query: EmployeeQueryDto, @Response() res: any) {
     const orgId = await this.getOrgId(req);
     const csvData = await this.employeesService.exportEmployees(orgId, query, req.user);
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="employees-export.csv"');
-    return res.status(200).send(csvData);
+    new ResultEntity()
+      .setCSV({ csv: csvData, filename: 'employees-export.csv' })
+      .sendResponse(res);
   }
 
   @Get(':id')
@@ -83,7 +80,7 @@ export class EmployeesController {
   async getEmployeeById(@Request() req: any, @Param('id') id: string): Promise<any> {
     const orgId = await this.getOrgId(req);
     const data = await this.employeesService.getEmployeeById(id, orgId, req.user);
-    return { success: true, data };
+    return ResultEntity.ok(data);
   }
 
   @Post()
@@ -91,7 +88,7 @@ export class EmployeesController {
   async createEmployee(@Request() req: any, @Body() dto: CreateEmployeeDto) {
     const orgId = await this.getOrgId(req);
     const data = await this.employeesService.createEmployee(dto, orgId, req.user.userId);
-    return { success: true, message: 'Employee created successfully', data };
+    return ResultEntity.created(data, 'Employee created successfully');
   }
 
   @Patch(':id')
@@ -103,7 +100,7 @@ export class EmployeesController {
   ) {
     const orgId = await this.getOrgId(req);
     const data = await this.employeesService.updateEmployee(id, dto, orgId, req.user.userId, req.user);
-    return { success: true, message: 'Employee updated successfully', data };
+    return ResultEntity.ok(data, 'Employee updated successfully');
   }
 
   @Patch(':id/status')
@@ -115,7 +112,7 @@ export class EmployeesController {
   ) {
     const orgId = await this.getOrgId(req);
     const data = await this.employeesService.changeStatus(id, dto, orgId, req.user.userId, req.user);
-    return { success: true, message: `Employee status updated to ${dto.status}`, data };
+    return ResultEntity.ok(data, `Employee status updated to ${dto.status}`);
   }
 
   @Post(':id/resend-onboarding')
@@ -161,7 +158,7 @@ export class EmployeesController {
       body,
       req.user,
     );
-    return { success: true, message: 'Document uploaded successfully', data };
+    return ResultEntity.created(data, 'Document uploaded successfully');
   }
 
   @Get(':id/documents/:documentId/download')
@@ -181,13 +178,17 @@ export class EmployeesController {
       req.user,
     );
 
-    res.setHeader('Content-Type', (document as any).mimeType || 'application/octet-stream');
     // `inline` lets the browser preview PDFs/images in the modal viewer.
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="${encodeURIComponent((document as any).fileName || 'document')}"`,
-    );
-    stream.pipe(res);
+    // setFile URL-encodes the filename, so a name containing a quote or a
+    // newline cannot break out of the Content-Disposition header.
+    new ResultEntity()
+      .setFile({
+        file: stream,
+        filename: (document as any).fileName || 'document',
+        mime_type: (document as any).mimeType,
+        inline: true,
+      })
+      .sendResponse(res);
   }
 
   @Patch(':id/documents/:documentId/review')
@@ -207,7 +208,7 @@ export class EmployeesController {
       body,
       req.user,
     );
-    return { success: true, message: `Document marked ${body.status.toLowerCase()}`, data };
+    return ResultEntity.ok(data, `Document marked ${body.status.toLowerCase()}`);
   }
 
   @Delete(':id/documents/:documentId')
@@ -225,7 +226,7 @@ export class EmployeesController {
       req.user.userId,
       req.user,
     );
-    return { success: true, message: result.message };
+    return ResultEntity.ok(null, result.message);
   }
 
   @Delete(':id')
@@ -233,6 +234,6 @@ export class EmployeesController {
   async deleteEmployee(@Request() req: any, @Param('id') id: string) {
     const orgId = await this.getOrgId(req);
     const result = await this.employeesService.deleteEmployee(id, orgId, req.user.userId, req.user);
-    return { success: true, message: result.message };
+    return ResultEntity.ok(null, result.message);
   }
 }

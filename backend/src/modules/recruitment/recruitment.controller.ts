@@ -19,6 +19,7 @@ import { createReadStream } from 'fs';
 import { extname } from 'path';
 import { RecruitmentService } from './recruitment.service';
 import { ApplyJobDto, CreateJobRequisitionDto, UpdateApplicationStatusDto } from './dto/recruitment.dto';
+import { ResultEntity } from '../../common/response';
 
 @ApiTags('Recruitment & Public Careers')
 @Controller('recruitment')
@@ -31,24 +32,27 @@ export class RecruitmentController {
 
   @Get('public/company')
   @ApiOperation({ summary: 'Public endpoint to get company mission, values, stats and perks' })
-  getCompanyOverview() {
-    return this.recruitmentService.getPublicCompanyInfo();
+  async getCompanyOverview() {
+    const result = await this.recruitmentService.getPublicCompanyInfo();
+    return ResultEntity.ok(result);
   }
 
   @Get('public/jobs')
   @ApiOperation({ summary: 'Public endpoint to list active job requisitions and available filters' })
-  getPublicJobs(
+  async getPublicJobs(
     @Query('search') search?: string,
     @Query('department') department?: string,
     @Query('location') location?: string,
   ) {
-    return this.recruitmentService.getPublicJobs({ search, department, location });
+    const result = await this.recruitmentService.getPublicJobs({ search, department, location });
+    return ResultEntity.ok(result);
   }
 
   @Get('public/jobs/:id')
   @ApiOperation({ summary: 'Public endpoint to view full job specification by ID' })
-  getPublicJobById(@Param('id') id: string) {
-    return this.recruitmentService.getPublicJobById(id);
+  async getPublicJobById(@Param('id') id: string) {
+    const result = await this.recruitmentService.getPublicJobById(id);
+    return ResultEntity.ok(result);
   }
 
   @Post('public/apply')
@@ -62,7 +66,8 @@ export class RecruitmentController {
     @Body() dto: ApplyJobDto,
     @UploadedFile() file: any,
   ) {
-    return this.recruitmentService.applyForJob(dto, file);
+    const result = await this.recruitmentService.applyForJob(dto, file);
+    return ResultEntity.created(result);
   }
 
   @Get('resume/:filename')
@@ -92,38 +97,43 @@ export class RecruitmentController {
 
   @Get('admin/applications')
   @ApiOperation({ summary: 'List candidate applications for internal recruitment dashboard' })
-  getApplications(
+  async getApplications(
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('jobId') jobId?: string,
   ) {
-    return this.recruitmentService.getAllApplications({ search, status, jobId });
+    const result = await this.recruitmentService.getAllApplications({ search, status, jobId });
+    return ResultEntity.ok(result);
   }
 
   @Patch('admin/applications/:id/status')
   @ApiOperation({ summary: 'Update candidate pipeline status' })
-  updateStatus(
+  async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateApplicationStatusDto,
   ) {
-    return this.recruitmentService.updateApplicationStatus(id, dto);
+    const result = await this.recruitmentService.updateApplicationStatus(id, dto);
+    return ResultEntity.ok(result);
   }
 
   @Get('admin/jobs')
   @ApiOperation({ summary: 'List all job openings for admin dashboard' })
-  getAdminJobs() {
-    return this.recruitmentService.getAllAdminJobs();
+  async getAdminJobs() {
+    const result = await this.recruitmentService.getAllAdminJobs();
+    return ResultEntity.ok(result);
   }
 
   @Post('admin/jobs')
   @ApiOperation({ summary: 'Create a new job requisition' })
-  createJob(@Body() dto: CreateJobRequisitionDto & { description?: string }) {
-    return this.recruitmentService.createJobRequisition(dto);
+  async createJob(@Body() dto: CreateJobRequisitionDto & { description?: string }) {
+    const result = await this.recruitmentService.createJobRequisition(dto);
+    return ResultEntity.created(result);
   }
 
   @Delete('admin/jobs/:id')
   @ApiOperation({ summary: 'Delete a job requisition' })
-  deleteJob(@Param('id') id: string) {
-    return this.recruitmentService.deleteJobRequisition(id);
+  async deleteJob(@Param('id') id: string) {
+    const result = await this.recruitmentService.deleteJobRequisition(id);
+    return ResultEntity.ok(result);
   }
 }

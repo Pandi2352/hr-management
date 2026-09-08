@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { InvitationsService } from './invitations.service';
 import { InvitationTokenDto, AcceptInvitationDto } from './dto/invitation.dto';
+import { ResultEntity } from '../../common/response';
 
 @ApiTags('Invitations (Public)')
 @Controller('invitations')
@@ -14,13 +15,7 @@ export class InvitationsController {
   @ApiOperation({ summary: 'Validate an invitation token without accepting it' })
   async validate(@Body() dto: InvitationTokenDto) {
     const result = await this.invitationsService.validateToken(dto.token);
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: 'Invitation is valid',
-      data: result,
-    };
+    return ResultEntity.ok(result, 'Invitation is valid');
   }
 
   @Post('accept')
@@ -45,16 +40,13 @@ export class InvitationsController {
       path: '/api/v1/auth',
     });
 
-    return {
-      success: true,
-      statusCode: HttpStatus.OK,
-      status: 'OK',
-      message: 'Invitation accepted. Your account is now active.',
-      data: {
+    return ResultEntity.ok(
+        {
         user: result.user,
         accessToken: result.accessToken,
         expiresIn: result.expiresIn,
-      },
-    };
+        },
+        'Invitation accepted. Your account is now active.',
+      );
   }
 }

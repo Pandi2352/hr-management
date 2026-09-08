@@ -9,6 +9,8 @@ import { Request, Response } from 'express';
 import { ErrorCode, STATUS_CODES } from '../constants';
 import { ApiErrorResponse } from '../dto/api-response.dto';
 import { LoggerHelper } from '../logger';
+import { ErrorEntity } from '../response';
+import { requestContext } from '../audit/request-context';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -22,7 +24,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let message: string = STATUS_CODES.INTERNAL_SERVER_ERROR.defaultMessage;
     let details: any = null;
 
-    if (exception instanceof HttpException) {
+    // An ErrorEntity already carries a client-safe projection and its own
+    // status, so it is honoured verbatim rather than re-derived. Its
+    // `internal_error` stays out of the body by construction.
+    if (exception instanceof ErrorEntity) {
+      const publicShape = exception.toPublicJSON();
+      statusCode = exception.http_code;
+      errorCode = exception.error_code || this.mapStatusToErrorCode(statusCode);
+      message = exception.error_description || exception.error || message;
+      details = exception.meta_data ?? null;
+
+      if (exception.internal_error !== undefined) {
+        LoggerHelper.Instance.child('ErrorEntity').error(
+          null,
+          'Handled error with internal detail',
+          exception.toLogJSON(),
+        );
+      }
+      void publicShape;
+    } else if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
       const res = exception.getResponse();
 
@@ -70,6 +90,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       meta: {
         timestamp: new Date().toISOString(),
         path: request.url,
+        // Matches the success envelope, so a client can quote one id either way.
+        ...(requestContext.get()?.requestId ? { requestId: requestContext.get()!.requestId } : {}),
       },
     };
 

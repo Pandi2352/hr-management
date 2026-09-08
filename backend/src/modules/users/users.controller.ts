@@ -18,8 +18,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { UsersService, PaginatedUsersResponse } from './users.service';
-import { InvitationsService, PaginatedInvitationsResponse } from './invitations.service';
+import { UsersService } from './users.service';
+import { InvitationsService } from './invitations.service';
 import {
   UpdateUserStatusDto,
   AssignRolesDto,
@@ -28,13 +28,11 @@ import {
   UpdateSecurityPolicyDto,
 } from './dto/users.dto';
 import { CreateInvitationDto } from './dto/invitation.dto';
-import { Role } from './schemas/role.schema';
-import { Invitation } from './schemas/invitation.schema';
-import { SecurityPolicy } from './schemas/security-policy.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/roles.decorator';
 import { PERMISSIONS } from '../../common/constants';
+import { ResultEntity } from '../../common/response';
 
 @ApiTags('User & Security Management')
 @Controller('users')
@@ -61,7 +59,7 @@ export class UsersController {
   async getMyProfile(@Request() req: any) {
     const userId = req.user.userId;
     const data = await this.usersService.getMyProfile(userId);
-    return { success: true, data };
+    return ResultEntity.ok(data);
   }
 
   @Patch('me')
@@ -71,7 +69,8 @@ export class UsersController {
     @Body() dto: { firstName?: string; lastName?: string; phone?: string; location?: string; bio?: string },
   ) {
     const userId = req.user.userId;
-    return this.usersService.updateProfile(userId, dto);
+    const result = await this.usersService.updateProfile(userId, dto);
+    return ResultEntity.ok(result);
   }
 
   @Post('me/avatar')
@@ -101,7 +100,8 @@ export class UsersController {
   @ApiOperation({ summary: 'Remove current user profile picture' })
   async removeMyAvatar(@Request() req: any) {
     const userId = req.user.userId;
-    return this.usersService.removeAvatar(userId);
+    const result = await this.usersService.removeAvatar(userId);
+    return ResultEntity.ok(result);
   }
 
   // --- USER ROSTER ENDPOINTS ---
@@ -115,15 +115,17 @@ export class UsersController {
     @Query('status') status?: string,
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
-  ): Promise<PaginatedUsersResponse> {
-    return this.usersService.findAllUsers({ search, role, status, page, pageSize });
+  ): Promise<ResultEntity> {
+    const result = await this.usersService.findAllUsers({ search, role, status, page, pageSize });
+    return ResultEntity.ok(result);
   }
 
   @Get('metrics')
   @RequirePermissions(PERMISSIONS.USERS_READ)
   @ApiOperation({ summary: 'Get roster top-line metrics (active, pending, suspended, locked counts)' })
   async getMetrics() {
-    return this.usersService.getMetrics();
+    const result = await this.usersService.getMetrics();
+    return ResultEntity.ok(result);
   }
 
   @Patch(':id/status')
@@ -133,16 +135,18 @@ export class UsersController {
     @Param('id') id: string,
     @Body() dto: UpdateUserStatusDto,
     @Request() req: any,
-  ): Promise<{ message: string }> {
-    return this.usersService.updateUserStatus(id, dto, this.actor(req).id);
+  ): Promise<ResultEntity> {
+    const result = await this.usersService.updateUserStatus(id, dto, this.actor(req).id);
+    return ResultEntity.ok(result);
   }
 
   @Post(':id/unlock')
   @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Unlock a locked user account and reset failed login attempts' })
-  async unlockUser(@Param('id') id: string, @Request() req: any): Promise<{ message: string }> {
-    return this.usersService.unlockUser(id, this.actor(req).id);
+  async unlockUser(@Param('id') id: string, @Request() req: any): Promise<ResultEntity> {
+    const result = await this.usersService.unlockUser(id, this.actor(req).id);
+    return ResultEntity.ok(result);
   }
 
   @Patch(':id/roles')
@@ -152,24 +156,27 @@ export class UsersController {
     @Param('id') id: string,
     @Body() dto: AssignRolesDto,
     @Request() req: any,
-  ): Promise<{ message: string; roles: string[] }> {
-    return this.usersService.assignRoles(id, dto, this.actor(req).id);
+  ): Promise<ResultEntity> {
+    const result = await this.usersService.assignRoles(id, dto, this.actor(req).id);
+    return ResultEntity.ok(result);
   }
 
   @Post(':id/reset-password')
   @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Send password reset email to user' })
-  async sendPasswordReset(@Param('id') id: string, @Request() req: any): Promise<{ message: string }> {
-    return this.usersService.sendPasswordReset(id, this.actor(req).id);
+  async sendPasswordReset(@Param('id') id: string, @Request() req: any): Promise<ResultEntity> {
+    const result = await this.usersService.sendPasswordReset(id, this.actor(req).id);
+    return ResultEntity.ok(result);
   }
 
   @Post(':id/terminate-sessions')
   @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Terminate all active sessions/devices for a user' })
-  async terminateSessions(@Param('id') id: string, @Request() req: any): Promise<{ message: string }> {
-    return this.usersService.terminateSessions(id, this.actor(req).id);
+  async terminateSessions(@Param('id') id: string, @Request() req: any): Promise<ResultEntity> {
+    const result = await this.usersService.terminateSessions(id, this.actor(req).id);
+    return ResultEntity.ok(result);
   }
 
   // --- INVITATION ENGINE ENDPOINTS ---
@@ -182,32 +189,36 @@ export class UsersController {
     @Query('search') search?: string,
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
-  ): Promise<PaginatedInvitationsResponse> {
-    return this.invitationsService.listInvitations({ status, search, page, pageSize });
+  ): Promise<ResultEntity> {
+    const result = await this.invitationsService.listInvitations({ status, search, page, pageSize });
+    return ResultEntity.ok(result);
   }
 
   @Post('invitations')
   @RequirePermissions(PERMISSIONS.USERS_INVITE)
   @ApiOperation({ summary: 'Invite a new administrative user (Admin, HR, or Manager)' })
-  async createInvitation(@Body() dto: CreateInvitationDto, @Request() req: any): Promise<Invitation> {
+  async createInvitation(@Body() dto: CreateInvitationDto, @Request() req: any): Promise<ResultEntity> {
     const actor = this.actor(req);
-    return this.invitationsService.createInvitation(dto, actor.id, actor.name, actor.orgId);
+    const result = await this.invitationsService.createInvitation(dto, actor.id, actor.name, actor.orgId);
+    return ResultEntity.created(result);
   }
 
   @Post('invitations/:id/resend')
   @RequirePermissions(PERMISSIONS.USERS_INVITE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend an invitation email with a fresh token and expiry' })
-  async resendInvitation(@Param('id') id: string, @Request() req: any): Promise<{ message: string }> {
+  async resendInvitation(@Param('id') id: string, @Request() req: any): Promise<ResultEntity> {
     const actor = this.actor(req);
-    return this.invitationsService.resendInvitation(id, actor.id, actor.name);
+    const result = await this.invitationsService.resendInvitation(id, actor.id, actor.name);
+    return ResultEntity.ok(result);
   }
 
   @Delete('invitations/:id')
   @RequirePermissions(PERMISSIONS.USERS_INVITE)
   @ApiOperation({ summary: 'Revoke a pending invitation' })
-  async revokeInvitation(@Param('id') id: string, @Request() req: any): Promise<{ message: string }> {
-    return this.invitationsService.revokeInvitation(id, this.actor(req).id);
+  async revokeInvitation(@Param('id') id: string, @Request() req: any): Promise<ResultEntity> {
+    const result = await this.invitationsService.revokeInvitation(id, this.actor(req).id);
+    return ResultEntity.ok(result);
   }
 
   // --- ROLES & PERMISSIONS ENDPOINTS ---
@@ -215,22 +226,25 @@ export class UsersController {
   @Get('roles')
   @RequirePermissions(PERMISSIONS.USERS_READ)
   @ApiOperation({ summary: 'List all system and custom roles with user counts' })
-  async getRoles(): Promise<any[]> {
-    return this.usersService.getRoles();
+  async getRoles(): Promise<ResultEntity> {
+    const result = await this.usersService.getRoles();
+    return ResultEntity.ok(result);
   }
 
   @Get('roles/:id')
   @RequirePermissions(PERMISSIONS.USERS_READ)
   @ApiOperation({ summary: 'Get role details and permission matrix' })
-  async getRoleById(@Param('id') id: string): Promise<any> {
-    return this.usersService.getRoleById(id);
+  async getRoleById(@Param('id') id: string): Promise<ResultEntity> {
+    const result = await this.usersService.getRoleById(id);
+    return ResultEntity.ok(result);
   }
 
   @Post('roles')
   @RequirePermissions(PERMISSIONS.ROLES_MANAGE)
   @ApiOperation({ summary: 'Create custom role with granular permissions' })
-  async createRole(@Body() dto: CreateRoleDto): Promise<Role> {
-    return this.usersService.createRole(dto);
+  async createRole(@Body() dto: CreateRoleDto): Promise<ResultEntity> {
+    const result = await this.usersService.createRole(dto);
+    return ResultEntity.created(result);
   }
 
   @Patch('roles/:id')
@@ -239,15 +253,17 @@ export class UsersController {
   async updateRole(
     @Param('id') id: string,
     @Body() dto: UpdateRoleDto,
-  ): Promise<Role> {
-    return this.usersService.updateRole(id, dto);
+  ): Promise<ResultEntity> {
+    const result = await this.usersService.updateRole(id, dto);
+    return ResultEntity.ok(result);
   }
 
   @Delete('roles/:id')
   @RequirePermissions(PERMISSIONS.ROLES_MANAGE)
   @ApiOperation({ summary: 'Delete custom role if no users are assigned' })
-  async deleteRole(@Param('id') id: string): Promise<{ message: string }> {
-    return this.usersService.deleteRole(id);
+  async deleteRole(@Param('id') id: string): Promise<ResultEntity> {
+    const result = await this.usersService.deleteRole(id);
+    return ResultEntity.ok(result);
   }
 
   // --- SECURITY POLICY ENDPOINTS ---
@@ -255,8 +271,9 @@ export class UsersController {
   @Get('security-policy')
   @RequirePermissions(PERMISSIONS.USERS_READ)
   @ApiOperation({ summary: 'Get organization password, session, and lockout security policy' })
-  async getSecurityPolicy(): Promise<SecurityPolicy> {
-    return this.usersService.getSecurityPolicy();
+  async getSecurityPolicy(): Promise<ResultEntity> {
+    const result = await this.usersService.getSecurityPolicy();
+    return ResultEntity.ok(result);
   }
 
   @Put('security-policy')
@@ -265,7 +282,8 @@ export class UsersController {
   async updateSecurityPolicy(
     @Body() dto: UpdateSecurityPolicyDto,
     @Request() req: any,
-  ): Promise<SecurityPolicy> {
-    return this.usersService.updateSecurityPolicy(dto, this.actor(req).id);
+  ): Promise<ResultEntity> {
+    const result = await this.usersService.updateSecurityPolicy(dto, this.actor(req).id);
+    return ResultEntity.ok(result);
   }
 }

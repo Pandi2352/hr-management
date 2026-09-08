@@ -22,6 +22,7 @@ import {
 } from '../../common/audit/audit.constants';
 import { OrganizationService } from '../organization/organization.service';
 import { LoginHistoryService } from './login-history.service';
+import { ResultEntity } from '../../common/response';
 
 /**
  * Read-only audit surface.
@@ -98,7 +99,7 @@ export class AuditController {
       sortOrder,
     });
 
-    return { success: true, data: result.data, meta: result.meta };
+    return ResultEntity.ok(result.data, undefined, result.meta);
   }
 
   @Get('logs/export')
@@ -175,9 +176,9 @@ export class AuditController {
       metadata: { rowCount: rows.length, filters: { action, resourceType, status, from, to, search } },
     });
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.csv"');
-    return res.status(200).send(`${header}\n${body}`);
+    new ResultEntity()
+      .setCSV({ csv: `${header}\n${body}`, filename: 'audit-logs.csv' })
+      .sendResponse(res);
   }
 
   @Get('login-history')
@@ -203,7 +204,7 @@ export class AuditController {
       page,
       limit,
     });
-    return { success: true, data: result.data, meta: result.meta };
+    return ResultEntity.ok(result.data, undefined, result.meta);
   }
 
   @Get('login-history/suspicious')
@@ -211,7 +212,7 @@ export class AuditController {
   @ApiOperation({ summary: 'IPs with repeated recent authentication failures' })
   async suspiciousLogins() {
     const data = await this.loginHistoryService.findSuspicious();
-    return { success: true, data };
+    return ResultEntity.ok(data);
   }
 
   @Get('logs/:id')
@@ -222,6 +223,6 @@ export class AuditController {
     // Org-scoped lookup — prevents cross-organization id enumeration (§18).
     const record = await this.auditService.findById(id, organizationId);
     if (!record) throw new NotFoundException('Audit record not found');
-    return { success: true, data: record };
+    return ResultEntity.ok(record);
   }
 }

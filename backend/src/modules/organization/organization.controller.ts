@@ -28,6 +28,7 @@ import {
   UpdateCostCenterDto,
 } from './dto/organization.dto';
 import { PaginationQueryDto } from '../../common/pagination/pagination.dto';
+import { ResultEntity } from '../../common/response';
 
 @Controller('organization')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -49,14 +50,14 @@ export class OrganizationController {
   @RequirePermissions(PERMISSIONS.ORG_PROFILE_READ)
   async getProfile(@Request() req: any) {
     const data = await this.orgService.getProfile(req.user.organizationId);
-    return { success: true, data };
+    return ResultEntity.ok(data);
   }
 
   @Patch('profile')
   @RequirePermissions(PERMISSIONS.ORG_PROFILE_WRITE)
   async updateProfile(@Request() req: any, @Body() dto: UpdateOrganizationDto) {
     const data = await this.orgService.updateProfile(dto, req.user.userId, req.user.organizationId);
-    return { success: true, message: 'Organization profile updated successfully', data };
+    return ResultEntity.ok(data, 'Organization profile updated successfully');
   }
 
   // ==========================================
@@ -78,9 +79,9 @@ export class OrganizationController {
       pageSize: paginationQuery.pageSize,
     });
     if (result && typeof result === 'object' && 'data' in result && 'meta' in result) {
-      return { success: true, data: result.data, meta: result.meta };
+      return ResultEntity.ok(result.data, undefined, result.meta);
     }
-    return { success: true, data: result };
+    return ResultEntity.ok(result);
   }
 
   @Get('departments/:id')
@@ -88,7 +89,7 @@ export class OrganizationController {
   async getDepartmentById(@Request() req: any, @Param('id') id: string) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.getDepartmentById(id, orgId);
-    return { success: true, data };
+    return ResultEntity.ok(data);
   }
 
   @Post('departments')
@@ -96,7 +97,7 @@ export class OrganizationController {
   async createDepartment(@Request() req: any, @Body() dto: CreateDepartmentDto) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.createDepartment(dto, orgId, req.user.userId);
-    return { success: true, message: 'Department created successfully', data };
+    return ResultEntity.created(data, 'Department created successfully');
   }
 
   @Patch('departments/:id')
@@ -108,7 +109,7 @@ export class OrganizationController {
   ) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.updateDepartment(id, dto, orgId, req.user.userId);
-    return { success: true, message: 'Department updated successfully', data };
+    return ResultEntity.ok(data, 'Department updated successfully');
   }
 
   @Patch('departments/:id/parent')
@@ -125,7 +126,7 @@ export class OrganizationController {
       orgId,
       req.user.userId,
     );
-    return { success: true, message: 'Department hierarchy updated successfully', data };
+    return ResultEntity.ok(data, 'Department hierarchy updated successfully');
   }
 
   @Patch('departments/:id/status')
@@ -133,14 +134,15 @@ export class OrganizationController {
   async toggleDepartmentStatus(@Request() req: any, @Param('id') id: string) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.toggleDepartmentStatus(id, orgId, req.user.userId);
-    return { success: true, message: `Department marked as ${data.status.toLowerCase()}`, data };
+    return ResultEntity.ok(data, `Department marked as ${data.status.toLowerCase()}`);
   }
 
   @Delete('departments/:id')
   @RequirePermissions(PERMISSIONS.ORG_DEPARTMENTS_MANAGE)
   async deleteDepartment(@Request() req: any, @Param('id') id: string) {
     const orgId = await this.getOrgId(req);
-    return this.orgService.deleteDepartment(id, orgId, req.user.userId);
+    const result = await this.orgService.deleteDepartment(id, orgId, req.user.userId);
+    return ResultEntity.ok(result);
   }
 
   // ==========================================
@@ -162,9 +164,9 @@ export class OrganizationController {
       pageSize: paginationQuery.pageSize,
     });
     if (result && typeof result === 'object' && 'data' in result && 'meta' in result) {
-      return { success: true, data: result.data, meta: result.meta };
+      return ResultEntity.ok(result.data, undefined, result.meta);
     }
-    return { success: true, data: result };
+    return ResultEntity.ok(result);
   }
 
   @Post('designations')
@@ -172,7 +174,7 @@ export class OrganizationController {
   async createDesignation(@Request() req: any, @Body() dto: CreateDesignationDto) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.createDesignation(dto, orgId, req.user.userId);
-    return { success: true, message: 'Designation created successfully', data };
+    return ResultEntity.created(data, 'Designation created successfully');
   }
 
   @Patch('designations/:id')
@@ -184,7 +186,7 @@ export class OrganizationController {
   ) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.updateDesignation(id, dto, orgId, req.user.userId);
-    return { success: true, message: 'Designation updated successfully', data };
+    return ResultEntity.ok(data, 'Designation updated successfully');
   }
 
   @Patch('designations/:id/status')
@@ -192,7 +194,7 @@ export class OrganizationController {
   async toggleDesignationStatus(@Request() req: any, @Param('id') id: string) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.toggleDesignationStatus(id, orgId, req.user.userId);
-    return { success: true, message: `Designation marked as ${data.status.toLowerCase()}`, data };
+    return ResultEntity.ok(data, `Designation marked as ${data.status.toLowerCase()}`);
   }
 
   // ==========================================
@@ -214,9 +216,9 @@ export class OrganizationController {
       pageSize: paginationQuery.pageSize,
     });
     if (result && typeof result === 'object' && 'data' in result && 'meta' in result) {
-      return { success: true, data: result.data, meta: result.meta };
+      return ResultEntity.ok(result.data, undefined, result.meta);
     }
-    return { success: true, data: result };
+    return ResultEntity.ok(result);
   }
 
   @Post('locations')
@@ -224,7 +226,7 @@ export class OrganizationController {
   async createLocation(@Request() req: any, @Body() dto: CreateLocationDto) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.createLocation(dto, orgId, req.user.userId);
-    return { success: true, message: 'Location created successfully', data };
+    return ResultEntity.created(data, 'Location created successfully');
   }
 
   @Patch('locations/:id')
@@ -236,7 +238,7 @@ export class OrganizationController {
   ) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.updateLocation(id, dto, orgId, req.user.userId);
-    return { success: true, message: 'Location updated successfully', data };
+    return ResultEntity.ok(data, 'Location updated successfully');
   }
 
   @Patch('locations/:id/status')
@@ -244,7 +246,7 @@ export class OrganizationController {
   async toggleLocationStatus(@Request() req: any, @Param('id') id: string) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.toggleLocationStatus(id, orgId, req.user.userId);
-    return { success: true, message: `Location marked as ${data.status.toLowerCase()}`, data };
+    return ResultEntity.ok(data, `Location marked as ${data.status.toLowerCase()}`);
   }
 
   // ==========================================
@@ -266,9 +268,9 @@ export class OrganizationController {
       pageSize: paginationQuery.pageSize,
     });
     if (result && typeof result === 'object' && 'data' in result && 'meta' in result) {
-      return { success: true, data: result.data, meta: result.meta };
+      return ResultEntity.ok(result.data, undefined, result.meta);
     }
-    return { success: true, data: result };
+    return ResultEntity.ok(result);
   }
 
   @Post('cost-centers')
@@ -276,7 +278,7 @@ export class OrganizationController {
   async createCostCenter(@Request() req: any, @Body() dto: CreateCostCenterDto) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.createCostCenter(dto, orgId, req.user.userId);
-    return { success: true, message: 'Cost Center created successfully', data };
+    return ResultEntity.created(data, 'Cost Center created successfully');
   }
 
   @Patch('cost-centers/:id')
@@ -288,7 +290,7 @@ export class OrganizationController {
   ) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.updateCostCenter(id, dto, orgId, req.user.userId);
-    return { success: true, message: 'Cost Center updated successfully', data };
+    return ResultEntity.ok(data, 'Cost Center updated successfully');
   }
 
   @Patch('cost-centers/:id/status')
@@ -296,6 +298,6 @@ export class OrganizationController {
   async toggleCostCenterStatus(@Request() req: any, @Param('id') id: string) {
     const orgId = await this.getOrgId(req);
     const data = await this.orgService.toggleCostCenterStatus(id, orgId, req.user.userId);
-    return { success: true, message: `Cost Center marked as ${data.status.toLowerCase()}`, data };
+    return ResultEntity.ok(data, `Cost Center marked as ${data.status.toLowerCase()}`);
   }
 }

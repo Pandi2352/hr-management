@@ -21,6 +21,7 @@ import {
   CandidateSubmitStepDto,
   QueryOnboardingDto,
 } from './dto/onboarding.dto';
+import { ResultEntity } from '../../../common/response';
 
 @ApiTags('Lifecycle - Onboarding')
 @ApiBearerAuth()
@@ -45,21 +46,24 @@ export class OnboardingController {
   async initialize(@Request() req: any, @Body() dto: InitializeOnboardingDto) {
     const orgId = await this.getOrgId(req);
     const actorId = req.user?.userId || 'system';
-    return this.onboardingService.initializeOnboarding(orgId, dto, actorId);
+    const result = await this.onboardingService.initializeOnboarding(orgId, dto, actorId);
+    return ResultEntity.created(result);
   }
 
   @Get()
   @ApiOperation({ summary: 'Query all onboarding sessions with KPI metrics' })
   async findAll(@Request() req: any, @Query() query: QueryOnboardingDto): Promise<any> {
     const orgId = await this.getOrgId(req);
-    return this.onboardingService.findAll(orgId, query);
+    const result = await this.onboardingService.findAll(orgId, query);
+    return ResultEntity.ok(result);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get full onboarding checklist details by ID' })
   async findById(@Request() req: any, @Param('id') id: string): Promise<any> {
     const orgId = await this.getOrgId(req);
-    return this.onboardingService.findById(orgId, id);
+    const result = await this.onboardingService.findById(orgId, id);
+    return ResultEntity.ok(result);
   }
 
   @Patch(':id/tasks/:taskId')
@@ -72,14 +76,16 @@ export class OnboardingController {
   ) {
     const orgId = await this.getOrgId(req);
     const actorId = req.user?.userId || 'system';
-    return this.onboardingService.updateTask(orgId, id, taskId, dto, actorId);
+    const result = await this.onboardingService.updateTask(orgId, id, taskId, dto, actorId);
+    return ResultEntity.ok(result);
   }
 
   @Post(':id/remind')
   @ApiOperation({ summary: 'Dispatch reminder notifications for pending tasks' })
   async sendReminder(@Request() req: any, @Param('id') id: string) {
     const orgId = await this.getOrgId(req);
-    return this.onboardingService.sendReminder(orgId, id);
+    const result = await this.onboardingService.sendReminder(orgId, id);
+    return ResultEntity.ok(result);
   }
 }
 
@@ -109,7 +115,8 @@ export class CandidateOnboardingController {
     if (!employeeId) {
       throw new BadRequestException('Current user account is not linked to an employee record');
     }
-    return this.onboardingService.findByEmployeeId(orgId, employeeId);
+    const result = await this.onboardingService.findByEmployeeId(orgId, employeeId);
+    return ResultEntity.ok(result);
   }
 
   @Post('submit-step')
@@ -120,6 +127,7 @@ export class CandidateOnboardingController {
     if (!employeeId) {
       throw new BadRequestException('Current user account is not linked to an employee record');
     }
-    return this.onboardingService.candidateSubmitStep(orgId, employeeId, dto);
+    const result = await this.onboardingService.candidateSubmitStep(orgId, employeeId, dto);
+    return ResultEntity.ok(result);
   }
 }
