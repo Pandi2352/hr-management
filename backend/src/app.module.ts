@@ -8,6 +8,8 @@ import { UsersModule } from './modules/users/users.module';
 import { AuditApiModule } from './modules/audit/audit.module';
 import { RecruitmentModule } from './modules/recruitment/recruitment.module';
 import { OnboardingModule } from './modules/lifecycle/onboarding/onboarding.module';
+import { ProbationModule } from './modules/lifecycle/probation/probation.module';
+import { TransitionsModule } from './modules/lifecycle/transitions/transitions.module';
 import { AuditModule } from './common/audit/audit.module';
 import { CacheModule } from './common/cache';
 import { RequestContextMiddleware } from './common/audit/request-context';
@@ -28,6 +30,8 @@ import { RequestContextMiddleware } from './common/audit/request-context';
     AuditApiModule,
     RecruitmentModule,
     OnboardingModule,
+    ProbationModule,
+    TransitionsModule,
   ],
 })
 export class AppModule implements NestModule {

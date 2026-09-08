@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../../components/ui/toast';
 import { Avatar } from '../../../components/ui';
 import { employeesApi } from '../api/employees.api';
@@ -8,15 +8,18 @@ import { CredentialsModal } from '../components/CredentialsModal';
 import { StatusTransitionModal } from '../components/StatusTransitionModal';
 import { AuditTimeline } from '../../audit/components/AuditTimeline';
 import { DocumentVault } from '../components/DocumentVault';
+import { EmployeeLifecycleTimeline } from '../../lifecycle/components/EmployeeLifecycleTimeline';
 import type { Employee } from '../types/employees.types';
 
 export function EmployeeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
 
+  const initialTab = searchParams.get('tab') || 'overview';
   const [employee, setEmployee] = useState<Employee | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showCredentials, setShowCredentials] = useState<boolean>(false);
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
@@ -80,6 +83,7 @@ export function EmployeeDetailPage() {
     { id: 'skills', label: '5. Skills' },
     { id: 'documents', label: '6. Document Vault' },
     { id: 'audit', label: '7. Audit History' },
+    { id: 'timeline', label: '8. Career Milestones' },
   ];
 
   return (
@@ -334,6 +338,23 @@ export function EmployeeDetailPage() {
               logs={(employee.auditLogs || []) as any}
               emptyMessage="No audit records found for this employee yet."
             />
+          </div>
+        )}
+
+        {/* TAB 8: CAREER MILESTONES */}
+        {activeTab === 'timeline' && id && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Career Milestone Progression
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Complete chronological history of joining, onboarding, probation reviews, promotions, and departmental transfers.
+              </p>
+            </div>
+            <div className="pt-2">
+              <EmployeeLifecycleTimeline employeeId={id} />
+            </div>
           </div>
         )}
       </div>

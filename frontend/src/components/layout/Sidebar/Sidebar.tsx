@@ -27,6 +27,8 @@ import {
   AirplaneTilt,
   SealCheck,
   CaretUpDown,
+  UserCheck,
+  TrendUp,
   type IconWeight,
 } from "@phosphor-icons/react";
 import { cn } from "../../../utils/cn";
@@ -189,6 +191,9 @@ export function Sidebar({
 
   const operationsItems = [
     { title: "Contacts", icon: AddressBook, href: "/contacts", tint: "sky" },
+    { title: "Onboarding", icon: UserPlus, href: "/lifecycle/onboarding", tint: "violet" },
+    { title: "Probation", icon: UserCheck, href: "/lifecycle/probation", tint: "amber" },
+    { title: "Transitions", icon: TrendUp, href: "/lifecycle/transitions", tint: "indigo" },
     { title: "Recruitment", icon: UserPlus, href: "/recruitment", tint: "fuchsia" },
     { title: "Attendance", icon: ClockUser, href: "/attendance", tint: "teal" },
     { title: "Payroll", icon: Receipt, href: "/payroll", tint: "emerald" },

@@ -35,6 +35,9 @@ import { ContactUsPage } from "../features/careers/pages/ContactUsPage";
 import { OnboardingTrackerPage } from "../features/lifecycle/pages/OnboardingTrackerPage";
 import { OnboardingChecklistDetailPage } from "../features/lifecycle/pages/OnboardingChecklistDetailPage";
 import { EmployeeSelfOnboardingPage } from "../features/lifecycle/pages/EmployeeSelfOnboardingPage";
+import { ProbationTrackerPage } from "../features/lifecycle/pages/ProbationTrackerPage";
+import { PromotionsTransfersPage } from "../features/lifecycle/pages/PromotionsTransfersPage";
+import { EmployeeLifecycleTimelinePage } from "../features/lifecycle/pages/EmployeeLifecycleTimelinePage";
 import { UnauthorizedPage } from "../pages/UnauthorizedPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ProtectedRoute, PublicRoute } from "../features/auth/guards/AuthGuards";
@@ -146,6 +149,10 @@ export const router = createBrowserRouter([
             path: ":id/edit",
             element: <EmployeeEditPage />,
           },
+          {
+            path: ":id/timeline",
+            element: <EmployeeLifecycleTimelinePage />,
+          },
         ],
       },
       {
@@ -163,6 +170,14 @@ export const router = createBrowserRouter([
                 element: <OnboardingChecklistDetailPage />,
               },
             ],
+          },
+          {
+            path: "probation",
+            element: <ProbationTrackerPage />,
+          },
+          {
+            path: "transitions",
+            element: <PromotionsTransfersPage />,
           },
         ],
       },
