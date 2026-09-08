@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
-import { Button, Input, SelectField } from '../../../components/ui';
+import { ArrowLeft, Save, Camera, Loader2 } from 'lucide-react';
+import { Button, Input, SelectField, Avatar } from '../../../components/ui';
 import { useToast } from '../../../components/ui/toast';
 import { employeesApi } from '../api/employees.api';
 import { organizationApi } from '../../organization/api/organization.api';
@@ -12,18 +12,21 @@ export function EmployeeEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
 
   // Editable Form State
   const [formData, setFormData] = useState<{
     firstName: string;
     lastName: string;
     displayName: string;
+    avatarUrl: string;
     workEmail: string;
     personalEmail: string;
     phone: string;
@@ -37,6 +40,7 @@ export function EmployeeEditPage() {
     firstName: '',
     lastName: '',
     displayName: '',
+    avatarUrl: '',
     workEmail: '',
     personalEmail: '',
     phone: '',
@@ -67,6 +71,7 @@ export function EmployeeEditPage() {
           firstName: emp.firstName || '',
           lastName: emp.lastName || '',
           displayName: emp.displayName || '',
+          avatarUrl: emp.avatarUrl || '',
           workEmail: emp.workEmail || '',
           personalEmail: emp.personalEmail || '',
           phone: emp.phone || '',
@@ -95,6 +100,33 @@ export function EmployeeEditPage() {
         delete copy[field];
         return copy;
       });
+    }
+  };
+
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file (PNG, JPG, WebP).', 'Invalid File');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Avatar file size cannot exceed 5MB.', 'File Too Large');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const res = await employeesApi.uploadAvatar(id, file);
+      setFormData((prev) => ({ ...prev, avatarUrl: res.avatarUrl }));
+      setEmployee((prev) => (prev ? { ...prev, avatarUrl: res.avatarUrl } : null));
+      toast.success('Profile photo updated successfully.', 'Photo Updated');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to upload photo.', 'Upload Error');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
   };
 
@@ -154,6 +186,67 @@ export function EmployeeEditPage() {
       </div>
 
       <form onSubmit={handleSave} className="rounded-md border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950 space-y-6">
+        {/* Profile Picture Change Card */}
+        <div className="p-4 rounded-md border border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20">
+          <label className="text-[11px] font-bold tracking-wider uppercase text-indigo-900 dark:text-indigo-300 block mb-2">
+            Profile Photo (Square Format)
+          </label>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="relative group">
+              <Avatar
+                src={formData.avatarUrl || null}
+                name={formData.displayName || `${formData.firstName} ${formData.lastName}`.trim()}
+                size="xl"
+                className="rounded-md border-2 border-indigo-300 dark:border-indigo-700"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  ref={avatarInputRef}
+                  onChange={handleAvatarFileSelect}
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="flex items-center gap-1.5 cursor-pointer text-xs border-indigo-300 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"
+                >
+                  {isUploadingAvatar ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Uploading Photo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="h-3.5 w-3.5" />
+                      <span>{formData.avatarUrl ? 'Change Profile Photo' : 'Upload Profile Photo'}</span>
+                    </>
+                  )}
+                </Button>
+                {formData.avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, avatarUrl: '' }))}
+                    className="text-xs text-rose-600 hover:text-rose-700 underline font-medium cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                You can change the profile photo at any time. Photo is formatted in square with rounded corners.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <Input
             label="First Name"

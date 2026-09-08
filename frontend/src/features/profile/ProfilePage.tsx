@@ -18,6 +18,7 @@ import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/toast';
 import { profileApi } from './api/profile.api';
 import { cn } from '../../utils/cn';
+import defaultAvatarImg from '../../assets/default_avatar.jpg';
 
 type ProfileTab = 'information' | 'security' | 'activity';
 
@@ -45,8 +46,7 @@ export function ProfilePage() {
   const [dateOfBirth, setDateOfBirth] = useState('15 July 1990');
   const [joinedDate, setJoinedDate] = useState('March 12, 2020');
   const [avatarUrl, setAvatarUrl] = useState(
-    user?.avatarUrl ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+    user?.avatarUrl || defaultAvatarImg
   );
 
   const [isFollowing, setIsFollowing] = useState(false);
@@ -262,8 +262,11 @@ export function ProfilePage() {
             {/* Avatar with Camera Badge */}
             <div className="relative group shrink-0">
               <img
-                src={avatarUrl}
+                src={avatarUrl || defaultAvatarImg}
                 alt={fullName}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = defaultAvatarImg;
+                }}
                 className="h-20 w-20 rounded-md object-cover ring-2 ring-slate-100 dark:ring-slate-800 transition-transform group-hover:scale-105"
               />
               <button

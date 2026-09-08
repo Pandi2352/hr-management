@@ -10,6 +10,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { useToast } from '../../../components/ui/toast';
+import { Avatar } from '../../../components/ui';
 import type { ContactItem } from '../types/contacts.types';
 
 interface ContactCardProps {
@@ -46,18 +47,16 @@ export const ContactCard: React.FC<ContactCardProps> = ({
   };
 
   return (
-    <div className="group relative rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs hover:shadow-md hover:border-violet-300 dark:hover:border-violet-700/60 transition-all duration-200 flex flex-col justify-between">
-      {/* Top Details */}
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between group">
+      {/* Top Row: Avatar, Identity & Status */}
       <div>
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
-            <img
-              src={
-                contact.avatarUrl ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
-              }
-              alt={contact.displayName}
-              className="h-12 w-12 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 group-hover:ring-violet-500/30 transition-all shrink-0"
+            <Avatar
+              src={contact.avatarUrl}
+              name={contact.displayName}
+              size="lg"
+              className="shrink-0 rounded-md"
             />
             <div>
               <h3

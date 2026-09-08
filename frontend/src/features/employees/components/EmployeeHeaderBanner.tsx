@@ -1,6 +1,8 @@
-import React from 'react';
-import { ArrowLeft, Edit2, KeyRound } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ArrowLeft, Edit2, KeyRound, Camera, Loader2 } from 'lucide-react';
 import { Button, Avatar } from '../../../components/ui';
+import { useToast } from '../../../components/ui/toast';
+import { employeesApi } from '../api/employees.api';
 import type { Employee } from '../types/employees.types';
 
 export interface EmployeeHeaderBannerProps {
@@ -10,6 +12,7 @@ export interface EmployeeHeaderBannerProps {
   onShareCredentials?: () => void;
   onStatusChange?: () => void;
   onResendCredentials?: () => void;
+  onAvatarUpdated?: (newUrl: string) => void;
   activeTab: string;
   onTabChange: (tabId: string) => void;
   tabs: { id: string; label: string }[];
@@ -22,10 +25,42 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
   onShareCredentials,
   onStatusChange,
   onResendCredentials,
+  onAvatarUpdated,
   activeTab,
   onTabChange,
   tabs,
 }) => {
+  const toast = useToast();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file (PNG, JPG, WebP, GIF).', 'Invalid File');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Avatar file size cannot exceed 5MB.', 'File Too Large');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const res = await employeesApi.uploadAvatar(employee._id, file);
+      toast.success('Profile picture updated successfully.', 'Photo Updated');
+      if (onAvatarUpdated) {
+        onAvatarUpdated(res.avatarUrl);
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to upload profile photo.', 'Upload Failed');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
   return (
     <div className="space-y-6 w-full">
       {/* Back Link & Quick Actions */}
@@ -90,11 +125,42 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
       <div className="rounded-md border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Avatar
-              src={employee.avatarUrl}
-              name={employee.displayName || `${employee.firstName} ${employee.lastName}`}
-              size="xl"
-            />
+            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+              <Avatar
+                src={employee.avatarUrl}
+                name={employee.displayName || `${employee.firstName} ${employee.lastName}`}
+                size="xl"
+                className="transition-opacity group-hover:opacity-90 rounded-md"
+              />
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleAvatarFileSelect}
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+              />
+              <div
+                className="absolute inset-0 bg-slate-900/50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-medium"
+                title="Click to change photo"
+              >
+                {isUploadingAvatar ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <Camera className="h-4 w-4 mb-0.5" />
+                    <span>Change</span>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                className="absolute -bottom-1 -right-1 p-1 bg-[#524b6e] text-white rounded-md hover:bg-[#433c5b] transition-colors border border-white dark:border-slate-900 cursor-pointer"
+                title="Change employee profile photo"
+                disabled={isUploadingAvatar}
+              >
+                {isUploadingAvatar ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+              </button>
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">

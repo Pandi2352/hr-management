@@ -8,7 +8,6 @@ export interface AvatarProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   shape?: 'square' | 'rounded' | 'circle';
-  forceDefaultMock?: boolean;
 }
 
 const sizeClasses = {
@@ -25,12 +24,11 @@ export const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   className,
   shape = 'rounded',
-  forceDefaultMock = false,
 }) => {
   const [hasError, setHasError] = useState(false);
 
-  // If forceDefaultMock is false and src is provided and not errored, use uploaded src
-  const imageSrc = !forceDefaultMock && !hasError && src ? src : defaultAvatarImg;
+  // If user uploaded a valid src and not errored, use it; otherwise use single static default image
+  const imageSrc = !hasError && src && src.trim() !== '' ? src : defaultAvatarImg;
 
   const initials = name
     ? name

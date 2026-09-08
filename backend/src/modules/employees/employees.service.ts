@@ -25,6 +25,10 @@ import { generateUuid } from '../../common/utils/uuid.util';
 import { EmployeeProvisioningService } from './employee-provisioning.service';
 import { EmployeeScopeService, type RequestUser } from './employee-scope.service';
 import { DocumentStorageService } from './document-storage.service';
+import { resolve, join, extname } from 'path';
+import { existsSync } from 'fs';
+import { mkdir, writeFile, unlink } from 'fs/promises';
+import { randomUUID } from 'crypto';
 
 /** Maps an employee lifecycle status onto the canonical audit action. */
 function statusAuditAction(status: string): AuditAction {
@@ -501,6 +505,7 @@ export class EmployeesService {
       firstName: dto.firstName,
       lastName: dto.lastName,
       passwordHash,
+      avatarUrl: dto.avatarUrl,
     });
 
     const displayName = dto.displayName || `${dto.firstName} ${dto.lastName}`.trim();
@@ -569,17 +574,110 @@ export class EmployeesService {
       { new: true },
     );
 
-    // Sync linked user name if changed
+    // Sync linked user name or avatar if changed
     if (existing.userId) {
-      await this.userModel.findByIdAndUpdate(existing.userId, {
-        firstName: updated?.firstName,
-        lastName: updated?.lastName,
-        email: updated?.workEmail,
-      });
+      const userUpdates: any = {};
+      if (updated?.firstName) userUpdates.firstName = updated.firstName;
+      if (updated?.lastName) userUpdates.lastName = updated.lastName;
+      if (updated?.workEmail) userUpdates.email = updated.workEmail;
+      if (updated?.avatarUrl) userUpdates.avatarUrl = updated.avatarUrl;
+      if (Object.keys(userUpdates).length > 0) {
+        await this.userModel.findByIdAndUpdate(existing.userId, userUpdates);
+      }
     }
 
     await this.audit(orgId, userId, AuditAction.UPDATE, id, existing, updated, `Updated employee ${existing.employeeCode}`);
     return updated;
+  }
+
+  // 4.1. UPLOAD EMPLOYEE PROFILE PICTURE (CAN CHANGE ANY TIME)
+  async uploadAvatar(
+    id: string,
+    orgId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    actorUserId: string,
+    scopeUser?: RequestUser,
+  ): Promise<{ avatarUrl: string }> {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Only JPG, PNG, WEBP and GIF image formats are supported.');
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('Image size cannot exceed 5MB.');
+    }
+
+    const employee = await this.getScopedEmployee(id, orgId, scopeUser);
+
+    const uploadsDir = resolve(process.cwd(), 'uploads', 'avatars');
+    await mkdir(uploadsDir, { recursive: true });
+
+    const ext = extname(file.originalname).toLowerCase() || '.jpg';
+    const filename = `emp-${id}-${randomUUID()}${ext}`;
+    const filePath = join(uploadsDir, filename);
+
+    await writeFile(filePath, file.buffer);
+
+    const avatarUrl = `/api/v1/users/avatar/${filename}`;
+    const oldAvatar = employee.avatarUrl;
+
+    employee.avatarUrl = avatarUrl;
+    await employee.save();
+
+    // Also update linked user account if exists
+    if (employee.userId) {
+      await this.userModel.findByIdAndUpdate(employee.userId, { avatarUrl });
+    } else {
+      await this.userModel.updateOne(
+        { email: employee.workEmail.toLowerCase().trim() },
+        { $set: { avatarUrl } },
+      );
+    }
+
+    // Clean up old avatar if it was locally uploaded
+    if (oldAvatar && oldAvatar.startsWith('/api/v1/users/avatar/emp-')) {
+      const oldFilename = oldAvatar.replace('/api/v1/users/avatar/', '');
+      const oldPath = join(uploadsDir, oldFilename);
+      if (existsSync(oldPath)) {
+        await unlink(oldPath).catch(() => {});
+      }
+    }
+
+    await this.audit(
+      orgId,
+      actorUserId,
+      AuditAction.UPDATE,
+      id,
+      { avatarUrl: oldAvatar },
+      { avatarUrl },
+      `Updated profile picture for ${employee.employeeCode}`,
+    );
+
+    return { avatarUrl };
+  }
+
+  // 4.2. UPLOAD PRE-HIRE AVATAR (FOR EMPLOYEE CREATION WIZARD)
+  async uploadPreHireAvatar(
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+  ): Promise<{ avatarUrl: string }> {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Only JPG, PNG, WEBP and GIF image formats are supported.');
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('Image size cannot exceed 5MB.');
+    }
+
+    const uploadsDir = resolve(process.cwd(), 'uploads', 'avatars');
+    await mkdir(uploadsDir, { recursive: true });
+
+    const ext = extname(file.originalname).toLowerCase() || '.jpg';
+    const filename = `prehire-${randomUUID()}${ext}`;
+    const filePath = join(uploadsDir, filename);
+
+    await writeFile(filePath, file.buffer);
+
+    const avatarUrl = `/api/v1/users/avatar/${filename}`;
+    return { avatarUrl };
   }
 
   // 5. CHANGE EMPLOYEE STATUS (LIFECYCLE TRANSITIONS)

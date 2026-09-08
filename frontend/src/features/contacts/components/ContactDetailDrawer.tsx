@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { Avatar } from '../../../components/ui';
 import { useToast } from '../../../components/ui/toast';
 import type { ContactItem, EmergencyContactInfo } from '../types/contacts.types';
 
@@ -96,10 +97,11 @@ export const ContactDetailDrawer: React.FC<ContactDetailDrawerProps> = ({
             </button>
 
             <div className="flex items-start gap-4">
-              <img
-                src={contact.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'}
-                alt={contact.displayName}
-                className="h-16 w-16 rounded-full object-cover ring-2 ring-violet-500/20 shadow-xs shrink-0"
+              <Avatar
+                src={contact.avatarUrl}
+                name={contact.displayName}
+                size="xl"
+                className="shrink-0 rounded-md"
               />
               <div className="space-y-1">
                 <div className="flex items-center gap-2">

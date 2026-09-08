@@ -188,11 +188,13 @@ export class EmployeeProvisioningService {
     firstName: string;
     lastName: string;
     passwordHash: string;
+    avatarUrl?: string;
   }): Promise<string> {
     const existing = await this.userModel.findOne({ email: params.email.toLowerCase().trim() });
     if (existing) {
       existing.status = ('ACTIVE' as any);
       existing.passwordHash = params.passwordHash;
+      if (params.avatarUrl) existing.avatarUrl = params.avatarUrl;
       await existing.save();
       return existing._id;
     }
@@ -204,6 +206,7 @@ export class EmployeeProvisioningService {
       passwordHash: params.passwordHash,
       firstName: params.firstName.trim(),
       lastName: params.lastName.trim(),
+      avatarUrl: params.avatarUrl || undefined,
       status: 'ACTIVE',
       roles: ['EMPLOYEE'],
       permissions: [],

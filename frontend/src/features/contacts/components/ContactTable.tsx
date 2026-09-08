@@ -12,6 +12,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useToast } from '../../../components/ui/toast';
+import { Avatar } from '../../../components/ui';
 import type { ContactItem, ContactSortField, SortOrder } from '../types/contacts.types';
 
 interface ContactTableProps {
@@ -121,13 +122,11 @@ export const ContactTable: React.FC<ContactTableProps> = ({
                     onClick={() => onViewContact(contact)}
                     className="flex items-center gap-3 cursor-pointer"
                   >
-                    <img
-                      src={
-                        contact.avatarUrl ||
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
-                      }
-                      alt={contact.displayName}
-                      className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700 shrink-0 group-hover:ring-violet-500 transition-all"
+                    <Avatar
+                      src={contact.avatarUrl}
+                      name={contact.displayName}
+                      size="sm"
+                      className="shrink-0 rounded-md"
                     />
                     <div>
                       <span className="font-semibold block hover:text-violet-600 dark:hover:text-violet-400">

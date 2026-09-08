@@ -75,12 +75,51 @@ export class EmployeesController {
       .sendResponse(res);
   }
 
+  @Post('upload-avatar')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_CREATE)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadPreHireAvatar(
+    @UploadedFile() file: any,
+  ) {
+    if (!file) throw new BadRequestException('No image file was uploaded.');
+    const data = await this.employeesService.uploadPreHireAvatar(file);
+    return ResultEntity.ok(data, 'Avatar uploaded successfully');
+  }
+
   @Get(':id')
   @RequirePermissions(PERMISSIONS.EMPLOYEE_READ)
   async getEmployeeById(@Request() req: any, @Param('id') id: string): Promise<any> {
     const orgId = await this.getOrgId(req);
     const data = await this.employeesService.getEmployeeById(id, orgId, req.user);
     return ResultEntity.ok(data);
+  }
+
+  @Post(':id/avatar')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_UPDATE)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadAvatar(
+    @Request() req: any,
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) throw new BadRequestException('No image file was uploaded.');
+    const orgId = await this.getOrgId(req);
+    const data = await this.employeesService.uploadAvatar(
+      id,
+      orgId,
+      file,
+      req.user.userId,
+      req.user,
+    );
+    return ResultEntity.ok(data, 'Profile picture updated successfully');
   }
 
   @Post()

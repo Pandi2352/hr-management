@@ -96,6 +96,7 @@ export function EmployeeDetailPage() {
         onShareCredentials={() => setShowCredentials(true)}
         onStatusChange={() => setShowStatusModal(true)}
         onResendCredentials={handleResendCredentials}
+        onAvatarUpdated={(newUrl) => setEmployee((prev) => (prev ? { ...prev, avatarUrl: newUrl } : null))}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         tabs={tabs}

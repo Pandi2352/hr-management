@@ -76,6 +76,26 @@ export const employeesApi = {
     return response.data;
   },
 
+  uploadAvatar: async (id: string, file: File): Promise<{ avatarUrl: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await apiClient.post<{ success: boolean; data: { avatarUrl: string } }>(
+      `/employees/${id}/avatar`,
+      form
+    );
+    return response.data.data;
+  },
+
+  uploadPreHireAvatar: async (file: File): Promise<{ avatarUrl: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await apiClient.post<{ success: boolean; data: { avatarUrl: string } }>(
+      '/employees/upload-avatar',
+      form
+    );
+    return response.data.data;
+  },
+
   // --- Document vault ---------------------------------------------------
 
   uploadDocument: async (

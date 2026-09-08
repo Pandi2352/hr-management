@@ -5,6 +5,7 @@ import { Dropdown } from "../../ui/Dropdown";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import { useLogout } from "../../../features/auth/hooks/useLogout";
 import { LogoutDialog } from "../../../features/auth/components/LogoutDialog";
+import defaultAvatarImg from "../../../assets/default_avatar.jpg";
 
 export function UserMenu() {
   const { user } = useAuth();
@@ -31,28 +32,21 @@ export function UserMenu() {
   const displayName = user?.name || (user?.firstName ? `${user.firstName} ${user.lastName}` : "User");
   const displayEmail = user?.email || "user@peopleos.internal";
   const displayRole = user?.roles?.[0] ? user.roles[0].replace("_", " ") : "Administrator";
-  const initials = displayName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <>
       <Dropdown
         trigger={
           <div className="flex items-center gap-2 rounded-md p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer select-none">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--primary)] font-semibold text-xs text-white">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={displayName}
-                  className="h-full w-full object-cover rounded-md"
-                />
-              ) : (
-                initials
-              )}
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900">
+              <img
+                src={avatarUrl || defaultAvatarImg}
+                alt={displayName}
+                className="h-full w-full object-cover rounded-md"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = defaultAvatarImg;
+                }}
+              />
             </div>
             <div className="hidden text-left sm:block">
               <div className="flex items-center gap-1">

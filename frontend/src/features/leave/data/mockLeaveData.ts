@@ -47,7 +47,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-1',
     name: 'Anthony Thomas',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Casual Leave',
     department: 'Back-End Developer',
     days: '2 Days',
@@ -59,7 +59,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-2',
     name: 'Anthony Thomas',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Casual Leave',
     department: 'Back-End Developer',
     days: '2 Days',
@@ -71,7 +71,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-3',
     name: 'Benjamin Martinez',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Casual Leave',
     department: 'Mobile App Developer',
     days: '4 Days',
@@ -83,7 +83,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-4',
     name: 'Benjamin Martinez',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Casual Leave',
     department: 'Mobile App Developer',
     days: '4 Days',
@@ -95,7 +95,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-5',
     name: 'Christopher Moore',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Maternity Leave',
     department: 'Full-Stack Developer',
     days: '1st Half Day',
@@ -107,7 +107,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-6',
     name: 'Christopher Moore',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Maternity Leave',
     department: 'Full-Stack Developer',
     days: '1st Half Day',
@@ -119,7 +119,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-7',
     name: 'Sarah Jenkins',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Sick Leave',
     department: 'UI/UX Designer',
     days: '3 Days',
@@ -131,7 +131,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-8',
     name: 'Michael Brown',
-    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Annual Leave',
     department: 'DevOps Engineer',
     days: '5 Days',
@@ -143,7 +143,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-9',
     name: 'Emily Watson',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Casual Leave',
     department: 'HR Specialist',
     days: '1 Day',
@@ -155,7 +155,7 @@ export const MOCK_LEAVE_RECORDS: LeaveRecord[] = [
   {
     id: 'leave-10',
     name: 'David Miller',
-    avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     leaveType: 'Sick Leave',
     department: 'QA Analyst',
     days: '2nd Half Day',

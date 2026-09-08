@@ -32,7 +32,7 @@ export const MOCK_PAYROLL_RECORDS: PayrollRecord[] = [
   {
     id: 'pay-1',
     name: 'James Anderson',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     department: 'Back-End Developer',
     totalDays: 30,
     workingDays: 27,
@@ -43,7 +43,7 @@ export const MOCK_PAYROLL_RECORDS: PayrollRecord[] = [
   {
     id: 'pay-2',
     name: 'William Johnson',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     department: 'Full-Stack Developer',
     totalDays: 29,
     workingDays: 18,
@@ -54,7 +54,7 @@ export const MOCK_PAYROLL_RECORDS: PayrollRecord[] = [
   {
     id: 'pay-3',
     name: 'Benjamin Martinez',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     department: 'Mobile App Developer',
     totalDays: 28,
     workingDays: 4,
@@ -65,7 +65,7 @@ export const MOCK_PAYROLL_RECORDS: PayrollRecord[] = [
   {
     id: 'pay-4',
     name: 'Michael Davis',
-    avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     department: 'UI/UX Designer',
     totalDays: 30,
     workingDays: 26,
@@ -76,7 +76,7 @@ export const MOCK_PAYROLL_RECORDS: PayrollRecord[] = [
   {
     id: 'pay-5',
     name: 'Matthew Taylor',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     department: 'DevOps Engineer',
     totalDays: 31,
     workingDays: 29,
@@ -87,7 +87,7 @@ export const MOCK_PAYROLL_RECORDS: PayrollRecord[] = [
   {
     id: 'pay-6',
     name: 'Sarah Jenkins',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     department: 'Senior Frontend Engineer',
     totalDays: 30,
     workingDays: 25,
@@ -98,7 +98,7 @@ export const MOCK_PAYROLL_RECORDS: PayrollRecord[] = [
   {
     id: 'pay-7',
     name: 'David Kim',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     department: 'Security Architect',
     totalDays: 30,
     workingDays: 28,
@@ -109,7 +109,7 @@ export const MOCK_PAYROLL_RECORDS: PayrollRecord[] = [
   {
     id: 'pay-8',
     name: 'Sophia Patel',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80',
+    avatarUrl: '',
     department: 'Product Designer',
     totalDays: 29,
     workingDays: 22,
