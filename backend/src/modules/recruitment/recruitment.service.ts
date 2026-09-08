@@ -3,8 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   OnModuleInit,
-  Logger,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { resolve, join, extname } from 'path';
@@ -15,10 +14,11 @@ import { JobVacancy, JobVacancyDocument } from './schemas/job-vacancy.schema';
 import { JobApplication, JobApplicationDocument } from './schemas/job-application.schema';
 import { Organization, OrganizationDocument } from '../organization/schemas/organization.schema';
 import { ApplyJobDto, CreateJobRequisitionDto, UpdateApplicationStatusDto } from './dto/recruitment.dto';
+import { LoggerHelper } from '../../common/logger';
 
 @Injectable()
 export class RecruitmentService implements OnModuleInit {
-  private readonly logger = new Logger(RecruitmentService.name);
+  private readonly logger = LoggerHelper.Instance.child(RecruitmentService.name);
 
   constructor(
     @InjectModel(JobVacancy.name)
@@ -37,7 +37,7 @@ export class RecruitmentService implements OnModuleInit {
     const count = await this.vacancyModel.countDocuments();
     if (count > 0) return;
 
-    this.logger.log('Seeding initial company job openings for Public Careers portal...');
+    this.logger.info(null, 'Seeding public job openings');
     const seedJobs: Partial<JobVacancy>[] = [
       {
         title: 'Senior Full-Stack Engineer',
@@ -212,7 +212,7 @@ export class RecruitmentService implements OnModuleInit {
     ];
 
     await this.vacancyModel.insertMany(seedJobs);
-    this.logger.log(`Successfully seeded ${seedJobs.length} public job openings!`);
+    this.logger.info(null, 'Seeded public job openings', { count: seedJobs.length });
   }
 
   // --- PUBLIC ENDPOINTS ---

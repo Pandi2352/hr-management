@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { LoggerHelper } from '../../common/logger';
 
 @Injectable()
 export class MailService {
-  private readonly logger = new Logger(MailService.name);
+  private readonly logger = LoggerHelper.Instance.child(MailService.name);
   private transporter: nodemailer.Transporter;
 
   constructor(private readonly configService: ConfigService) {
@@ -109,9 +110,9 @@ export class MailService {
         subject: `[PeopleOS] ${otp} is your verification code`,
         html,
       });
-      this.logger.log(`Password reset OTP email sent successfully to ${email}`);
+      this.logger.info(null, 'Password reset OTP email sent', { email });
     } catch (err: any) {
-      this.logger.error(`Failed to send email to ${email}: ${err.message}`, err.stack);
+      this.logger.error(null, 'Password reset OTP email failed', err);
       throw new Error(`Unable to send verification email: ${err.message}`);
     }
   }
@@ -211,9 +212,9 @@ export class MailService {
         subject: `[PeopleOS] Reset your password link`,
         html,
       });
-      this.logger.log(`Password reset link email sent successfully to ${email}`);
+      this.logger.info(null, 'Password reset link email sent', { email });
     } catch (err: any) {
-      this.logger.error(`Failed to send password reset link email to ${email}: ${err.message}`, err.stack);
+      this.logger.error(null, 'Password reset link email failed', err);
       throw new Error(`Unable to send verification email: ${err.message}`);
     }
   }
@@ -315,10 +316,10 @@ export class MailService {
         subject: `[PeopleOS] ${params.inviterName} invited you to manage ${params.orgName}`,
         html,
       });
-      this.logger.log(`Invitation email sent successfully to ${params.toEmail}`);
+      this.logger.info(null, 'Invitation email sent', { email: params.toEmail });
       return true;
     } catch (err: any) {
-      this.logger.warn(`Failed to deliver invitation email to ${params.toEmail}: ${err.message}`);
+      this.logger.warn(null, 'Invitation email delivery failed', err);
       return false;
     }
   }
@@ -385,10 +386,10 @@ export class MailService {
         subject: `[PeopleOS] Security Alert: Your account has been locked`,
         html,
       });
-      this.logger.log(`Account locked notification sent successfully to ${email}`);
+      this.logger.info(null, 'Account locked notification sent', { email });
       return true;
     } catch (err: any) {
-      this.logger.warn(`Failed to deliver account-locked notification to ${email}: ${err.message}`);
+      this.logger.warn(null, 'Account locked notification delivery failed', err);
       return false;
     }
   }
@@ -500,10 +501,13 @@ export class MailService {
         subject: `[PeopleOS] Welcome ${params.employeeName} — Your Workplace Account Credentials`,
         html,
       });
-      this.logger.log(`Onboarding credentials email sent successfully to ${params.toEmail} for employee ${params.employeeCode}`);
+      this.logger.info(null, 'Onboarding credentials email sent', {
+        email: params.toEmail,
+        employeeCode: params.employeeCode,
+      });
       return true;
     } catch (err: any) {
-      this.logger.warn(`Failed to deliver onboarding email to ${params.toEmail}: ${err.message}`);
+      this.logger.warn(null, 'Onboarding credentials email delivery failed', err);
       return false;
     }
   }

@@ -1,5 +1,5 @@
-import { Logger } from '@nestjs/common';
 import { ICacheHelper } from '../interfaces/ICacheHelper';
+import { LoggerHelper } from '../../../common/logger';
 
 interface Entry {
   value: string;
@@ -24,7 +24,7 @@ const SWEEP_INTERVAL_MS = 60_000;
  * then break when switched to Redis.
  */
 export class MapCacheHelper implements ICacheHelper {
-  private readonly logger = new Logger(MapCacheHelper.name);
+  private readonly logger = LoggerHelper.Instance.child(MapCacheHelper.name);
   private readonly store = new Map<string, Map<string, Entry>>();
   private readonly maxEntriesPerNamespace: number;
   private readonly sweeper: NodeJS.Timeout;
@@ -89,7 +89,7 @@ export class MapCacheHelper implements ICacheHelper {
     try {
       return JSON.parse(entry.value) as T;
     } catch {
-      this.logger.warn(`Discarding unparseable cache entry at ${namespace}:${key}`);
+      this.logger.warn(null, 'Discarding unparseable cache entry', { namespace, key });
       this.namespaceMap(namespace)!.delete(key);
       return null;
     }

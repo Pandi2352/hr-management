@@ -1,4 +1,4 @@
-import { Injectable, Logger, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Employee, EmployeeDocument } from './schemas/employee.schema';
@@ -8,10 +8,11 @@ import { MailService } from '../mail/mail.service';
 import { generateUuid } from '../../common/utils/uuid.util';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { LoggerHelper } from '../../common/logger';
 
 @Injectable()
 export class EmployeeProvisioningService {
-  private readonly logger = new Logger(EmployeeProvisioningService.name);
+  private readonly logger = LoggerHelper.Instance.child(EmployeeProvisioningService.name);
 
   constructor(
     @InjectModel(Employee.name) private readonly empModel: Model<EmployeeDocument>,
@@ -241,7 +242,7 @@ export class EmployeeProvisioningService {
         sentAt: delivered ? new Date() : undefined,
       };
     } catch (err: any) {
-      this.logger.warn(`Onboarding email dispatch failed: ${err.message}`);
+      this.logger.warn(null, 'Onboarding email dispatch failed', err);
       return { status: 'FAILED' };
     }
   }

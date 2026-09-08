@@ -3,8 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-  Logger,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Onboarding, OnboardingDocument, OnboardingTask } from './schemas/onboarding.schema';
@@ -21,10 +20,11 @@ import {
   QueryOnboardingDto,
 } from './dto/onboarding.dto';
 import { generateUuid } from '../../../common/utils/uuid.util';
+import { LoggerHelper } from '../../../common/logger';
 
 @Injectable()
 export class OnboardingService {
-  private readonly logger = new Logger(OnboardingService.name);
+  private readonly logger = LoggerHelper.Instance.child(OnboardingService.name);
 
   constructor(
     @InjectModel(Onboarding.name) private readonly onboardingModel: Model<OnboardingDocument>,
@@ -373,9 +373,10 @@ export class OnboardingService {
         { status: 'PROBATION' },
       );
 
-      this.logger.log(
-        `Onboarding ${session._id} 100% complete! Employee ${session.employeeId} automatically transitioned to PROBATION.`,
-      );
+      this.logger.info(null, 'Onboarding complete; employee transitioned to PROBATION', {
+        sessionId: session._id,
+        employeeId: session.employeeId,
+      });
     } else if (session.status === 'COMPLETED' && (!allMandatoryVerified || session.overallProgress < 100)) {
       session.status = 'IN_PROGRESS';
       session.completedAt = null;
@@ -479,9 +480,11 @@ export class OnboardingService {
     const employee = await this.employeeModel.findOne({ _id: session.employeeId, organizationId });
     const pendingTasks = session.tasks.filter((t) => t.status === 'PENDING' || t.status === 'REJECTED');
 
-    this.logger.log(
-      `Reminder sent for onboarding session ${id} (${pendingTasks.length} pending tasks) for ${employee?.firstName || 'employee'}.`,
-    );
+    this.logger.info(null, 'Onboarding reminder sent', {
+      sessionId: id,
+      employeeId: employee?._id,
+      pendingTasks: pendingTasks.length,
+    });
 
     return {
       success: true,

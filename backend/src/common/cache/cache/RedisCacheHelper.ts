@@ -1,7 +1,7 @@
-import { Logger } from '@nestjs/common';
 import { createClient, RedisClientType } from 'redis';
 import { ICacheConfig } from '../interfaces/ICacheConfig';
 import { ICacheHelper } from '../interfaces/ICacheHelper';
+import { LoggerHelper } from '../../../common/logger';
 
 /**
  * Redis backend — production, and the only one that works across more than one
@@ -23,7 +23,7 @@ import { ICacheHelper } from '../interfaces/ICacheHelper';
  * walk and stalls every other client on a shared instance.
  */
 export class RedisCacheHelper implements ICacheHelper {
-  private readonly logger = new Logger(RedisCacheHelper.name);
+  private readonly logger = LoggerHelper.Instance.child(RedisCacheHelper.name);
   private readonly client: RedisClientType;
   private readonly keyPrefix: string;
 
@@ -65,7 +65,7 @@ export class RedisCacheHelper implements ICacheHelper {
       this.ready = false;
       if (!this.warned) {
         this.warned = true;
-        this.logger.warn(`Cache unavailable, serving uncached reads: ${err.message}`);
+        this.logger.warn(null, 'Cache unavailable, serving uncached reads', err);
       }
     });
 
@@ -73,7 +73,7 @@ export class RedisCacheHelper implements ICacheHelper {
       this.ready = true;
       if (this.warned) {
         this.warned = false;
-        this.logger.log('Cache available again');
+        this.logger.info(null, 'Cache available again');
       }
     });
 
@@ -100,7 +100,7 @@ export class RedisCacheHelper implements ICacheHelper {
         // background while every call falls through to the database.
         if (!this.warned) {
           this.warned = true;
-          this.logger.warn(`Redis unreachable (${err.message}); serving uncached reads.`);
+          this.logger.warn(null, 'Redis unreachable, serving uncached reads', err);
         }
       })
       .finally(() => {
@@ -133,7 +133,7 @@ export class RedisCacheHelper implements ICacheHelper {
       }
       return true;
     } catch (err) {
-      this.logger.debug(`Cache set failed for ${namespace}:${key}: ${(err as Error).message}`);
+      this.logger.debug(null, 'Cache set failed', { namespace, key, reason: (err as Error).message });
       return false;
     }
   }
@@ -149,11 +149,11 @@ export class RedisCacheHelper implements ICacheHelper {
     } catch (err) {
       // A malformed entry must not poison the caller: drop it and report a miss.
       if (err instanceof SyntaxError) {
-        this.logger.warn(`Discarding unparseable cache entry at ${namespace}:${key}`);
+        this.logger.warn(null, 'Discarding unparseable cache entry', { namespace, key });
         void this.del(namespace, key);
         return null;
       }
-      this.logger.debug(`Cache get failed for ${namespace}:${key}: ${(err as Error).message}`);
+      this.logger.debug(null, 'Cache get failed', { namespace, key, reason: (err as Error).message });
       return null;
     }
   }
@@ -182,7 +182,7 @@ export class RedisCacheHelper implements ICacheHelper {
 
       return Object.keys(out).length > 0 ? out : null;
     } catch (err) {
-      this.logger.debug(`Cache getAll failed for ${namespace}: ${(err as Error).message}`);
+      this.logger.debug(null, 'Cache getAll failed', { namespace, reason: (err as Error).message });
       return null;
     }
   }
@@ -197,10 +197,12 @@ export class RedisCacheHelper implements ICacheHelper {
     } catch (err) {
       // Logged at error, not debug: a missed delete leaves a stale entry
       // serving wrong data, which is worse than a missed read.
-      this.logger.error(
-        `Cache invalidation failed for ${namespace}:${key} — it may serve stale data ` +
-          `until it expires: ${(err as Error).message}`,
-      );
+      // Logged with fields so a spike in failed invalidations is countable.
+      this.logger.error(null, 'Cache invalidation failed; entry may serve stale data', {
+        namespace,
+        key,
+        reason: (err as Error).message,
+      });
       return false;
     }
   }
@@ -214,10 +216,10 @@ export class RedisCacheHelper implements ICacheHelper {
       if (keys.length > 0) await this.client.unlink(keys);
       return true;
     } catch (err) {
-      this.logger.error(
-        `Cache invalidation failed for namespace ${namespace} — entries may serve stale ` +
-          `data until they expire: ${(err as Error).message}`,
-      );
+      this.logger.error(null, 'Namespace invalidation failed; entries may serve stale data', {
+        namespace,
+        reason: (err as Error).message,
+      });
       return false;
     }
   }

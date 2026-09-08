@@ -3,8 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   OnModuleInit,
-  Logger,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
@@ -35,6 +34,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import { existsSync } from 'fs';
 import { mkdir, unlink, writeFile } from 'fs/promises';
 import { extname, join, resolve } from 'path';
+import { LoggerHelper } from '../../common/logger';
 
 export const DEFAULT_PERMISSIONS: string[] = ALL_PERMISSIONS;
 
@@ -117,7 +117,7 @@ export interface PaginatedUsersResponse {
 
 @Injectable()
 export class UsersService implements OnModuleInit {
-  private readonly logger = new Logger(UsersService.name);
+  private readonly logger = LoggerHelper.Instance.child(UsersService.name);
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
@@ -163,7 +163,7 @@ export class UsersService implements OnModuleInit {
       const exists = await this.roleModel.findOne({ code: roleDef.code });
       if (!exists) {
         await this.roleModel.create(roleDef);
-        this.logger.log(`Seeded system role: ${roleDef.name} (${roleDef.code})`);
+        this.logger.info(null, 'Seeded system role', { name: roleDef.name, code: roleDef.code });
       }
     }
   }
@@ -196,9 +196,7 @@ export class UsersService implements OnModuleInit {
     }
 
     if (migratedRoles || migratedUsers) {
-      this.logger.log(
-        `Migrated legacy permission keys on ${migratedRoles} role(s) and ${migratedUsers} user(s)`,
-      );
+      this.logger.info(null, 'Migrated legacy permission keys', { migratedRoles, migratedUsers });
     }
 
     // Super Administrator is documented as unconstrained and its matrix is
@@ -214,9 +212,9 @@ export class UsersService implements OnModuleInit {
           { code: superAdminCode },
           { $set: { permissions: ALL_PERMISSIONS } },
         );
-        this.logger.log(
-          `Granted ${missing.length} newly-added permission(s) to the Super Administrator role`,
-        );
+        this.logger.info(null, 'Granted newly-added permissions to Super Administrator', {
+          granted: missing,
+        });
       }
     }
   }
@@ -225,7 +223,7 @@ export class UsersService implements OnModuleInit {
     const exists = await this.policyModel.findOne();
     if (!exists) {
       await this.policyModel.create(DEFAULT_SECURITY_POLICY);
-      this.logger.log('Seeded default platform security policy');
+      this.logger.info(null, 'Seeded default platform security policy');
     }
   }
 

@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { createReadStream, existsSync } from 'fs';
 import { mkdir, unlink, writeFile } from 'fs/promises';
 import { extname, join, resolve, sep } from 'path';
 import { randomUUID } from 'crypto';
+import { LoggerHelper } from '../../common/logger';
 
 /** Formats accepted by the vault (checklist: PDF, PNG, JPG up to 10MB). */
 export const ALLOWED_DOCUMENT_MIME_TYPES = [
@@ -31,7 +32,7 @@ export const DOCUMENT_CATEGORIES = [
  */
 @Injectable()
 export class DocumentStorageService {
-  private readonly logger = new Logger(DocumentStorageService.name);
+  private readonly logger = LoggerHelper.Instance.child(DocumentStorageService.name);
   private readonly root = resolve(process.cwd(), 'uploads', 'employee-documents');
 
   /** Rejects anything outside the whitelist or over the size cap. */
@@ -91,7 +92,10 @@ export class DocumentStorageService {
     try {
       await unlink(resolve(this.root, storageKey));
     } catch (err) {
-      this.logger.warn(`Could not delete stored document ${storageKey}: ${(err as Error).message}`);
+      this.logger.warn(null, 'Could not delete stored document', {
+        storageKey,
+        reason: (err as Error).message,
+      });
     }
   }
 }

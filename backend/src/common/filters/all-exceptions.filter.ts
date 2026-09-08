@@ -4,16 +4,14 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ErrorCode, STATUS_CODES } from '../constants';
 import { ApiErrorResponse } from '../dto/api-response.dto';
+import { LoggerHelper } from '../logger';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
-
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -36,11 +34,31 @@ export class AllExceptionsFilter implements ExceptionFilter {
         errorCode = body.errorCode || this.mapStatusToErrorCode(statusCode);
         details = body.errors || body.details || null;
       }
-    } else if (exception instanceof Error) {
-      this.logger.error(`Unhandled Exception: ${exception.message}`, exception.stack);
     }
 
     const statusText = this.mapStatusToText(statusCode);
+
+    /*
+     * Every failed request is logged here rather than in HttpLoggingInterceptor.
+     * Guards run *before* interceptors in Nest's pipeline, so a 401 from
+     * JwtAuthGuard or a 403 from PermissionsGuard never reaches an interceptor —
+     * without this, exactly the rejections worth investigating would be the ones
+     * missing from the logs.
+     *
+     * 5xx logs the stack; 4xx is expected traffic and logs at warn without one.
+     */
+    const httpLog = LoggerHelper.Instance.child('HTTP');
+    const summary = `${request.method} ${request.originalUrl?.split('?')[0] ?? request.url} ${statusCode}`;
+
+    if (statusCode >= 500) {
+      httpLog.error(null, summary, exception instanceof Error ? exception : { statusCode });
+    } else {
+      httpLog.warn(null, summary, {
+        statusCode,
+        errorCode,
+        userId: (request as any).user?.userId,
+      });
+    }
 
     const errorPayload: ApiErrorResponse = {
       success: false,

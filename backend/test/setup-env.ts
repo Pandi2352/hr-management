@@ -18,6 +18,11 @@ process.env.NODE_ENV = 'test';
 // degradation — see releases/release1/CACHE_HELPER_GUIDE.md.
 process.env.CACHE_STATUS = 'DISABLED';
 
+// Services log through LoggerHelper directly, so without a threshold every
+// suite would interleave application logs with the test report. Failures still
+// surface: 'error' is kept.
+process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'error';
+
 // Deterministic secrets so a missing .env never turns into a confusing
 // "secretOrPrivateKey must have a value" failure mid-suite.
 process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'e2e-access-secret';

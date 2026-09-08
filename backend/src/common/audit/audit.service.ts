@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { AuditLog, AuditLogDocument } from './audit-log.schema';
@@ -9,6 +9,7 @@ import {
 import { ActorType, AuditAction, AuditResource, AuditStatus } from './audit.constants';
 import { diffAuditValues, sanitizeAuditValue } from './audit-sanitizer.util';
 import { requestContext } from './request-context';
+import { LoggerHelper } from '../../common/logger';
 
 export interface RecordAuditInput {
   action: AuditAction | string;
@@ -51,7 +52,7 @@ export interface AuditQuery {
 
 @Injectable()
 export class AuditService {
-  private readonly logger = new Logger(AuditService.name);
+  private readonly logger = LoggerHelper.Instance.child(AuditService.name);
 
   /** Cached fallback org id — resolved once, reused for the process lifetime. */
   private defaultOrganizationId: string | null = null;
@@ -128,10 +129,7 @@ export class AuditService {
         deviceType: ctx?.deviceType || '',
       });
     } catch (err) {
-      this.logger.error(
-        `Failed to write audit record (${input.action} ${input.resourceType})`,
-        err as Error,
-      );
+      this.logger.error(null, 'Failed to write audit record', err as Error);
     }
   }
 

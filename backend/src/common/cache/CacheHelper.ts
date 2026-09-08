@@ -1,8 +1,8 @@
-import { Logger } from '@nestjs/common';
 import { CacheStatus } from './enum/CacheStatus';
 import { CacheTypes } from './enum/CacheTypes';
 import { ICacheConfig } from './interfaces/ICacheConfig';
 import { ICacheHelper } from './interfaces/ICacheHelper';
+import { LoggerHelper } from '../../common/logger';
 
 /**
  * Null Object for a disabled cache.
@@ -62,7 +62,7 @@ export class CacheHelper {
    */
   private static pending: Promise<ICacheHelper> | null = null;
 
-  private static readonly logger = new Logger(CacheHelper.name);
+  private static readonly logger = LoggerHelper.Instance.child(CacheHelper.name);
 
   /**
    * @param config Optional explicit configuration. Omit it to build one from
@@ -90,7 +90,7 @@ export class CacheHelper {
     // so the cache can always be switched off to isolate a problem.
     const status = (process.env.CACHE_STATUS || CacheStatus.DISABLED).toUpperCase();
     if (status === CacheStatus.DISABLED) {
-      this.logger.log('CACHE_STATUS=DISABLED — cache bypassed, all reads go to the database');
+      this.logger.info(null, 'CACHE_STATUS=DISABLED — cache bypassed, all reads go to the database');
       return new DisabledCache();
     }
 
@@ -105,12 +105,18 @@ export class CacheHelper {
     switch (resolved.cacheType) {
       case CacheTypes.REDIS: {
         const { RedisCacheHelper } = await import('./cache/RedisCacheHelper');
-        this.logger.log(`Cache backend: REDIS (${this.redact(resolved.redis?.url)})`);
+        this.logger.info(null, 'Cache backend selected', {
+          backend: CacheTypes.REDIS,
+          url: this.redact(resolved.redis?.url),
+        });
         return new RedisCacheHelper(resolved);
       }
       case CacheTypes.MAP: {
         const { MapCacheHelper } = await import('./cache/MapCacheHelper');
-        this.logger.log('Cache backend: MAP (in-memory, process-local — not for multi-instance)');
+        this.logger.info(null, 'Cache backend selected', {
+          backend: CacheTypes.MAP,
+          note: 'in-memory, process-local — not safe for multi-instance',
+        });
         return new MapCacheHelper(resolved.maxEntriesPerNamespace);
       }
       default:

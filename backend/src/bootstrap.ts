@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
+import { HttpLoggingInterceptor } from './common/logger';
 
 /**
  * Applies the global HTTP stack — prefix, cookie parsing, validation,
@@ -16,7 +17,9 @@ export function configureApp(app: INestApplication): INestApplication {
   app.setGlobalPrefix('api/v1');
 
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalInterceptors(new ResponseTransformInterceptor());
+  // HTTP logging runs first so it still records a request the response
+  // transform later rejects.
+  app.useGlobalInterceptors(new HttpLoggingInterceptor(), new ResponseTransformInterceptor());
 
   app.useGlobalPipes(
     new ValidationPipe({

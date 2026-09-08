@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Employee, EmployeeDocument } from './schemas/employee.schema';
 import { Department, DepartmentDocument } from '../organization/schemas/department.schema';
 import { Role, RoleDocument } from '../users/schemas/role.schema';
 import { UserRole } from '../../common/constants';
+import { LoggerHelper } from '../../common/logger';
 
 /** The authenticated principal as attached to the request by JwtStrategy. */
 export interface RequestUser {
@@ -24,7 +25,7 @@ export interface RequestUser {
  */
 @Injectable()
 export class EmployeeScopeService {
-  private readonly logger = new Logger(EmployeeScopeService.name);
+  private readonly logger = LoggerHelper.Instance.child(EmployeeScopeService.name);
 
   constructor(
     @InjectModel(Employee.name) private readonly empModel: Model<EmployeeDocument>,
@@ -130,9 +131,10 @@ export class EmployeeScopeService {
 
       const departmentId = linkedEmployee?.departmentId;
       if (!departmentId) {
-        this.logger.warn(
-          `Manager ${user.email || user.userId} has no linked employee department — scoping to nothing`,
-        );
+        this.logger.warn(null, 'Manager has no linked employee department; scoping to nothing', {
+          userId: user.userId,
+          email: user.email,
+        });
         return [];
       }
 

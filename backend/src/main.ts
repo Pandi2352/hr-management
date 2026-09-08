@@ -1,11 +1,15 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
+import { LoggerHelper, NestLoggerAdapter } from './common/logger';
 import { AppModule } from './app.module';
 import { configureApp } from './bootstrap';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  // bufferLogs holds framework output until useLogger installs the adapter, so
+  // nothing emitted during bootstrap escapes in Nest's default format.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(new NestLoggerAdapter());
+
+  const logger = LoggerHelper.Instance.child('Bootstrap');
 
   // Prefix, cookie parsing, validation, filters and interceptors — shared with
   // the e2e suite so tests hit the identical request pipeline.
@@ -33,10 +37,14 @@ async function bootstrap() {
   setupSwagger(app);
 
   const port = process.env.PORT || 3000;
+  // Flush transports on SIGTERM instead of losing buffered lines.
+  app.enableShutdownHooks();
+  process.on('beforeExit', () => LoggerHelper.Instance.close());
+
   await app.listen(port);
 
-  logger.log(`🚀 PeopleOS API running on: http://localhost:${port}/api/v1`);
-  logger.log(`📖 Swagger documentation available at: http://localhost:${port}/api/docs`);
+  logger.info(null, `🚀 PeopleOS API running on: http://localhost:${port}/api/v1`);
+  logger.info(null, `📖 Swagger documentation available at: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

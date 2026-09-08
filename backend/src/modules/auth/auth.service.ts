@@ -4,8 +4,7 @@ import {
   HttpException,
   HttpStatus,
   ForbiddenException,
-  Logger,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
@@ -33,6 +32,7 @@ import {
   DEFAULT_SECURITY_POLICY,
 } from '../../common/utils/password-policy.util';
 import { randomBytes, randomUUID, createHash } from 'crypto';
+import { LoggerHelper } from '../../common/logger';
 
 /**
  * Refresh tokens are hashed with SHA-256, not bcrypt.
@@ -55,7 +55,7 @@ const TOKEN_EXPIRATION_MS = 15 * 60 * 1000; // 15 minutes
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
+  private readonly logger = LoggerHelper.Instance.child(AuthService.name);
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
@@ -176,7 +176,7 @@ export class AuthService {
       await this.mailService.sendPasswordResetOtp(email, otp, user.firstName || 'Colleague');
       await this.mailService.sendPasswordResetLink(email, rawToken, user.firstName || 'Colleague');
     } catch (err: any) {
-      this.logger.error(`Failed to send password reset emails to ${email}`, err);
+      this.logger.error(null, 'Password reset email dispatch failed', err);
     }
 
     return {
@@ -366,7 +366,7 @@ export class AuthService {
     const user = await this.userModel.findOne({ email: validation.email });
     if (user) {
       await this.sessionModel.updateMany({ userId: user._id }, { $set: { revokedAt: new Date() } });
-      this.logger.log(`Password reset: All existing sessions revoked for user ${user._id}`);
+      this.logger.info(null, 'Sessions revoked after password reset', { userId: user._id });
     }
 
     await this.auditAuth({
@@ -428,7 +428,7 @@ export class AuthService {
       },
     );
 
-    this.logger.log(`User ${userId} successfully changed their password`);
+    this.logger.info(null, 'Password changed', { userId });
     await this.auditAuth({
       action: AuditAction.PASSWORD_CHANGED,
       user,
@@ -535,7 +535,11 @@ export class AuthService {
       if (failedAttempts >= maxFailedAttempts) {
         lockedUntil = new Date(Date.now() + lockoutDurationMs);
         newStatus = UserStatus.LOCKED;
-        this.logger.warn(`User ${email} locked out until ${lockedUntil.toISOString()}`);
+        this.logger.warn(null, 'Account locked after repeated failed sign-ins', {
+          userId: user._id,
+          failedAttempts,
+          lockedUntil: lockedUntil.toISOString(),
+        });
       }
 
       await this.userModel.updateOne(
@@ -569,7 +573,7 @@ export class AuthService {
         });
         this.mailService
           .sendAccountLockedNotification(user.email, user.firstName || 'User')
-          .catch((err) => this.logger.warn(`Failed to dispatch lockout notification: ${err.message}`));
+          .catch((err) => this.logger.warn(null, 'Lockout notification dispatch failed', err));
 
         throw new HttpException(
           {
@@ -689,7 +693,7 @@ export class AuthService {
 
       if (session) {
         await this.sessionModel.updateOne({ _id: session._id }, { $set: { revokedAt: new Date() } });
-        this.logger.log(`Session ${session._id} revoked for user ${userId}`);
+        this.logger.info(null, 'Session revoked', { userId, sessionId: session._id });
         await this.auditLogout(userId, session._id);
         return { message: 'Logged out successfully' };
       }
@@ -707,7 +711,7 @@ export class AuthService {
       );
     }
 
-    this.logger.log(`User ${userId} logged out`);
+    this.logger.info(null, 'User logged out', { userId });
     await this.auditLogout(userId, latestSession?._id ?? null);
     return { message: 'Logged out successfully' };
   }
@@ -803,7 +807,7 @@ export class AuthService {
       { $set: { revokedAt: new Date() } },
     );
 
-    this.logger.log(`All ${result.modifiedCount} sessions revoked for user ${userId}`);
+    this.logger.info(null, 'All sessions revoked', { userId, revokedCount: result.modifiedCount });
 
     const user = await this.userModel.findById(userId).lean();
     await this.auditService.record({
@@ -838,7 +842,7 @@ export class AuthService {
         failureReason,
       });
     } catch (err) {
-      this.logger.error('Failed to log login attempt', err);
+      this.logger.error(null, 'Failed to log login attempt', err);
     }
   }
 }
