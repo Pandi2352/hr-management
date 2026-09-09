@@ -44,6 +44,10 @@ export const PERMISSIONS = {
   // Attendance
   ATTENDANCE_READ: 'attendance:read',
   ATTENDANCE_MANAGE: 'attendance:manage',
+
+  // Recruitment pipeline
+  RECRUITMENT_READ: 'recruitment:read',
+  RECRUITMENT_MANAGE: 'recruitment:manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

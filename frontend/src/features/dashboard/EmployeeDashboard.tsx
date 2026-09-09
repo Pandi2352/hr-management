@@ -1,9 +1,12 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { employeesApi } from '../employees/api/employees.api';
 import { profileApi } from '../profile/api/profile.api';
 import { leaveApi } from '../leave/api/leave.api';
+import { ApplyLeaveModal } from '../leave/components/ApplyLeaveModal';
 import { attendanceApi } from '../attendance/api/attendance.api';
+import { CheckInOutCard } from '../attendance/components/CheckInOutCard';
+import { Modal } from '../../components/ui/Modal';
 import type { AttendanceRecord } from '../attendance/types/attendance.types';
 import type { MyLeaveSummary } from '../leave/types/leave-balance.types';
 import { useToast } from '../../components/ui/toast';
@@ -134,6 +137,18 @@ export function EmployeeDashboard() {
   // Attendance punch (server record for today)
   const [punch, setPunch] = useState<AttendanceRecord | null>(null);
   const [isPunching, setIsPunching] = useState(false);
+
+  // Quick-action shortcuts
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [raiseAttendanceOpen, setRaiseAttendanceOpen] = useState(false);
+
+  const reloadLeave = useCallback(async () => {
+    try {
+      setLeaveSummary(await leaveApi.getMyBalances(new Date().getFullYear()));
+    } catch {
+      // Balances stay as-is on failure
+    }
+  }, []);
 
   // AI Assist
   const [aiQuery, setAiQuery] = useState('');
@@ -345,6 +360,23 @@ export function EmployeeDashboard() {
                 </Link>
               </div>
             )}
+            {/* One-click shortcuts */}
+            <div className="flex flex-wrap gap-2 mt-2.5">
+              <button
+                type="button"
+                onClick={() => setApplyOpen(true)}
+                className="text-[12px] font-bold px-3.5 py-1.5 rounded-md bg-amber-400 text-slate-900 hover:bg-amber-300 transition-colors cursor-pointer"
+              >
+                ✈️ Apply Leave
+              </button>
+              <button
+                type="button"
+                onClick={() => setRaiseAttendanceOpen(true)}
+                className="text-[12px] font-bold px-3.5 py-1.5 rounded-md bg-white/15 text-white border border-white/25 hover:bg-white/25 transition-colors cursor-pointer"
+              >
+                🕐 Raise Attendance
+              </button>
+            </div>
           </div>
         </div>
 
@@ -695,6 +727,29 @@ export function EmployeeDashboard() {
           ))}
         </div>
       </div>
+
+      {/* Shortcut: apply leave without leaving the dashboard */}
+      <ApplyLeaveModal
+        isOpen={applyOpen}
+        summary={leaveSummary}
+        onClose={() => setApplyOpen(false)}
+        onApplied={reloadLeave}
+      />
+
+      {/* Shortcut: raise attendance punch with selectable date/time */}
+      <Modal
+        isOpen={raiseAttendanceOpen}
+        onClose={() => setRaiseAttendanceOpen(false)}
+        title="Raise Attendance"
+      >
+        <CheckInOutCard
+          record={punch}
+          onChanged={(updated) => {
+            setPunch(updated);
+            setRaiseAttendanceOpen(false);
+          }}
+        />
+      </Modal>
 
     </div>
   );

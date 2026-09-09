@@ -83,6 +83,11 @@ export enum AuditResource {
   LEAVE_REQUEST = 'LEAVE_REQUEST',
   ATTENDANCE = 'ATTENDANCE',
 
+  // Recruitment
+  CANDIDATE = 'CANDIDATE',
+  INTERVIEW = 'INTERVIEW',
+  OFFER = 'OFFER',
+
   // Compliance
   AUDIT_LOG = 'AUDIT_LOG',
 }
@@ -157,5 +162,8 @@ export const AUDIT_RESOURCE_LABELS: Record<string, string> = {
   [AuditResource.LEAVE_BALANCE]: 'Leave Balance',
   [AuditResource.LEAVE_REQUEST]: 'Leave Request',
   [AuditResource.ATTENDANCE]: 'Attendance',
+  [AuditResource.CANDIDATE]: 'Candidate',
+  [AuditResource.INTERVIEW]: 'Interview',
+  [AuditResource.OFFER]: 'Offer',
   [AuditResource.AUDIT_LOG]: 'Audit Log',
 };

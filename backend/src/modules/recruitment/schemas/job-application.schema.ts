@@ -53,11 +53,11 @@ export class JobApplication {
 
   @Prop({
     type: String,
-    enum: ['APPLIED', 'SHORTLISTED', 'INTERVIEWING', 'OFFERED', 'REJECTED'],
+    enum: ['APPLIED', 'SHORTLISTED', 'INTERVIEWING', 'OFFERED', 'HIRED', 'REJECTED', 'WITHDRAWN'],
     default: 'APPLIED',
     index: true,
   })
-  status: 'APPLIED' | 'SHORTLISTED' | 'INTERVIEWING' | 'OFFERED' | 'REJECTED';
+  status: 'APPLIED' | 'SHORTLISTED' | 'INTERVIEWING' | 'OFFERED' | 'HIRED' | 'REJECTED' | 'WITHDRAWN';
 }
 
 export const JobApplicationSchema = SchemaFactory.createForClass(JobApplication);
