@@ -48,7 +48,14 @@ export function AttendancePage() {
   const { user } = useAuth();
   const hr = isHr(user?.roles);
   const decider = canDecide(user?.roles);
-  const [tab, setTab] = useState<AttendanceTab>('overview');
+  const [tab, setTab] = useState<AttendanceTab>(() => (isHr(user?.roles) ? 'overview' : 'mine'));
+
+  // Ensure standard employees are always directed to 'mine' and cannot see company overview
+  useEffect(() => {
+    if (!hr && tab === 'overview') {
+      setTab('mine');
+    }
+  }, [hr, tab]);
 
   // Overview & Sheet state
   const [year, setYear] = useState(currentYear());
@@ -153,8 +160,10 @@ export function AttendancePage() {
   }, [year, sheetMonth, toast]);
 
   useEffect(() => {
-    loadOverview();
-  }, [loadOverview]);
+    if (hr && tab === 'overview') {
+      loadOverview();
+    }
+  }, [hr, tab, loadOverview]);
 
   // Load My Personal Tab Data
   const loadMine = useCallback(async () => {
@@ -208,7 +217,7 @@ export function AttendancePage() {
   }) => {
     await attendanceApi.recordManual(payload);
     toast.success('Attendance punch recorded successfully.');
-    loadOverview();
+    if (hr) loadOverview();
     if (tab === 'mine') loadMine();
     if (tab === 'team') loadTeam();
   };
@@ -224,8 +233,12 @@ export function AttendancePage() {
     <div className="w-full space-y-4">
       {/* Page Header */}
       <PageHeader
-        title="Attendance Management"
-        description="Monitor daily attendance rates, work arrangements, 31-day sheets, punches, and regularization."
+        title={hr ? "Attendance Management" : "My Attendance"}
+        description={
+          hr
+            ? "Monitor daily attendance rates, work arrangements, 31-day sheets, punches, and regularization."
+            : "Track your daily punches, check worked hours, and submit attendance regularization requests."
+        }
       />
 
       {/* Tabs */}
@@ -233,7 +246,7 @@ export function AttendancePage() {
         active={tab}
         onChange={setTab}
         tabs={[
-          { id: 'overview', label: 'Attendance Dashboard' },
+          ...(hr ? [{ id: 'overview' as const, label: 'Attendance Dashboard' }] : []),
           { id: 'mine', label: 'My Punch & History' },
           { id: 'requests', label: 'My Requests' },
           ...(decider ? [{ id: 'inbox' as const, label: 'Requests Inbox' }] : []),
@@ -242,8 +255,8 @@ export function AttendancePage() {
         ]}
       />
 
-      {/* Tab 1: Overview & 31-Day Matrix Sheet (Design Matching Uploaded Screenshot) */}
-      {tab === 'overview' && (
+      {/* Tab 1: Overview & 31-Day Matrix Sheet (HR Only) */}
+      {hr && tab === 'overview' && (
         <div className="space-y-4">
           {isLoadingOverview ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800">

@@ -26,6 +26,8 @@ import { organizationApi } from '../api/organization.api';
 import type { OrgChartNode as OrgChartNodeType, Department } from '../types/organization.types';
 import { OrgChartNode } from '../components/OrgChartNode';
 import { cn } from '../../../utils/cn';
+import orgChartBg from '../../../assets/org_chart_bg.jpg';
+import orgChartDarkBg from '../../../assets/org_chart_dark_bg.jpg';
 
 export function OrgChartPage() {
   const navigate = useNavigate();
@@ -251,7 +253,7 @@ export function OrgChartPage() {
       />
 
       {/* Control Bar: Search, Department Filter, & Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-white dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-md border border-slate-200/90 dark:border-slate-800 shadow-none">
         {/* Search */}
         <div className="md:col-span-4 relative">
           <Input
@@ -264,7 +266,7 @@ export function OrgChartPage() {
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -278,7 +280,7 @@ export function OrgChartPage() {
             <select
               value={selectedDeptId}
               onChange={(e) => setSelectedDeptId(e.target.value)}
-              className="w-full text-xs font-medium rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-900 shadow-xs focus:border-teal-500 focus:outline-hidden dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full text-xs font-medium rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-900 shadow-none focus:border-teal-500 focus:outline-hidden dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
             >
               <option value="ALL">All Departments ({departments.length})</option>
               {departments.map((dept) => (
@@ -312,7 +314,7 @@ export function OrgChartPage() {
       {/* Interactive Pan & Zoom Canvas */}
       <div
         className={cn(
-          'relative w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 overflow-hidden shadow-xs transition-colors',
+          'relative w-full rounded-md border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/90 overflow-hidden shadow-none transition-colors',
           isFullscreen ? 'h-[calc(100vh-140px)]' : 'h-[750px]',
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
         )}
@@ -321,8 +323,28 @@ export function OrgChartPage() {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        {/* Floating Controls in Top Right (Exact match with reference image) */}
-        <div className="absolute top-4 right-4 z-20 flex flex-col items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-md overflow-hidden">
+        {/* Modern Organizational Network Background (Light Mode) */}
+        <img
+          src={orgChartBg}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none select-none dark:hidden"
+        />
+
+        {/* Dedicated Modern Organizational Network Background (Dark Mode) */}
+        <img
+          src={orgChartDarkBg}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-50 pointer-events-none select-none hidden dark:block"
+        />
+
+        {/* Blueprint dot-matrix grid overlay */}
+        <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_1.2px,transparent_1.2px)] dark:bg-[radial-gradient(#38bdf8_1.2px,transparent_1.2px)] [background-size:24px_24px] opacity-40 dark:opacity-20 pointer-events-none" />
+
+        {/* Soft edge gradient wash */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-white/50 dark:from-slate-950/60 dark:via-transparent dark:to-slate-950/80 pointer-events-none" />
+
+        {/* Floating Controls in Top Right */}
+        <div className="absolute top-4 right-4 z-20 flex flex-col items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-md shadow-none overflow-hidden">
           {/* Fullscreen */}
           <button
             type="button"
@@ -365,7 +387,7 @@ export function OrgChartPage() {
         </div>
 
         {/* Current Zoom Level Badge */}
-        <div className="absolute bottom-4 left-4 z-20 pointer-events-none bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs px-2.5 py-1 rounded border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-600 dark:text-slate-300 shadow-xs">
+        <div className="absolute bottom-4 left-4 z-20 pointer-events-none bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-600 dark:text-slate-300 shadow-none">
           Zoom: {Math.round(zoom * 100)}%
         </div>
 

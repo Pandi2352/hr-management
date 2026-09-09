@@ -30,6 +30,7 @@ import {
   Robot,
   SealCheck,
   CaretUpDown,
+  CaretRight,
   UserCheck,
   TrendUp,
   type IconWeight,
@@ -39,6 +40,8 @@ import { Tooltip } from "../../ui/tooltip";
 import { useAuth } from "../../../features/auth/context/AuthContext";
 import { useCustomizer } from "../../../features/customizer";
 import { organizationApi } from "../../../features/organization/api/organization.api";
+import sidebarBottomLightBg from "../../../assets/sidebar_bottom_light_bg.jpg";
+import sidebarBottomDarkBg from "../../../assets/sidebar_bottom_dark_bg.jpg";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -453,25 +456,54 @@ export function Sidebar({
               )}
             </div>
 
-            {/* User row */}
-            <Link
-              to="/profile"
-              onClick={onCloseMobile}
-              className="flex items-center gap-2 border-t border-hairline px-2.5 py-2.5 transition-colors hover:bg-surface-2"
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--primary)] text-[10px] font-semibold text-white">
-                {userAvatar ? (
-                  <img
-                    src={userAvatar}
-                    alt={displayName}
-                    className="h-full w-full object-cover rounded-md"
-                  />
-                ) : (
-                  initials
-                )}
-              </span>
-              <span className="truncate text-[12px] font-medium text-ink-2">{displayName}</span>
-            </Link>
+            {/* User row with modern light/dark background images */}
+            <div className="p-2 border-t border-hairline">
+              <Link
+                to="/profile"
+                onClick={onCloseMobile}
+                className="group relative flex items-center gap-2 overflow-hidden rounded-md border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-2 transition-all hover:border-slate-300 dark:hover:border-slate-700 shadow-none"
+              >
+                {/* Light mode background */}
+                <img
+                  src={sidebarBottomLightBg}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover object-right opacity-80 pointer-events-none select-none dark:hidden transition-transform duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent pointer-events-none dark:hidden" />
+
+                {/* Dark mode background */}
+                <img
+                  src={sidebarBottomDarkBg}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover object-right opacity-70 pointer-events-none select-none hidden dark:block transition-transform duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent pointer-events-none hidden dark:block" />
+
+                {/* Content */}
+                <div className="relative z-10 flex items-center gap-2 min-w-0 flex-1">
+                  <span className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-slate-200 dark:ring-slate-700 bg-[var(--primary)] text-[11px] font-semibold text-white shadow-none">
+                    {userAvatar ? (
+                      <img
+                        src={userAvatar}
+                        alt={displayName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-[11.5px] font-bold text-slate-800 dark:text-slate-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                      {displayName}
+                    </span>
+                    <span className="block truncate text-[9.5px] font-medium text-slate-500 dark:text-slate-400 capitalize">
+                      {user?.roles?.[0]?.toLowerCase().replace('_', ' ') || 'Employee'}
+                    </span>
+                  </div>
+                  <CaretRight className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all" weight="bold" />
+                </div>
+              </Link>
+            </div>
           </div>
         )}
       </aside>

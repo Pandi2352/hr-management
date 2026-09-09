@@ -53,16 +53,16 @@ export const OrgChartNode: React.FC<OrgChartNodeProps> = ({
       <div
         onClick={() => onSelectEmployee(node)}
         className={cn(
-          'w-48 rounded-lg bg-white dark:bg-slate-900 border transition-all duration-200 cursor-pointer text-center relative shadow-xs hover:shadow-md group',
+          'w-48 rounded-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border transition-all duration-200 cursor-pointer text-center relative shadow-none hover:shadow-sm group',
           isHighlighted
-            ? 'ring-2 ring-amber-400 border-amber-400 dark:border-amber-400 shadow-md scale-[1.02]'
+            ? 'ring-2 ring-amber-400 border-amber-400 dark:border-amber-400 shadow-sm scale-[1.02]'
             : isDeptMatch
-            ? 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+            ? 'border-slate-200/90 dark:border-slate-800 hover:border-teal-500/80 dark:hover:border-teal-500/80'
             : 'opacity-40 border-slate-200 dark:border-slate-800'
         )}
       >
         {/* Top Accent Color Bar */}
-        <div className={cn('h-1 w-full rounded-t-lg', getAccentBarColor())} />
+        <div className={cn('h-1 w-full rounded-t-md', getAccentBarColor())} />
 
         <div className="p-3 pt-2.5 flex flex-col items-center">
           {/* Circular Initials / Avatar */}
@@ -71,10 +71,10 @@ export const OrgChartNode: React.FC<OrgChartNodeProps> = ({
               <img
                 src={node.avatarUrl}
                 alt={node.displayName}
-                className="h-12 w-12 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-xs"
+                className="h-12 w-12 rounded-md object-cover border border-slate-200 dark:border-slate-700 shadow-none"
               />
             ) : (
-              <div className="h-12 w-12 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-300 font-bold text-xs tracking-wider flex items-center justify-center border border-cyan-200/60 dark:border-cyan-800/60 shadow-xs">
+              <div className="h-12 w-12 rounded-md bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-300 font-bold text-xs tracking-wider flex items-center justify-center border border-cyan-200/60 dark:border-cyan-800/60 shadow-none">
                 {node.initials}
               </div>
             )}

@@ -16,6 +16,7 @@ import { aiApi } from '../ai/api/ai.api';
 import defaultAvatarImg from '../../assets/default_avatar.jpg';
 import dashboardHeroLightBg from '../../assets/dashboard_hero_light_bg.jpg';
 import dashboardClockLightBg from '../../assets/dashboard_clock_light_bg.jpg';
+import dashboardClockDarkBg from '../../assets/dashboard_clock_dark_bg.jpg';
 import dashboardProfileLightBg from '../../assets/dashboard_profile_light_bg.jpg';
 
 // ─── Time helpers ─────────────────────────────────────────────────────────────
@@ -472,15 +473,23 @@ export function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* ── ROW 2: Live Attendance Clock with light mode wave background ── */}
+      {/* ── ROW 2: Live Attendance Clock with 3D chronometer dials background ── */}
       <div className="rounded-md border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 relative overflow-hidden shadow-none">
-        {/* Background image & soft gradient */}
+        {/* Light mode background with 3D frosted glass watch dials on right */}
         <img
           src={dashboardClockLightBg}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover opacity-65 pointer-events-none select-none"
+          className="absolute inset-0 w-full h-full object-cover object-right opacity-85 pointer-events-none select-none dark:hidden"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-white/60 dark:from-slate-900/95 dark:via-slate-900/85 dark:to-slate-900/60 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent pointer-events-none dark:hidden" />
+
+        {/* Dark mode background with futuristic cyan chronometer dials on right */}
+        <img
+          src={dashboardClockDarkBg}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-right opacity-80 pointer-events-none select-none hidden dark:block"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent pointer-events-none hidden dark:block" />
 
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
           {/* Date + digital clock */}

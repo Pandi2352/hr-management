@@ -64,7 +64,7 @@ export class AttendanceController {
   }
 
   @Get('overview')
-  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_MANAGE)
   async getOverview(@Request() req: any, @Query('year') year?: string) {
     const orgId = await this.getOrgId(req);
     const data = await this.attendanceService.getAttendanceOverview(orgId, year);
@@ -72,7 +72,7 @@ export class AttendanceController {
   }
 
   @Get('sheet')
-  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_MANAGE)
   async getSheet(
     @Request() req: any,
     @Query('month') month?: string,
