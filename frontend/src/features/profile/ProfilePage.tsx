@@ -20,6 +20,7 @@ import { profileApi } from './api/profile.api';
 import { employeesApi } from '../employees/api/employees.api';
 import { cn } from '../../utils/cn';
 import defaultAvatarImg from '../../assets/default_avatar.jpg';
+import { AvatarCropModal } from './components/AvatarCropModal';
 
 type ProfileTab = 'information' | 'security' | 'activity';
 
@@ -30,6 +31,10 @@ export function ProfilePage() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('information');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [linkedEmployee, setLinkedEmployee] = useState<any>(null);
+
+  // Avatar Crop Modal state
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [tempImageSrc, setTempImageSrc] = useState<string | null>(null);
 
   const userFullName = user?.name || (user?.firstName ? `${user.firstName} ${user.lastName}`.trim() : '');
   const userEmail = user?.email || '';
@@ -162,8 +167,8 @@ export function ProfilePage() {
       .catch(() => {});
   }, []);
 
-  // Upload Profile Picture Handler
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload Profile Picture Handler - Opens interactive Crop Modal
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -174,19 +179,32 @@ export function ProfilePage() {
       return;
     }
 
-    // Validate size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image file size must be less than 5MB.', 'File Too Large');
+    // Validate size (max 10MB before cropping)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image file size must be less than 10MB.', 'File Too Large');
       return;
     }
 
-    // Instant local preview
-    const localPreview = URL.createObjectURL(file);
-    setAvatarUrl(localPreview);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setTempImageSrc(reader.result as string);
+      setCropModalOpen(true);
+    };
+    reader.readAsDataURL(file);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Called when user completes cropping and clicks "Crop & Save"
+  const handleCropSave = async (croppedFile: File) => {
     setIsUploadingAvatar(true);
+    const localPreview = URL.createObjectURL(croppedFile);
+    setAvatarUrl(localPreview);
 
     try {
-      const res = await profileApi.uploadAvatar(file);
+      const res = await profileApi.uploadAvatar(croppedFile);
       const effectiveUrl = res.avatarUrl || localPreview;
       setAvatarUrl(effectiveUrl);
       updateUser({ avatarUrl: effectiveUrl });
@@ -196,7 +214,9 @@ export function ProfilePage() {
           detail: { avatarUrl: effectiveUrl, name: fullName },
         })
       );
-      toast.success('Profile picture uploaded successfully', 'Photo Updated');
+      toast.success('Profile picture cropped and updated successfully', 'Photo Updated');
+      setCropModalOpen(false);
+      setTempImageSrc(null);
     } catch {
       // Offline fallback: persist local preview in session
       updateUser({ avatarUrl: localPreview });
@@ -206,12 +226,11 @@ export function ProfilePage() {
           detail: { avatarUrl: localPreview, name: fullName },
         })
       );
-      toast.success('Profile picture updated successfully', 'Photo Updated');
+      toast.success('Profile picture cropped and updated successfully', 'Photo Updated');
+      setCropModalOpen(false);
+      setTempImageSrc(null);
     } finally {
       setIsUploadingAvatar(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
@@ -750,6 +769,18 @@ export function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Avatar Image Cropper Modal */}
+      <AvatarCropModal
+        isOpen={cropModalOpen}
+        imageSrc={tempImageSrc}
+        onClose={() => {
+          setCropModalOpen(false);
+          setTempImageSrc(null);
+        }}
+        onCropSave={handleCropSave}
+        isSaving={isUploadingAvatar}
+      />
     </div>
   );
 }

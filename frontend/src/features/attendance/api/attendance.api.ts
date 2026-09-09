@@ -32,6 +32,28 @@ export const attendanceApi = {
     return res.data.data as AttendanceRecord[];
   },
 
+  overview: async (year?: number) => {
+    const res = await apiClient.get('/attendance/overview', { params: { year } });
+    return res.data.data ?? res.data;
+  },
+
+  sheet: async (month?: string, filters?: { departmentId?: string; search?: string; workType?: string }) => {
+    const res = await apiClient.get('/attendance/sheet', { params: { month, ...filters } });
+    return res.data.data ?? res.data;
+  },
+
+  recordManual: async (dto: {
+    employeeId: string;
+    date: string;
+    checkIn: string;
+    checkOut?: string;
+    status?: string;
+    note?: string;
+  }) => {
+    const res = await apiClient.post('/attendance/record', dto);
+    return res.data.data ?? res.data;
+  },
+
   // --- Shifts (master) ---
 
   getShifts: async (status?: string): Promise<Shift[]> => {

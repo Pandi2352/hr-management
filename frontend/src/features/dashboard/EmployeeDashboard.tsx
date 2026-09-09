@@ -12,7 +12,11 @@ import type { MyLeaveSummary } from '../leave/types/leave-balance.types';
 import { useToast } from '../../components/ui/toast';
 import type { Employee } from '../employees/types/employees.types';
 import { useAuth } from '../auth/context/AuthContext';
+import { aiApi } from '../ai/api/ai.api';
 import defaultAvatarImg from '../../assets/default_avatar.jpg';
+import dashboardHeroLightBg from '../../assets/dashboard_hero_light_bg.jpg';
+import dashboardClockLightBg from '../../assets/dashboard_clock_light_bg.jpg';
+import dashboardProfileLightBg from '../../assets/dashboard_profile_light_bg.jpg';
 
 // ─── Time helpers ─────────────────────────────────────────────────────────────
 function getGreeting() {
@@ -85,10 +89,10 @@ function LeaveRing({
 // ─── Stat chip ────────────────────────────────────────────────────────────────
 function InfoChip({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-[12px] text-white/85">
-      <span className="text-white/60">{icon}</span>
-      <span className="text-white/60">{label}</span>
-      <strong className="text-white font-semibold">{value}</strong>
+    <span className="inline-flex items-center gap-2 text-[12px] px-3 py-1.5 rounded-md bg-white/85 dark:bg-slate-800/85 backdrop-blur-md border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition-colors shadow-none">
+      <span className="text-sm">{icon}</span>
+      <span className="text-slate-500 dark:text-slate-400 font-medium">{label}:</span>
+      <strong className="text-slate-900 dark:text-white font-bold">{value}</strong>
     </span>
   );
 }
@@ -103,7 +107,7 @@ function ProfileCompletionMini({ pct }: { pct: number }) {
       <circle cx={39} cy={39} r={r} fill="none" strokeWidth={6} className="stroke-slate-100 dark:stroke-slate-800" />
       <circle
         cx={39} cy={39} r={r} fill="none" strokeWidth={6}
-        stroke="#0ea5e9"
+        stroke="#0d9488"
         strokeDasharray={circ}
         strokeDashoffset={dash}
         strokeLinecap="round"
@@ -228,9 +232,9 @@ export function EmployeeDashboard() {
     try {
       const updated = await attendanceApi.checkIn({});
       setPunch(updated);
-      toast.success(`Checked in at ${updated.checkIn}.`);
+      toast.success(`Punched in at ${updated.checkIn}.`);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Could not check in.');
+      toast.error(err?.response?.data?.message || 'Could not punch in.');
     } finally {
       setIsPunching(false);
     }
@@ -242,9 +246,9 @@ export function EmployeeDashboard() {
     try {
       const updated = await attendanceApi.checkOut({});
       setPunch(updated);
-      toast.success('Checked out. See you tomorrow!');
+      toast.success('Punched out. See you tomorrow!');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Could not check out.');
+      toast.error(err?.response?.data?.message || 'Could not punch out.');
     } finally {
       setIsPunching(false);
     }
@@ -336,166 +340,232 @@ export function EmployeeDashboard() {
         </div>
       )}
 
-      {/* ── ROW 1: Greeting + Profile Completion ─────────────────────────── */}
+      {/* ── ROW 1: Greeting + Profile Completion (Light Mode Unique Aesthetic) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
 
-        {/* Greeting banner */}
-        <div className="rounded-md bg-gradient-to-br from-teal-500 via-emerald-500 to-cyan-500 p-5 relative overflow-hidden">
-          <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/5 blur-xl pointer-events-none" />
+        {/* Greeting banner with light mode 3D ribbon architectural background */}
+        <div className="rounded-md border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 relative overflow-hidden shadow-none">
+          {/* Light background image & soft daylight overlays */}
+          <img
+            src={dashboardHeroLightBg}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-right opacity-60 dark:opacity-30 pointer-events-none select-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/90 to-transparent dark:from-slate-900 dark:via-slate-900/90 pointer-events-none" />
+
           <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-md overflow-hidden border-2 border-white/30 flex-shrink-0">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = defaultAvatarImg; }} />
-                ) : (
-                  <div className="w-full h-full bg-white/20 flex items-center justify-center text-white text-sm font-bold">{initials}</div>
-                )}
+            <div className="flex items-center gap-3.5 mb-3">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-md overflow-hidden border-2 border-teal-500/40 bg-teal-50 dark:bg-slate-800 flex-shrink-0">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).src = defaultAvatarImg; }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white text-base font-bold">
+                      {initials}
+                    </div>
+                  )}
+                </div>
+                <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
               </div>
               <div>
-                <p className="text-[12px] text-white/70 font-medium">{getGreeting()},</p>
-                <h1 className="text-[20px] font-extrabold text-white leading-tight tracking-tight">{displayName} 👋</h1>
+                <p className="text-[11.5px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wider">{getGreeting()},</p>
+                <h1 className="text-[23px] font-black text-slate-900 dark:text-white leading-tight tracking-tight flex items-center gap-2">
+                  {displayName} <span className="text-xl">👋</span>
+                </h1>
               </div>
             </div>
-            <p className="text-[12px] text-white/70 mb-4">Here's what's happening with your work today.</p>
-            <div className="flex flex-wrap gap-4">
+            <p className="text-[12.5px] text-slate-600 dark:text-slate-300 mb-4 font-medium">
+              Here's what's happening with your workspace and daily activity today.
+            </p>
+            <div className="flex flex-wrap gap-2.5">
               <InfoChip icon="🏢" label="Department" value={department} />
               <InfoChip icon="👤" label="Designation" value={designation} />
               <InfoChip icon="📍" label="Location" value={location} />
               <InfoChip icon="📅" label="Joining Date" value={joiningDate} />
             </div>
-            {employeeId && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                <Link
-                  to={`/employees/${employeeId}`}
-                  className="text-[12px] font-semibold px-3 py-1.5 rounded-md bg-white text-slate-900 hover:bg-slate-100 transition-colors"
-                >
-                  View Full Profile
-                </Link>
-                <Link
-                  to={`/employees/${employeeId}/edit`}
-                  className="text-[12px] font-semibold px-3 py-1.5 rounded-md bg-white/15 text-white border border-white/25 hover:bg-white/25 transition-colors"
-                >
-                  Edit Details
-                </Link>
-              </div>
-            )}
-            {/* One-click shortcuts */}
-            <div className="flex flex-wrap gap-2 mt-2.5">
+
+            <div className="flex flex-wrap items-center gap-2.5 mt-5">
+              {/* Action buttons */}
               <button
                 type="button"
                 onClick={() => setApplyOpen(true)}
-                className="text-[12px] font-bold px-3.5 py-1.5 rounded-md bg-amber-400 text-slate-900 hover:bg-amber-300 transition-colors cursor-pointer"
+                className="text-[12px] font-bold px-4 py-2 rounded-md bg-amber-400 hover:bg-amber-300 text-slate-950 transition-all cursor-pointer flex items-center gap-1.5 shadow-none"
               >
-                ✈️ Apply Leave
+                <span>✈️</span> Apply Leave
               </button>
               <button
                 type="button"
                 onClick={() => setRaiseAttendanceOpen(true)}
-                className="text-[12px] font-bold px-3.5 py-1.5 rounded-md bg-white/15 text-white border border-white/25 hover:bg-white/25 transition-colors cursor-pointer"
+                className="text-[12px] font-bold px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-none"
               >
-                🕐 Raise Attendance
+                <span>🕐</span> Raise Attendance
               </button>
+
+              {employeeId && (
+                <>
+                  <Link
+                    to={`/employees/${employeeId}`}
+                    className="text-[12px] font-semibold px-3.5 py-2 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 transition-colors ml-auto sm:ml-0 shadow-none border border-slate-200 dark:border-slate-700"
+                  >
+                    View Full Profile
+                  </Link>
+                  <Link
+                    to={`/employees/${employeeId}/edit`}
+                    className="text-[12px] font-semibold px-3.5 py-2 rounded-md bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 transition-colors shadow-none border border-slate-200 dark:border-slate-700"
+                  >
+                    Edit Details
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Profile completion */}
-        <div className="rounded-md border border-hairline bg-surface p-4 flex flex-col justify-between gap-2">
-          <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-widest">Profile Completion</p>
-          <div className="flex items-center gap-3">
+        {/* Profile completion card with light mode orb background */}
+        <div className="rounded-md border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 relative overflow-hidden flex flex-col justify-between shadow-none">
+          <img
+            src={dashboardProfileLightBg}
+            alt=""
+            className="absolute -right-6 -top-6 w-36 h-36 object-contain opacity-45 pointer-events-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/70 to-white dark:via-slate-900/70 dark:to-slate-900 pointer-events-none" />
+
+          <div className="relative z-10 flex items-center justify-between">
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Profile Completion</p>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800">
+              {profilePct === 100 ? 'Complete' : 'In Progress'}
+            </span>
+          </div>
+
+          <div className="relative z-10 flex items-center justify-between gap-3 my-3">
             <div>
-              <p className="text-[32px] font-black text-ink leading-none">{profilePct}%</p>
-              <p className="text-[11px] text-ink-3 mt-1 leading-snug">Complete your profile for the<br />best experience on PeopleOS.</p>
+              <p className="text-[36px] font-black text-slate-900 dark:text-white leading-none tracking-tight">
+                {profilePct}%
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">
+                Complete your profile for the<br />best experience on PeopleOS.
+              </p>
             </div>
-            <div className="ml-auto">
-              <ProfileCompletionMini pct={profilePct} />
+            <ProfileCompletionMini pct={profilePct} />
+          </div>
+
+          <div className="relative z-10 space-y-3">
+            <div className="w-full rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 h-2 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-600 transition-all duration-1000"
+                style={{ width: `${profilePct}%` }}
+              />
             </div>
+
+            <Link
+              to={employeeId ? `/employees/${employeeId}/edit` : "/profile"}
+              className="block text-center text-[12px] font-bold py-2.5 px-4 rounded-md bg-teal-600 hover:bg-teal-700 text-white transition-colors shadow-none"
+            >
+              Complete Profile
+            </Link>
           </div>
-          <div className="w-full rounded-full bg-slate-100 dark:bg-slate-800 h-1.5 overflow-hidden">
-            <div
-              className="h-1.5 rounded-full bg-gradient-to-r from-teal-400 to-sky-500 transition-all duration-1000"
-              style={{ width: `${profilePct}%` }}
-            />
-          </div>
-          <Link
-            to={employeeId ? `/employees/${employeeId}/edit` : "/profile"}
-            className="block text-center text-[12px] font-semibold py-2 px-4 rounded-md bg-gradient-to-r from-teal-500 to-sky-500 text-white hover:opacity-90 transition-opacity"
-          >
-            Complete Profile
-          </Link>
         </div>
       </div>
 
-      {/* ── ROW 2: Live Attendance Clock ─────────────────────────────────── */}
-      <div className="rounded-md bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 border border-white/5 p-5 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-72 h-72 rounded-full border border-white/5 -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-        <div className="absolute top-12 right-20 w-44 h-44 rounded-full border border-white/[0.03] pointer-events-none" />
+      {/* ── ROW 2: Live Attendance Clock with light mode wave background ── */}
+      <div className="rounded-md border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 relative overflow-hidden shadow-none">
+        {/* Background image & soft gradient */}
+        <img
+          src={dashboardClockLightBg}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-65 pointer-events-none select-none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-white/60 dark:from-slate-900/95 dark:via-slate-900/85 dark:to-slate-900/60 pointer-events-none" />
 
-        <div className="relative z-10 flex flex-wrap items-center justify-between gap-5">
-          {/* Date + clock */}
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
+          {/* Date + digital clock */}
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2.5 mb-1.5">
               {checkedIn && (
-                <span className="inline-flex items-center gap-1 text-[10.5px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Checked In
+                <span className="inline-flex items-center gap-1.5 text-[11px] bg-emerald-50 border border-emerald-300 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Punched In
                 </span>
               )}
-              <p className="text-slate-400 text-[11.5px]">{formatDate(now)}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-[11.5px] font-bold flex items-center gap-1.5">
+                <span>📅</span> {formatDate(now)}
+              </p>
             </div>
-            <div className="flex items-end gap-1.5">
-              <span className="text-[48px] font-black text-white leading-none tracking-tight tabular-nums">{time}</span>
-              <div className="flex flex-col items-start mb-1 gap-0.5">
-                <span className="text-[18px] font-black text-white/50 leading-none tabular-nums">{secs}</span>
-                <span className="text-[13px] font-bold text-slate-400 leading-none">{ampm}</span>
+            <div className="flex items-end gap-2">
+              <span className="text-[52px] font-black text-slate-900 dark:text-white leading-none tracking-tight tabular-nums">
+                {time}
+              </span>
+              <div className="flex flex-col items-start mb-1.5 gap-0.5">
+                <span className="text-[20px] font-black text-blue-600 dark:text-blue-400 leading-none tabular-nums font-mono">
+                  {secs}
+                </span>
+                <span className="text-[12px] font-bold text-slate-500 dark:text-slate-400 leading-none uppercase">
+                  {ampm}
+                </span>
               </div>
             </div>
-            <p className="text-slate-400 text-[12px] mt-1">
+            <p className="text-slate-600 dark:text-slate-300 text-[12px] mt-2 font-medium flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
               {punch?.checkOut
-                ? `Checked out at ${punch.checkOut} · ${punch.workMinutes ? `${Math.floor(punch.workMinutes / 60)}h ${String(punch.workMinutes % 60).padStart(2, '0')}m worked` : ''}`
+                ? `Punched out at ${punch.checkOut} · ${punch.workMinutes ? `${Math.floor(punch.workMinutes / 60)}h ${String(punch.workMinutes % 60).padStart(2, '0')}m worked` : ''}`
                 : checkedIn && checkInTime
-                  ? `Clocked in at ${checkInTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
-                  : 'Not clocked in yet'}
+                  ? `Punched in at ${checkInTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
+                  : 'Not punched in yet today'}
             </p>
           </div>
 
-          {/* Stats */}
-          <div className="flex items-center gap-8">
-            <div>
-              <p className="text-[10.5px] text-slate-500 font-medium uppercase tracking-wide">Work Hours</p>
-              <p className="text-white font-semibold text-[14px] mt-0.5">
+          {/* Metrics Cards */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md px-4 py-2.5 min-w-[170px]">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Work Hours</p>
+              <p className="text-slate-900 dark:text-white font-bold text-[13.5px] mt-1">
                 {shiftLabel}
-                {employee?.shiftSchedule ? ` · ${employee.shiftSchedule.name}` : ''}
+              </p>
+              <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                {employee?.shiftSchedule?.name || 'General Day Shift'}
               </p>
             </div>
-            <div>
-              <p className="text-[10.5px] text-slate-500 font-medium uppercase tracking-wide">Elapsed</p>
-              <p className="text-white font-semibold text-[14px] mt-0.5 tabular-nums">
-                {checkedIn ? `${elapsedH}h ${pad(elapsedM)}m ${pad(elapsedS)}s` : '—'}
-              </p>
-            </div>
-          </div>
 
-          {/* Check in / out */}
-          <button
-            onClick={checkedIn ? handleCheckOut : handleCheckIn}
-            disabled={isPunching || Boolean(punch?.checkOut)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
-              checkedIn
-                ? 'bg-rose-500/15 text-rose-300 border border-rose-500/25 hover:bg-rose-500/25'
-                : 'bg-white text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
-              {checkedIn
-                ? <path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4l5.6 5.6L5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/>
-                : <path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5Zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14Z"/>
-              }
-            </svg>
-            {punch?.checkOut ? 'Done for Today' : checkedIn ? 'Check Out' : 'Check In'}
-          </button>
+            <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md px-4 py-2.5 min-w-[140px]">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Elapsed Today</p>
+              <p className="font-mono font-bold text-[15px] mt-1 tabular-nums">
+                {checkedIn ? (
+                  <span className="text-teal-600 dark:text-teal-400">{elapsedH}h {pad(elapsedM)}m {pad(elapsedS)}s</span>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
+              </p>
+              <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {checkedIn ? 'Active shift' : 'Offline'}
+              </p>
+            </div>
+
+            {/* Punch in / out action button */}
+            <button
+              onClick={checkedIn ? handleCheckOut : handleCheckIn}
+              disabled={isPunching || Boolean(punch?.checkOut)}
+              className={`flex items-center gap-2 px-6 py-3 rounded-md text-[13px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer shadow-none ${
+                Boolean(punch?.checkOut)
+                  ? 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                  : checkedIn
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                {checkedIn
+                  ? <path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4l5.6 5.6L5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/>
+                  : <path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5Zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14Z"/>
+                }
+              </svg>
+              {punch?.checkOut ? 'Done for Today' : checkedIn ? 'Punch Out' : 'Punch In'}
+            </button>
+          </div>
         </div>
       </div>
 

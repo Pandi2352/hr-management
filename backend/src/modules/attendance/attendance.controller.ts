@@ -35,7 +35,7 @@ export class AttendanceController {
   async checkIn(@Request() req: any, @Body() dto: PunchDto) {
     const orgId = await this.getOrgId(req);
     const data = await this.attendanceService.checkIn(dto, orgId, req.user);
-    return ResultEntity.created(data, 'Checked in successfully');
+    return ResultEntity.created(data, 'Punched in successfully');
   }
 
   @Post('check-out')
@@ -43,7 +43,7 @@ export class AttendanceController {
   async checkOut(@Request() req: any, @Body() dto: PunchDto) {
     const orgId = await this.getOrgId(req);
     const data = await this.attendanceService.checkOut(dto, orgId, req.user);
-    return ResultEntity.ok(data, 'Checked out successfully');
+    return ResultEntity.ok(data, 'Punched out successfully');
   }
 
   @Get('today')
@@ -61,6 +61,40 @@ export class AttendanceController {
     const fallback = new Date().toISOString().slice(0, 7);
     const data = await this.attendanceService.myRecords(orgId, req.user, month || fallback);
     return ResultEntity.ok(data);
+  }
+
+  @Get('overview')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
+  async getOverview(@Request() req: any, @Query('year') year?: string) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.attendanceService.getAttendanceOverview(orgId, year);
+    return ResultEntity.ok(data);
+  }
+
+  @Get('sheet')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_READ)
+  async getSheet(
+    @Request() req: any,
+    @Query('month') month?: string,
+    @Query('departmentId') departmentId?: string,
+    @Query('search') search?: string,
+    @Query('workType') workType?: string,
+  ) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.attendanceService.getAttendanceSheet(orgId, month, {
+      departmentId,
+      search,
+      workType,
+    });
+    return ResultEntity.ok(data);
+  }
+
+  @Post('record')
+  @RequirePermissions(PERMISSIONS.ATTENDANCE_MANAGE)
+  async recordManual(@Request() req: any, @Body() dto: any) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.attendanceService.recordManualAttendance(orgId, req.user, dto);
+    return ResultEntity.ok(data, 'Attendance record updated successfully');
   }
 
   @Get()

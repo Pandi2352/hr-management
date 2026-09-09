@@ -6,7 +6,8 @@ export interface AttendanceRecord {
   checkIn: string;
   checkOut: string;
   source: 'WEB' | 'MANUAL';
-  status: 'OPEN' | 'PRESENT';
+  status: 'OPEN' | 'PRESENT' | 'HALF_DAY' | 'ABSENT';
+  isHalfDay?: boolean;
   workMinutes: number;
   isLate?: boolean;
   lateMinutes?: number;

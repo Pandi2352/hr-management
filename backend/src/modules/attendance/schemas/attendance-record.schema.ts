@@ -31,9 +31,12 @@ export class AttendanceRecord {
   @Prop({ type: String, enum: ['WEB', 'MANUAL'], default: 'WEB' })
   source: 'WEB' | 'MANUAL';
 
-  /** OPEN until checkout; PRESENT once closed. */
-  @Prop({ type: String, enum: ['OPEN', 'PRESENT'], default: 'OPEN', index: true })
-  status: 'OPEN' | 'PRESENT';
+  /** OPEN until checkout; PRESENT once closed; HALF_DAY if 4h-7.9h. */
+  @Prop({ type: String, enum: ['OPEN', 'PRESENT', 'HALF_DAY', 'ABSENT'], default: 'OPEN', index: true })
+  status: 'OPEN' | 'PRESENT' | 'HALF_DAY' | 'ABSENT';
+
+  @Prop({ type: Boolean, default: false })
+  isHalfDay: boolean;
 
   @Prop({ type: Number, default: 0, min: 0 })
   workMinutes: number;

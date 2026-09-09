@@ -52,11 +52,12 @@ export function PromotionsTransfersPage() {
         page,
         pageSize,
       });
-      setTransitions(res.data || []);
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setTransitions(list);
       if (res.meta?.metrics) {
         setMetrics(res.meta.metrics);
       }
-      setTotal(res.meta?.total || (res.data || []).length);
+      setTotal(res.meta?.total || list.length);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err.message || 'Failed to fetch transitions.');
     } finally {
@@ -305,14 +306,14 @@ export function PromotionsTransfersPage() {
                     Loading transition records...
                   </td>
                 </tr>
-              ) : transitions.length === 0 ? (
+              ) : !Array.isArray(transitions) || transitions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-400">
                     No transition records found. Click "Initiate Transition" to record a promotion or transfer.
                   </td>
                 </tr>
               ) : (
-                transitions.map((t) => (
+                (transitions || []).map((t) => (
                   <tr
                     key={t._id}
                     className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors"

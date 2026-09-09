@@ -61,11 +61,12 @@ export function ProbationTrackerPage() {
         page,
         pageSize,
       });
-      setReviews(res.data || []);
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setReviews(list);
       if (res.meta?.metrics) {
         setMetrics(res.meta.metrics);
       }
-      setTotal(res.meta?.total || (res.data || []).length);
+      setTotal(res.meta?.total || list.length);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err.message || 'Failed to fetch probation records.');
     } finally {

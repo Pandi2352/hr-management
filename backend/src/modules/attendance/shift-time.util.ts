@@ -11,6 +11,8 @@ export interface DayEvaluation {
   isEarlyExit: boolean;
   earlyExitMinutes: number;
   overtimeMinutes: number;
+  isHalfDay: boolean;
+  effectiveStatus: 'OPEN' | 'PRESENT' | 'HALF_DAY' | 'ABSENT';
 }
 
 /** Legacy shift codes → default timings (used until a master shift is assigned). */
@@ -38,6 +40,10 @@ export function scheduledMinutes(rule: ShiftRule): number {
 /**
  * Flags a day against its shift. Without checkout only lateness is known.
  * Overtime counts work beyond schedule + 30 min threshold.
+ * Working hours evaluation:
+ * - workMinutes >= 480 min (8h) -> Full Day (PRESENT)
+ * - 240 min <= workMinutes < 480 min (4h - 7.9h) -> Half Day (HALF_DAY)
+ * - workMinutes < 240 min (< 4h) -> Absent / Short Hours (ABSENT)
  */
 export function evaluateDay(checkIn: string, checkOut: string, rule: ShiftRule | null): DayEvaluation {
   const empty: DayEvaluation = {
@@ -47,10 +53,23 @@ export function evaluateDay(checkIn: string, checkOut: string, rule: ShiftRule |
     isEarlyExit: false,
     earlyExitMinutes: 0,
     overtimeMinutes: 0,
+    isHalfDay: false,
+    effectiveStatus: checkIn && !checkOut ? 'OPEN' : 'ABSENT',
   };
+
   if (!rule) {
     if (checkIn && checkOut && toMinutes(checkOut) > toMinutes(checkIn)) {
       empty.workMinutes = toMinutes(checkOut) - toMinutes(checkIn);
+      if (empty.workMinutes >= 480) {
+        empty.effectiveStatus = 'PRESENT';
+        empty.isHalfDay = false;
+      } else if (empty.workMinutes >= 240) {
+        empty.effectiveStatus = 'HALF_DAY';
+        empty.isHalfDay = true;
+      } else {
+        empty.effectiveStatus = 'ABSENT';
+        empty.isHalfDay = false;
+      }
     }
     return empty;
   }
@@ -61,10 +80,25 @@ export function evaluateDay(checkIn: string, checkOut: string, rule: ShiftRule |
     empty.isLate = true;
     empty.lateMinutes = lateBy;
   }
-  if (!checkOut) return empty;
+  if (!checkOut) {
+    empty.effectiveStatus = 'OPEN';
+    return empty;
+  }
 
   const work = toMinutes(checkOut) - toMinutes(checkIn);
   empty.workMinutes = Math.max(0, work);
+
+  // Determine Full Day vs Half Day vs Absent based on working hours
+  if (empty.workMinutes >= 480) {
+    empty.effectiveStatus = 'PRESENT';
+    empty.isHalfDay = false;
+  } else if (empty.workMinutes >= 240) {
+    empty.effectiveStatus = 'HALF_DAY';
+    empty.isHalfDay = true;
+  } else {
+    empty.effectiveStatus = 'ABSENT';
+    empty.isHalfDay = false;
+  }
 
   const scheduledEnd = toMinutes(rule.endTime);
   const endIsNextDay = scheduledEnd <= toMinutes(rule.startTime);

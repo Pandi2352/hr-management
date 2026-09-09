@@ -41,10 +41,10 @@ export function CheckInOutCard({
       setDate(updated.date);
       onChanged(updated);
       toast.success(
-        kind === 'in' ? `Checked in at ${updated.checkIn}.` : `Checked out — ${formatWorkMinutes(updated.workMinutes)} today.`,
+        kind === 'in' ? `Punched in at ${updated.checkIn}.` : `Punched out — ${formatWorkMinutes(updated.workMinutes)} today.`,
       );
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || `Could not check ${kind}.`);
+      toast.error(err?.response?.data?.message || `Could not punch ${kind}.`);
     } finally {
       setIsWorking(false);
     }
@@ -54,7 +54,7 @@ export function CheckInOutCard({
     <div className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-[13px] font-bold text-slate-900 dark:text-white">Check In / Out</h3>
+          <h3 className="text-[13px] font-bold text-slate-900 dark:text-white">Punch In / Out</h3>
           <p className="text-[11px] text-slate-400">
             {record ? `${formatRecordDate(record.date)} · in ${record.checkIn || '—'}${record.checkOut ? ` · out ${record.checkOut}` : ''}` : 'Not punched yet today'}
           </p>
@@ -81,7 +81,7 @@ export function CheckInOutCard({
       <div className="mt-3 flex gap-2">
         <Button size="sm" onClick={() => punch('in')} disabled={isWorking || checkedIn} className="flex flex-1 items-center justify-center gap-1.5">
           <LogIn className="h-3.5 w-3.5" />
-          {checkedIn ? `In ${record?.checkIn}` : 'Check In'}
+          {checkedIn ? `In ${record?.checkIn}` : 'Punch In'}
         </Button>
         <Button
           size="sm"
@@ -91,7 +91,7 @@ export function CheckInOutCard({
           className="flex flex-1 items-center justify-center gap-1.5"
         >
           <LogOut className="h-3.5 w-3.5" />
-          {checkedOut ? `Out ${record?.checkOut}` : 'Check Out'}
+          {checkedOut ? `Out ${record?.checkOut}` : 'Punch Out'}
         </Button>
       </div>
     </div>

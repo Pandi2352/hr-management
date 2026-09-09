@@ -32,7 +32,7 @@ export function MyAttendanceTable({ records }: { records: AttendanceRecord[] }) 
     return (
       <div className="rounded-md border border-dashed border-slate-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
         <p className="text-sm font-semibold">No punches this month</p>
-        <p className="mt-1 text-xs text-slate-400">Check in above to start today's record.</p>
+        <p className="mt-1 text-xs text-slate-400">Punch in above to start today's record.</p>
       </div>
     );
   }
@@ -43,8 +43,8 @@ export function MyAttendanceTable({ records }: { records: AttendanceRecord[] }) 
         <thead>
           <tr className="bg-surface-2 text-[11px] tracking-wider text-ink-3 uppercase">
             <th className="px-3 py-2 font-bold">Date</th>
-            <th className="px-3 py-2 font-bold">Check In</th>
-            <th className="px-3 py-2 font-bold">Check Out</th>
+            <th className="px-3 py-2 font-bold">Punch In</th>
+            <th className="px-3 py-2 font-bold">Punch Out</th>
             <th className="px-3 py-2 text-right font-bold">Worked</th>
             <th className="px-3 py-2 font-bold">Status</th>
           </tr>
@@ -61,10 +61,20 @@ export function MyAttendanceTable({ records }: { records: AttendanceRecord[] }) 
                   className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                     r.status === 'PRESENT'
                       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                      : r.status === 'HALF_DAY' || r.isHalfDay
+                      ? 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300'
+                      : r.status === 'ABSENT'
+                      ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                       : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
                   }`}
                 >
-                  {r.status === 'PRESENT' ? 'Present' : 'Open'}
+                  {r.status === 'PRESENT'
+                    ? 'Present'
+                    : r.status === 'HALF_DAY' || r.isHalfDay
+                    ? 'Half Day'
+                    : r.status === 'ABSENT'
+                    ? 'Absent'
+                    : 'Open'}
                 </span>
                 {r.source === 'MANUAL' && <span className="ml-1 text-[10px] text-ink-3">· manual</span>}
                 <FlagBadges record={r} />
