@@ -46,16 +46,22 @@ async function seedDepartments() {
   const orgId = String(org._id);
 
   // 2. Ensure initial Cost Centers exist for allocation
-  const sampleCostCenters = [
-    { code: 'CC-ENG-101', name: 'Engineering & R&D' },
-    { code: 'CC-OPS-201', name: 'Operations & Infrastructure' },
-    { code: 'CC-GNA-301', name: 'General & Administrative' },
-    { code: 'CC-SMM-401', name: 'Sales & Marketing' },
-    { code: 'CC-CST-501', name: 'Customer Success & Support' },
+  const itCostCenters = [
+    { code: 'CC-TECH-01', name: 'Core Technology & R&D', description: 'Software architecture, core platform development, and research & development investments.' },
+    { code: 'CC-AI-02', name: 'Artificial Intelligence & Machine Learning', description: 'Generative AI models, neural compute infrastructure, LLM pipelines, and AI initiatives.' },
+    { code: 'CC-CLOUD-03', name: 'Cloud & Infrastructure Services', description: 'AWS, Azure, GCP infrastructure, Kubernetes hosting, and multi-region networking.' },
+    { code: 'CC-QA-04', name: 'Quality Assurance & Automation', description: 'Test automation frameworks, performance benchmarking, and QA lifecycle management.' },
+    { code: 'CC-PROD-05', name: 'Product Management & Design', description: 'Product strategy, roadmap development, UX research, and UI design systems.' },
+    { code: 'CC-SALES-06', name: 'Enterprise Sales & Business Development', description: 'Client acquisition, commercial software licensing, enterprise solutions, and deals.' },
+    { code: 'CC-MKT-07', name: 'Marketing & Brand Strategy', description: 'Developer evangelism, tech marketing, event sponsorships, and brand growth.' },
+    { code: 'CC-PEOPLE-08', name: 'People Operations & Talent Acquisition', description: 'Tech hiring, global talent sourcing, HR operations, and employee engagement.' },
+    { code: 'CC-FIN-09', name: 'Finance, Legal & Corporate Governance', description: 'Statutory compliance, financial reporting, corporate treasury, and legal affairs.' },
+    { code: 'CC-IT-10', name: 'Internal IT & Workplace Services', description: 'Laptops, office tech, SaaS subscriptions, internal helpdesk, and corporate security.' },
+    { code: 'CC-EXEC-11', name: 'Executive Leadership & Strategy', description: 'C-Suite operations, executive strategic planning, and corporate governance.' },
   ];
 
   const ccMap = new Map<string, string>();
-  for (const cc of sampleCostCenters) {
+  for (const cc of itCostCenters) {
     let existingCC = await costCentersCollection.findOne({
       organizationId: orgId,
       code: cc.code,
@@ -67,7 +73,7 @@ async function seedDepartments() {
         code: cc.code,
         name: cc.name,
         departmentId: null,
-        description: `Financial budget ledger for ${cc.name}`,
+        description: cc.description,
         status: 'ACTIVE',
         isDeleted: false,
         createdAt: new Date(),
@@ -79,257 +85,289 @@ async function seedDepartments() {
     ccMap.set(cc.code, String(existingCC._id));
   }
 
-  // 3. Clear existing departments for this org to cleanly insert the 15 enterprise hierarchy departments
+  // 3. Clear existing departments for this org to cleanly insert the 17 IT hierarchy departments
   await deptsCollection.deleteMany({ organizationId: orgId });
-  console.log('Cleared existing departments to apply fresh 15 enterprise hierarchy dataset.');
+  console.log('Cleared existing departments to apply fresh 17 IT hierarchy dataset.');
 
   // Tier 1: Top-Level Functional Divisions
-  const engId = generateUuid();
-  const prodId = generateUuid();
-  const itOpsId = generateUuid();
-  const salesId = generateUuid();
-  const hrId = generateUuid();
-  const financeId = generateUuid();
+  const engDivisionId = generateUuid();
+  const aiDataDivisionId = generateUuid();
+  const prodDesignDivisionId = generateUuid();
+  const cloudInfraDivisionId = generateUuid();
+  const qaDivisionId = generateUuid();
+  const itSecDivisionId = generateUuid();
+  const salesMktDivisionId = generateUuid();
+  const corpOpsDivisionId = generateUuid();
 
-  // Tier 2: Sub-Departments under Divisions
-  const feId = generateUuid();
-  const beId = generateUuid();
-  const devOpsId = generateUuid();
-  const qaId = generateUuid();
-  const secOpsId = generateUuid();
-  const talentId = generateUuid();
-  const payrollId = generateUuid();
-  const csId = generateUuid();
-  const legalId = generateUuid();
+  // Tier 2: Specialized Sub-Departments under Top-Level Divisions
+  const feDeptId = generateUuid();
+  const beDeptId = generateUuid();
+  const mobileDeptId = generateUuid();
+  const mlEngDeptId = generateUuid();
+  const dataEngDeptId = generateUuid();
+  const devopsDeptId = generateUuid();
+  const talentAcqDeptId = generateUuid();
+  const peopleOpsDeptId = generateUuid();
+  const financeLegalDeptId = generateUuid();
 
   const departmentsData = [
-    // 1. Engineering Division
+    // 1. Software Engineering Division (Parent)
     {
-      _id: engId,
+      _id: engDivisionId,
       organizationId: orgId,
-      name: 'Engineering',
+      name: 'Software Engineering',
       code: 'ENG',
       parentId: null,
-      costCenterId: ccMap.get('CC-ENG-101'),
-      memberCount: 84,
-      description: 'Core product engineering, software architecture, and technical innovation across platforms.',
+      costCenterId: ccMap.get('CC-TECH-01'),
+      memberCount: 0,
+      description: 'Core product engineering, software architecture, distributed systems, and technical platform delivery.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-    // 2. Frontend Engineering (under Engineering)
+    // 2. Frontend Engineering (Child of Software Engineering)
     {
-      _id: feId,
+      _id: feDeptId,
       organizationId: orgId,
       name: 'Frontend Engineering',
       code: 'ENG-FE',
-      parentId: engId,
-      costCenterId: ccMap.get('CC-ENG-101'),
-      memberCount: 28,
-      description: 'Web applications, design systems, and client-facing user interfaces.',
+      parentId: engDivisionId,
+      costCenterId: ccMap.get('CC-TECH-01'),
+      memberCount: 0,
+      description: 'Web client applications, responsive interfaces, micro-frontends, and component design systems.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-    // 3. Backend & Cloud APIs (under Engineering)
+    // 3. Backend & Cloud APIs (Child of Software Engineering)
     {
-      _id: beId,
+      _id: beDeptId,
       organizationId: orgId,
       name: 'Backend & APIs',
       code: 'ENG-BE',
-      parentId: engId,
-      costCenterId: ccMap.get('CC-ENG-101'),
-      memberCount: 34,
-      description: 'Microservices architecture, data persistence, and enterprise REST/GraphQL APIs.',
+      parentId: engDivisionId,
+      costCenterId: ccMap.get('CC-TECH-01'),
+      memberCount: 0,
+      description: 'Microservices architecture, high-throughput REST/GraphQL APIs, distributed persistence, and message queuing.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-    // 4. Quality Assurance & Automation (under Engineering)
+    // 4. Mobile Engineering (Child of Software Engineering)
     {
-      _id: qaId,
+      _id: mobileDeptId,
       organizationId: orgId,
-      name: 'Quality Assurance & Testing',
-      code: 'ENG-QA',
-      parentId: engId,
-      costCenterId: ccMap.get('CC-ENG-101'),
-      memberCount: 12,
-      description: 'End-to-end automated testing, load benchmarking, and release quality verification.',
+      name: 'Mobile Engineering',
+      code: 'ENG-MOB',
+      parentId: engDivisionId,
+      costCenterId: ccMap.get('CC-TECH-01'),
+      memberCount: 0,
+      description: 'Cross-platform and native iOS & Android applications, mobile SDKs, and offline-first client architecture.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-    // 5. Cloud Infrastructure & DevOps (under Engineering)
+
+    // 5. Artificial Intelligence & Data Division (Parent)
     {
-      _id: devOpsId,
+      _id: aiDataDivisionId,
+      organizationId: orgId,
+      name: 'AI & Data Engineering',
+      code: 'AI-DATA',
+      parentId: null,
+      costCenterId: ccMap.get('CC-AI-02'),
+      memberCount: 0,
+      description: 'Artificial intelligence innovation, predictive modeling, machine learning pipelines, and big data lakehouse systems.',
+      status: 'ACTIVE',
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    // 6. Machine Learning & LLMs (Child of AI & Data)
+    {
+      _id: mlEngDeptId,
+      organizationId: orgId,
+      name: 'Machine Learning & LLMs',
+      code: 'AI-ML',
+      parentId: aiDataDivisionId,
+      costCenterId: ccMap.get('CC-AI-02'),
+      memberCount: 0,
+      description: 'Deep learning models, generative AI integrations, neural network training, vector search, and model serving.',
+      status: 'ACTIVE',
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    // 7. Data Engineering & Analytics (Child of AI & Data)
+    {
+      _id: dataEngDeptId,
+      organizationId: orgId,
+      name: 'Data Engineering & Analytics',
+      code: 'AI-DE',
+      parentId: aiDataDivisionId,
+      costCenterId: ccMap.get('CC-AI-02'),
+      memberCount: 0,
+      description: 'ETL/ELT data pipelines, Kafka streaming, cloud data warehousing, BI dashboards, and enterprise metrics.',
+      status: 'ACTIVE',
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+
+    // 8. Product & UI/UX Design (Parent)
+    {
+      _id: prodDesignDivisionId,
+      organizationId: orgId,
+      name: 'Product & UI/UX Design',
+      code: 'PROD-DES',
+      parentId: null,
+      costCenterId: ccMap.get('CC-PROD-05'),
+      memberCount: 0,
+      description: 'Product lifecycle strategy, roadmap formulation, UX research, wireframing, and interactive design systems.',
+      status: 'ACTIVE',
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+
+    // 9. Cloud Infrastructure & DevOps Division (Parent)
+    {
+      _id: cloudInfraDivisionId,
       organizationId: orgId,
       name: 'Cloud Infrastructure & DevOps',
-      code: 'ENG-OPS',
-      parentId: engId,
-      costCenterId: ccMap.get('CC-OPS-201'),
-      memberCount: 10,
-      description: 'Container orchestration, CI/CD pipelines, and high-availability cloud infrastructure.',
-      status: 'ACTIVE',
-      isDeleted: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-
-    // 6. Product Management & Design
-    {
-      _id: prodId,
-      organizationId: orgId,
-      name: 'Product & Design',
-      code: 'PROD',
+      code: 'CLOUD-OPS',
       parentId: null,
-      costCenterId: ccMap.get('CC-ENG-101'),
-      memberCount: 18,
-      description: 'Product lifecycle strategy, UX research, wireframing, and user design systems.',
+      costCenterId: ccMap.get('CC-CLOUD-03'),
+      memberCount: 0,
+      description: 'Multi-cloud architecture, site reliability engineering, Kubernetes clusters, and automated CI/CD deployment pipelines.',
+      status: 'ACTIVE',
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    // 10. Site Reliability Engineering (Child of Cloud & DevOps)
+    {
+      _id: devopsDeptId,
+      organizationId: orgId,
+      name: 'Site Reliability Engineering (SRE)',
+      code: 'CLOUD-SRE',
+      parentId: cloudInfraDivisionId,
+      costCenterId: ccMap.get('CC-CLOUD-03'),
+      memberCount: 0,
+      description: '24/7 uptime observability, incident response, chaos engineering, disaster recovery, and infrastructure as code (IaC).',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
 
-    // 7. Information Technology & Security
+    // 11. Quality Assurance & Testing Division (Parent)
     {
-      _id: itOpsId,
+      _id: qaDivisionId,
       organizationId: orgId,
-      name: 'Information Technology & Security',
+      name: 'Quality Assurance & Testing',
+      code: 'QA',
+      parentId: null,
+      costCenterId: ccMap.get('CC-QA-04'),
+      memberCount: 0,
+      description: 'End-to-end automated testing, load and stress testing, regression suites, and release certification.',
+      status: 'ACTIVE',
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+
+    // 12. Information Technology & Cybersecurity (Parent)
+    {
+      _id: itSecDivisionId,
+      organizationId: orgId,
+      name: 'Information Technology & Cybersecurity',
       code: 'IT-SEC',
       parentId: null,
-      costCenterId: ccMap.get('CC-OPS-201'),
-      memberCount: 14,
-      description: 'Workplace IT infrastructure, identity access management, hardware provisioning, and security posture.',
-      status: 'ACTIVE',
-      isDeleted: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    // 8. Cybersecurity & Compliance (under IT & Security)
-    {
-      _id: secOpsId,
-      organizationId: orgId,
-      name: 'Cybersecurity & Compliance',
-      code: 'IT-CYBER',
-      parentId: itOpsId,
-      costCenterId: ccMap.get('CC-OPS-201'),
-      memberCount: 6,
-      description: 'Threat modeling, incident response, SOC2 compliance audits, and data governance.',
+      costCenterId: ccMap.get('CC-IT-10'),
+      memberCount: 0,
+      description: 'Enterprise IT infrastructure, zero-trust security architecture, identity management, and compliance audits.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
 
-    // 9. Human Resources & People Operations
+    // 13. Sales, Marketing & Growth (Parent)
     {
-      _id: hrId,
+      _id: salesMktDivisionId,
       organizationId: orgId,
-      name: 'Human Resources & People Ops',
-      code: 'HR',
+      name: 'Sales & Marketing',
+      code: 'SALES-MKT',
       parentId: null,
-      costCenterId: ccMap.get('CC-GNA-301'),
-      memberCount: 16,
-      description: 'Workforce management, workplace policies, employee engagement, and employee lifecycle.',
-      status: 'ACTIVE',
-      isDeleted: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    // 10. Talent Acquisition (under HR)
-    {
-      _id: talentId,
-      organizationId: orgId,
-      name: 'Talent Acquisition & Sourcing',
-      code: 'HR-TALENT',
-      parentId: hrId,
-      costCenterId: ccMap.get('CC-GNA-301'),
-      memberCount: 9,
-      description: 'Global talent sourcing, technical interviewing pipelines, and university hiring programs.',
+      costCenterId: ccMap.get('CC-SALES-06'),
+      memberCount: 0,
+      description: 'Enterprise client acquisition, commercial software contracts, developer advocacy, and brand marketing.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
 
-    // 11. Finance & Accounting
+    // 14. Corporate Operations & People Division (Parent)
     {
-      _id: financeId,
+      _id: corpOpsDivisionId,
       organizationId: orgId,
-      name: 'Finance & Accounting',
-      code: 'FIN',
+      name: 'Corporate & People Operations',
+      code: 'CORP-OPS',
       parentId: null,
-      costCenterId: ccMap.get('CC-GNA-301'),
-      memberCount: 11,
-      description: 'Financial forecasting, corporate treasury, general ledger management, and accounts payable.',
+      costCenterId: ccMap.get('CC-PEOPLE-08'),
+      memberCount: 0,
+      description: 'Workplace management, human resources, finance, talent sourcing, and statutory corporate affairs.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-    // 12. Payroll & Compensation (under Finance)
+    // 15. Talent Acquisition & Recruiting (Child of Corporate & People)
     {
-      _id: payrollId,
+      _id: talentAcqDeptId,
       organizationId: orgId,
-      name: 'Payroll & Benefits Administration',
-      code: 'FIN-PAY',
-      parentId: financeId,
-      costCenterId: ccMap.get('CC-GNA-301'),
-      memberCount: 5,
-      description: 'Monthly payroll cycles, statutory withholdings, employee compensation, and bonus allocations.',
+      name: 'Talent Acquisition',
+      code: 'CORP-TALENT',
+      parentId: corpOpsDivisionId,
+      costCenterId: ccMap.get('CC-PEOPLE-08'),
+      memberCount: 0,
+      description: 'Technical hiring pipelines, executive recruitment, campus tech drives, and onboarding coordination.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-
-    // 13. Sales & Business Development
+    // 16. Human Resources & People Experience (Child of Corporate & People)
     {
-      _id: salesId,
+      _id: peopleOpsDeptId,
       organizationId: orgId,
-      name: 'Sales & Business Development',
-      code: 'SALES',
-      parentId: null,
-      costCenterId: ccMap.get('CC-SMM-401'),
-      memberCount: 38,
-      description: 'Corporate client acquisition, enterprise solution sales, and strategic business partnerships.',
+      name: 'Human Resources & People Experience',
+      code: 'CORP-HR',
+      parentId: corpOpsDivisionId,
+      costCenterId: ccMap.get('CC-PEOPLE-08'),
+      memberCount: 0,
+      description: 'Employee engagement, performance appraisals, workplace culture, benefits administration, and retention.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-
-    // 14. Customer Success & Client Support
+    // 17. Finance, Payroll & Legal (Child of Corporate & People)
     {
-      _id: csId,
+      _id: financeLegalDeptId,
       organizationId: orgId,
-      name: 'Customer Success & Support',
-      code: 'CS',
-      parentId: null,
-      costCenterId: ccMap.get('CC-CST-501'),
-      memberCount: 26,
-      description: 'Account management, SLA compliance, client onboarding, and 24/7 technical customer support.',
-      status: 'ACTIVE',
-      isDeleted: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-
-    // 15. Legal & Corporate Governance
-    {
-      _id: legalId,
-      organizationId: orgId,
-      name: 'Legal & Corporate Affairs',
-      code: 'LEGAL',
-      parentId: null,
-      costCenterId: ccMap.get('CC-GNA-301'),
-      memberCount: 4,
-      description: 'Commercial contracts, corporate compliance, intellectual property trademarks, and regulatory affairs.',
+      name: 'Finance, Payroll & Legal',
+      code: 'CORP-FIN',
+      parentId: corpOpsDivisionId,
+      costCenterId: ccMap.get('CC-FIN-09'),
+      memberCount: 0,
+      description: 'Corporate ledger accounting, monthly payroll processing, taxation compliance, commercial contracts, and audits.',
       status: 'ACTIVE',
       isDeleted: false,
       createdAt: new Date(),
@@ -340,10 +378,10 @@ async function seedDepartments() {
   await deptsCollection.insertMany(departmentsData);
 
   console.log('----------------------------------------------------');
-  console.log(`✅ Successfully seeded 15 enterprise departments for organization [${org.legalName}]`);
-  console.log('   - 7 Top-Level Divisions (ENG, PROD, IT-SEC, HR, FIN, SALES, CS, LEGAL)');
-  console.log('   - 7 Sub-Departments with Parent/Child Hierarchy (ENG-FE, ENG-BE, ENG-QA, ENG-OPS, IT-CYBER, HR-TALENT, FIN-PAY)');
-  console.log('   - Ready for IT companies, consultancies, and multi-disciplinary organizations');
+  console.log(`✅ Successfully seeded 17 IT enterprise departments for organization [${org.legalName}]`);
+  console.log('   - 8 Top-Level Divisions (ENG, AI-DATA, PROD-DES, CLOUD-OPS, QA, IT-SEC, SALES-MKT, CORP-OPS)');
+  console.log('   - 9 Specialized Sub-Departments with full Parent/Child Hierarchy & Cost Center links');
+  console.log('   - 11 Dedicated IT Cost Centers');
   console.log('----------------------------------------------------');
 
   await mongoose.disconnect();

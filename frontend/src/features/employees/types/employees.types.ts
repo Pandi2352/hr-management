@@ -2,6 +2,9 @@ export interface EmergencyContact {
   name: string;
   relationship: string;
   phone: string;
+  alternatePhone?: string;
+  email?: string;
+  address?: string;
   isPrimary?: boolean;
 }
 
@@ -99,6 +102,8 @@ export interface Employee {
   onboardingEmailSentAt?: string | null;
   personalEmail?: string;
   phone?: string;
+  alternatePhone?: string;
+  secondaryEmail?: string;
   currentAddress?: Address;
   permanentAddress?: Address;
   emergencyContacts?: EmergencyContact[];
@@ -118,8 +123,8 @@ export interface Employee {
     employeeCode: string;
     avatarUrl?: string;
   } | null;
-  employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY';
-  status: 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE';
+  employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY' | 'CONSULTANT';
+  status: 'ACTIVE' | 'PROBATION' | 'ON_NOTICE' | 'NOTICE_PERIOD' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE' | 'ON_LEAVE' | 'JOINING';
   joiningDate: string;
   confirmationDate?: string;
   resignationDate?: string;
@@ -137,6 +142,7 @@ export interface Employee {
   department?: any;
   designation?: any;
   location?: any;
+  costCenter?: any;
   directReports?: Employee[];
   auditLogs?: any[];
 }

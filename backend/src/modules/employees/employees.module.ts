@@ -7,6 +7,7 @@ import { OrganizationModule } from '../organization/organization.module';
 import { Department, DepartmentSchema } from '../organization/schemas/department.schema';
 import { Designation, DesignationSchema } from '../organization/schemas/designation.schema';
 import { Location, LocationSchema } from '../organization/schemas/location.schema';
+import { CostCenter, CostCenterSchema } from '../organization/schemas/cost-center.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Role, RoleSchema } from '../users/schemas/role.schema';
 
@@ -23,6 +24,7 @@ import { DocumentStorageService } from './document-storage.service';
       { name: Department.name, schema: DepartmentSchema },
       { name: Designation.name, schema: DesignationSchema },
       { name: Location.name, schema: LocationSchema },
+      { name: CostCenter.name, schema: CostCenterSchema },
       { name: User.name, schema: UserSchema },
       { name: Role.name, schema: RoleSchema },
       { name: Organization.name, schema: OrganizationSchema },

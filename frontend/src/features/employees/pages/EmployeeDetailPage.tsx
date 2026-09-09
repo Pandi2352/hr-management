@@ -11,6 +11,11 @@ import { AuditTimeline } from '../../audit/components/AuditTimeline';
 import { DocumentVault } from '../components/DocumentVault';
 import { EmployeeLifecycleTimeline } from '../../lifecycle/components/EmployeeLifecycleTimeline';
 import type { Employee } from '../types/employees.types';
+import {
+  getEmploymentTypeLabel,
+  getEmploymentStatusLabel,
+  getEmploymentStatusBadgeClass,
+} from '../constants/employment.constants';
 
 export function EmployeeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -233,23 +238,95 @@ export function EmployeeDetailPage() {
             </div>
 
             <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Contact Information</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">Personal Email</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.personalEmail || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">Personal Mobile</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.phone || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">Alternate Phone</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.alternatePhone || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">Secondary Email</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.secondaryEmail || '—'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Residential Address</h3>
-              <p className="text-xs text-slate-700 dark:text-slate-300">
-                {employee.currentAddress?.addressLine1 || 'Address not registered'}
-                {employee.currentAddress?.city ? `, ${employee.currentAddress.city}` : ''}
-                {employee.currentAddress?.state ? `, ${employee.currentAddress.state}` : ''}
-                {employee.currentAddress?.country ? `, ${employee.currentAddress.country}` : ''}
-              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">Address Line 1</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.currentAddress?.addressLine1 || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">Address Line 2</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.currentAddress?.addressLine2 || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">City, State / Province</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {[employee.currentAddress?.city, employee.currentAddress?.state].filter(Boolean).join(', ') || '—'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">Country</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.currentAddress?.country || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block">Postal / ZIP Code</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.currentAddress?.postalCode || '—'}</p>
+                </div>
+              </div>
             </div>
 
             <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Emergency Contacts</h3>
               {employee.emergencyContacts && employee.emergencyContacts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {employee.emergencyContacts.map((contact, idx) => (
-                    <div key={idx} className="p-3 rounded-md bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-800 text-xs">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{contact.name} ({contact.relationship})</p>
-                      <p className="text-slate-500 font-mono mt-0.5">{contact.phone}</p>
+                    <div
+                      key={idx}
+                      className={`p-4 rounded-md border text-xs ${
+                        contact.isPrimary
+                          ? 'border-[var(--primary)] bg-violet-50/20 dark:bg-violet-950/10'
+                          : 'border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                          {contact.name}
+                        </span>
+                        {contact.isPrimary ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--primary)] text-white">
+                            ★ Primary
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-500 bg-slate-200 dark:bg-slate-800">
+                            Secondary
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1 text-slate-600 dark:text-slate-400">
+                        <p><strong className="text-slate-700 dark:text-slate-300">Relationship:</strong> {contact.relationship || '—'}</p>
+                        <p><strong className="text-slate-700 dark:text-slate-300">Phone:</strong> <span className="font-mono">{contact.phone}</span></p>
+                        {contact.alternatePhone && (
+                          <p><strong className="text-slate-700 dark:text-slate-300">Alt Phone:</strong> <span className="font-mono">{contact.alternatePhone}</span></p>
+                        )}
+                        {contact.email && (
+                          <p><strong className="text-slate-700 dark:text-slate-300">Email:</strong> {contact.email}</p>
+                        )}
+                        {contact.address && (
+                          <p><strong className="text-slate-700 dark:text-slate-300">Address:</strong> {contact.address}</p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -263,20 +340,69 @@ export function EmployeeDetailPage() {
         {/* TAB 3: EMPLOYMENT */}
         {activeTab === 'employment' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Department</span>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.department?.name || 'Unassigned'}</p>
-              </div>
-              <div>
-                <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Designation & Grade</span>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {employee.designation?.title || 'Staff'} {employee.designation?.grade ? `(Grade ${employee.designation.grade})` : ''}
-                </p>
-              </div>
-              <div>
-                <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Joining Date</span>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.joiningDate}</p>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+                Organization Assignment &amp; Structure
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Department</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.department?.name || 'Unassigned'}</p>
+                  {employee.department?.code && (
+                    <span className="text-[10px] text-slate-400 font-mono">Code: {employee.department.code}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Designation &amp; Grade</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.designation?.title || 'Staff'}
+                  </p>
+                  {employee.designation?.grade && (
+                    <span className="text-[10px] text-slate-400 font-mono">Grade {employee.designation.grade}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Office Location</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.location?.name || 'Unassigned'}
+                  </p>
+                  {employee.location?.city && (
+                    <span className="text-[10px] text-slate-400">{employee.location.city}, {employee.location.country}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Cost Center</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.costCenter?.name || 'Corporate Overhead'}
+                  </p>
+                  {employee.costCenter?.code && (
+                    <span className="text-[10px] text-slate-400 font-mono">{employee.costCenter.code}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Direct Reporting Manager</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.manager
+                      ? `${employee.manager.displayName || `${employee.manager.firstName} ${employee.manager.lastName}`} (${employee.manager.employeeCode})`
+                      : 'None (Executive Tier)'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Employment Type</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {getEmploymentTypeLabel(employee.employmentType)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400 block mb-1">Employment Status</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${getEmploymentStatusBadgeClass(employee.status)}`}>
+                    {getEmploymentStatusLabel(employee.status)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Joining Date</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.joiningDate || '—'}</p>
+                </div>
               </div>
             </div>
 

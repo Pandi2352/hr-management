@@ -14,6 +14,15 @@ export class EmergencyContact {
   @Prop({ required: true })
   phone: string;
 
+  @Prop({ default: '', trim: true })
+  alternatePhone?: string;
+
+  @Prop({ default: '', lowercase: true, trim: true })
+  email?: string;
+
+  @Prop({ default: '', trim: true })
+  address?: string;
+
   @Prop({ default: false })
   isPrimary: boolean;
 }
@@ -205,6 +214,12 @@ export class Employee {
   @Prop({ default: '', trim: true })
   phone?: string;
 
+  @Prop({ default: '', trim: true })
+  alternatePhone?: string;
+
+  @Prop({ default: '', lowercase: true, trim: true })
+  secondaryEmail?: string;
+
   @Prop({ type: () => Address, default: () => ({}) })
   currentAddress?: Address;
 
@@ -232,16 +247,16 @@ export class Employee {
 
   @Prop({
     default: 'FULL_TIME',
-    enum: ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN', 'TEMPORARY'],
+    enum: ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN', 'TEMPORARY', 'CONSULTANT'],
   })
-  employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY';
+  employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY' | 'CONSULTANT';
 
   @Prop({
     default: 'ACTIVE',
-    enum: ['JOINING', 'ACTIVE', 'PROBATION', 'ON_LEAVE', 'SUSPENDED', 'RESIGNED', 'TERMINATED', 'INACTIVE'],
+    enum: ['JOINING', 'ACTIVE', 'PROBATION', 'ON_LEAVE', 'ON_NOTICE', 'NOTICE_PERIOD', 'SUSPENDED', 'RESIGNED', 'TERMINATED', 'INACTIVE'],
     index: true,
   })
-  status: 'JOINING' | 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE';
+  status: 'JOINING' | 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'ON_NOTICE' | 'NOTICE_PERIOD' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE';
 
   @Prop({ required: true })
   joiningDate: string;

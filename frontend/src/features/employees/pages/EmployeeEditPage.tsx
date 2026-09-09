@@ -6,8 +6,12 @@ import { useToast } from '../../../components/ui/toast';
 import { useAuth } from '../../auth/context/AuthContext';
 import { employeesApi } from '../api/employees.api';
 import { organizationApi } from '../../organization/api/organization.api';
-import type { Department, Designation, LocationItem } from '../../organization/types/organization.types';
-import type { Employee } from '../types/employees.types';
+import type { Department, Designation, LocationItem, CostCenter } from '../../organization/types/organization.types';
+import type { Employee, EmergencyContact } from '../types/employees.types';
+import {
+  EMPLOYMENT_TYPE_OPTIONS,
+  EMPLOYMENT_STATUS_OPTIONS,
+} from '../constants/employment.constants';
 
 export function EmployeeEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +32,8 @@ export function EmployeeEditPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [potentialManagers, setPotentialManagers] = useState<Employee[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState<boolean>(false);
@@ -51,18 +57,24 @@ export function EmployeeEditPage() {
     workEmail: string;
     personalEmail: string;
     phone: string;
+    alternatePhone: string;
+    secondaryEmail: string;
+    managerId: string;
     currentAddress: {
       addressLine1?: string;
+      addressLine2?: string;
       city?: string;
       state?: string;
       country?: string;
       postalCode?: string;
     };
+    emergencyContacts: EmergencyContact[];
     departmentId: string;
     designationId: string;
     locationId: string;
-    employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY';
-    status: 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE';
+    costCenterId: string;
+    employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY' | 'CONSULTANT';
+    status: 'ACTIVE' | 'PROBATION' | 'ON_NOTICE' | 'NOTICE_PERIOD' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE' | 'ON_LEAVE' | 'JOINING';
     joiningDate: string;
   }>({
     firstName: '',
@@ -82,16 +94,32 @@ export function EmployeeEditPage() {
     workEmail: '',
     personalEmail: '',
     phone: '',
+    alternatePhone: '',
+    secondaryEmail: '',
+    managerId: '',
     currentAddress: {
       addressLine1: '',
+      addressLine2: '',
       city: '',
       state: '',
       country: '',
       postalCode: '',
     },
+    emergencyContacts: [
+      {
+        name: '',
+        relationship: 'Spouse',
+        phone: '',
+        alternatePhone: '',
+        email: '',
+        address: '',
+        isPrimary: true,
+      },
+    ],
     departmentId: '',
     designationId: '',
     locationId: '',
+    costCenterId: '',
     employmentType: 'FULL_TIME',
     status: 'ACTIVE',
     joiningDate: '',
@@ -101,16 +129,20 @@ export function EmployeeEditPage() {
     async function loadData() {
       if (!id) return;
       try {
-        const [emp, depts, desigs, locs] = await Promise.all([
+        const [emp, depts, desigs, locs, costs, emps] = await Promise.all([
           employeesApi.getEmployeeById(id),
           organizationApi.getDepartments(),
           organizationApi.getDesignations(),
           organizationApi.getLocations(),
+          organizationApi.getCostCenters(),
+          employeesApi.getEmployees({ pageSize: 100 }),
         ]);
         setEmployee(emp);
         setDepartments(depts || []);
         setDesignations(desigs || []);
         setLocations(locs || []);
+        setCostCenters(costs || []);
+        setPotentialManagers((emps?.data || []).filter((m: any) => m._id !== id));
 
         setFormData({
           firstName: emp.firstName || '',
@@ -130,16 +162,34 @@ export function EmployeeEditPage() {
           workEmail: emp.workEmail || '',
           personalEmail: emp.personalEmail || '',
           phone: emp.phone || '',
+          alternatePhone: emp.alternatePhone || '',
+          secondaryEmail: emp.secondaryEmail || '',
+          managerId: emp.managerId || '',
           currentAddress: {
             addressLine1: emp.currentAddress?.addressLine1 || '',
+            addressLine2: emp.currentAddress?.addressLine2 || '',
             city: emp.currentAddress?.city || '',
             state: emp.currentAddress?.state || '',
             country: emp.currentAddress?.country || '',
             postalCode: emp.currentAddress?.postalCode || '',
           },
+          emergencyContacts: emp.emergencyContacts && emp.emergencyContacts.length > 0
+            ? emp.emergencyContacts
+            : [
+                {
+                  name: '',
+                  relationship: 'Spouse',
+                  phone: '',
+                  alternatePhone: '',
+                  email: '',
+                  address: '',
+                  isPrimary: true,
+                },
+              ],
           departmentId: emp.departmentId || '',
           designationId: emp.designationId || '',
           locationId: emp.locationId || '',
+          costCenterId: emp.costCenterId || '',
           employmentType: emp.employmentType || 'FULL_TIME',
           status: emp.status || 'ACTIVE',
           joiningDate: emp.joiningDate || '',
@@ -152,14 +202,14 @@ export function EmployeeEditPage() {
     loadData();
   }, [id, navigate, toast]);
 
-  const handleAutoGenerateCode = async () => {
+  const handleGenerateCode = async () => {
     setIsGeneratingCode(true);
     try {
       const res = await employeesApi.generateEmployeeCode();
       handleChange('employeeCode', res.employeeCode);
       toast.success(`Generated ID: ${res.employeeCode}`, 'ID Assigned');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to auto-generate employee ID');
+      toast.error(err?.response?.data?.message || 'Failed to generate employee ID');
     } finally {
       setIsGeneratingCode(false);
     }
@@ -183,6 +233,56 @@ export function EmployeeEditPage() {
       ...prev,
       currentAddress: { ...prev.currentAddress, [field]: value },
     }));
+  };
+
+  const handleEmergencyContactChange = (index: number, field: string, value: any) => {
+    setFormData((prev) => {
+      const list = [...prev.emergencyContacts];
+      list[index] = { ...list[index], [field]: value };
+      return { ...prev, emergencyContacts: list };
+    });
+  };
+
+  const handleSetPrimaryEmergencyContact = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      emergencyContacts: prev.emergencyContacts.map((c, i) => ({
+        ...c,
+        isPrimary: i === index,
+      })),
+    }));
+  };
+
+  const handleAddEmergencyContact = () => {
+    if (formData.emergencyContacts.length >= 3) {
+      toast.error('A maximum of 3 emergency contacts can be configured.', 'Limit Reached');
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      emergencyContacts: [
+        ...prev.emergencyContacts,
+        {
+          name: '',
+          relationship: 'Other',
+          phone: '',
+          alternatePhone: '',
+          email: '',
+          address: '',
+          isPrimary: prev.emergencyContacts.length === 0,
+        },
+      ],
+    }));
+  };
+
+  const handleRemoveEmergencyContact = (index: number) => {
+    setFormData((prev) => {
+      const list = prev.emergencyContacts.filter((_, i) => i !== index);
+      if (list.length > 0 && !list.some((c) => c.isPrimary)) {
+        list[0].isPrimary = true;
+      }
+      return { ...prev, emergencyContacts: list };
+    });
   };
 
   const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,7 +333,16 @@ export function EmployeeEditPage() {
     setFieldErrors({});
     setIsSaving(true);
     try {
-      await employeesApi.updateEmployee(id, formData);
+      const updatePayload: any = {
+        ...formData,
+        emergencyContacts: formData.emergencyContacts
+          .filter((c) => c.name.trim())
+          .map((c, idx, arr) => ({
+            ...c,
+            isPrimary: arr.some((item) => item.isPrimary) ? c.isPrimary : idx === 0,
+          })),
+      };
+      await employeesApi.updateEmployee(id, updatePayload);
       toast.success('Employee record saved successfully.', 'Profile Updated');
       navigate(`/employees/${id}`);
     } catch (err: any) {
@@ -436,42 +545,200 @@ export function EmployeeEditPage() {
           </div>
         </div>
 
-        {/* Section 2: Residential Address */}
+        {/* Section 2: Personal Contact */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+            Personal Contact Information
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <Input
+              label="Personal Email"
+              type="email"
+              value={formData.personalEmail}
+              onChange={(e) => handleChange('personalEmail', e.target.value)}
+              placeholder="e.g. marcus.chen@gmail.com"
+            />
+            <Input
+              label="Personal Mobile Number"
+              value={formData.phone}
+              onChange={(e) => handleChange('phone', e.target.value)}
+              placeholder="e.g. +91 98765 43210"
+            />
+            <Input
+              label="Alternate Phone Number"
+              value={formData.alternatePhone}
+              onChange={(e) => handleChange('alternatePhone', e.target.value)}
+              placeholder="e.g. +91 98765 00000"
+            />
+            <Input
+              label="Secondary Email"
+              type="email"
+              value={formData.secondaryEmail}
+              onChange={(e) => handleChange('secondaryEmail', e.target.value)}
+              placeholder="e.g. m.chen.backup@gmail.com"
+            />
+          </div>
+        </div>
+
+        {/* Section 3: Residential Address */}
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
             Residential Address
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             <Input
-              label="Street Address"
+              label="Address Line 1"
               value={formData.currentAddress.addressLine1}
               onChange={(e) => handleAddressChange('addressLine1', e.target.value)}
-              placeholder="e.g. 100 Market Street, Suite 400"
+              placeholder="e.g. 100 Market Street, Flat 4B"
+            />
+            <Input
+              label="Address Line 2"
+              value={formData.currentAddress.addressLine2}
+              onChange={(e) => handleAddressChange('addressLine2', e.target.value)}
+              placeholder="e.g. Near Tech Park, Landmark"
             />
             <Input
               label="City"
               value={formData.currentAddress.city}
               onChange={(e) => handleAddressChange('city', e.target.value)}
-              placeholder="e.g. San Francisco"
+              placeholder="e.g. Bengaluru"
             />
             <Input
               label="State / Province"
               value={formData.currentAddress.state}
               onChange={(e) => handleAddressChange('state', e.target.value)}
-              placeholder="e.g. California"
+              placeholder="e.g. Karnataka"
             />
             <Input
               label="Country"
               value={formData.currentAddress.country}
               onChange={(e) => handleAddressChange('country', e.target.value)}
-              placeholder="e.g. United States"
+              placeholder="e.g. India"
             />
             <Input
-              label="Postal / Zip Code"
+              label="Postal / ZIP Code"
               value={formData.currentAddress.postalCode}
               onChange={(e) => handleAddressChange('postalCode', e.target.value)}
-              placeholder="e.g. 94105"
+              placeholder="e.g. 560045"
             />
+          </div>
+        </div>
+
+        {/* Section 4: Emergency Contacts (Master Data) */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Emergency Contacts
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                One primary contact required. Configure up to 3 emergency contacts for employee master data.
+              </p>
+            </div>
+            {formData.emergencyContacts.length < 3 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddEmergencyContact}
+                className="text-xs cursor-pointer h-8"
+              >
+                + Add Emergency Contact
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {formData.emergencyContacts.map((contact, idx) => (
+              <div
+                key={idx}
+                className={`p-4 rounded-md border transition-colors ${
+                  contact.isPrimary
+                    ? 'border-[var(--primary)] bg-violet-50/20 dark:bg-violet-950/10'
+                    : 'border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-900/30'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Contact #{idx + 1}
+                    </span>
+                    {contact.isPrimary ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--primary)] text-white">
+                        ★ Primary Contact
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSetPrimaryEmergencyContact(idx)}
+                        className="text-[10px] text-[var(--primary)] font-semibold hover:underline cursor-pointer"
+                      >
+                        Set as Primary
+                      </button>
+                    )}
+                  </div>
+                  {formData.emergencyContacts.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEmergencyContact(idx)}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Input
+                    label="Full Name"
+                    value={contact.name}
+                    onChange={(e) => handleEmergencyContactChange(idx, 'name', e.target.value)}
+                    placeholder="e.g. Jane Smith"
+                  />
+                  <SelectField
+                    label="Relationship"
+                    value={contact.relationship}
+                    onChange={(e) => handleEmergencyContactChange(idx, 'relationship', e.target.value)}
+                    options={[
+                      { value: 'Spouse', label: 'Spouse' },
+                      { value: 'Parent', label: 'Parent' },
+                      { value: 'Sibling', label: 'Sibling' },
+                      { value: 'Child', label: 'Child' },
+                      { value: 'Relative', label: 'Relative' },
+                      { value: 'Friend', label: 'Friend' },
+                      { value: 'Colleague', label: 'Colleague' },
+                      { value: 'Other', label: 'Other' },
+                    ]}
+                  />
+                  <Input
+                    label="Primary Phone"
+                    value={contact.phone}
+                    onChange={(e) => handleEmergencyContactChange(idx, 'phone', e.target.value)}
+                    placeholder="e.g. +91 98765 43210"
+                  />
+                  <Input
+                    label="Alternate Phone"
+                    value={contact.alternatePhone}
+                    onChange={(e) => handleEmergencyContactChange(idx, 'alternatePhone', e.target.value)}
+                    placeholder="e.g. +91 98765 11111"
+                  />
+                  <Input
+                    label="Email Address"
+                    type="email"
+                    value={contact.email}
+                    onChange={(e) => handleEmergencyContactChange(idx, 'email', e.target.value)}
+                    placeholder="e.g. jane.smith@example.com"
+                  />
+                  <Input
+                    label="Residential Address"
+                    value={contact.address}
+                    onChange={(e) => handleEmergencyContactChange(idx, 'address', e.target.value)}
+                    placeholder="e.g. 42 Park Avenue, Bengaluru"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -504,28 +771,11 @@ export function EmployeeEditPage() {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {/* Employee ID with Auto-Generate Button */}
+            {/* Employee ID with Generate Button */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                  Employee ID / Code
-                </label>
-                {isHrOrAdmin && (
-                  <button
-                    type="button"
-                    onClick={handleAutoGenerateCode}
-                    disabled={isGeneratingCode}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer disabled:opacity-50"
-                  >
-                    {isGeneratingCode ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3 w-3" />
-                    )}
-                    <span>Auto-Generate</span>
-                  </button>
-                )}
-              </div>
+              <label className="block text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1">
+                Employee ID / Code
+              </label>
               {isHrOrAdmin ? (
                 <div className="flex items-center gap-2">
                   <Input
@@ -538,7 +788,7 @@ export function EmployeeEditPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={handleAutoGenerateCode}
+                    onClick={handleGenerateCode}
                     disabled={isGeneratingCode}
                     className="shrink-0 h-9 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-slate-300 dark:border-slate-700"
                     title="Generate next sequential Employee ID based on organization prefix"
@@ -569,22 +819,17 @@ export function EmployeeEditPage() {
               </p>
             </div>
 
-            {/* Account Status */}
+            {/* Employment Status */}
             <SelectField
-              label="Account Status"
+              label="Employment Status"
               value={formData.status}
               onChange={(e) => handleChange('status', e.target.value)}
               disabled={!isHrOrAdmin}
               helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
-              options={[
-                { value: 'ACTIVE', label: 'ACTIVE' },
-                { value: 'PROBATION', label: 'PROBATION' },
-                { value: 'ON_LEAVE', label: 'ON_LEAVE' },
-                { value: 'SUSPENDED', label: 'SUSPENDED' },
-                { value: 'RESIGNED', label: 'RESIGNED' },
-                { value: 'TERMINATED', label: 'TERMINATED' },
-                { value: 'INACTIVE', label: 'INACTIVE' },
-              ]}
+              options={EMPLOYMENT_STATUS_OPTIONS.map((s) => ({
+                value: s.value,
+                label: s.label,
+              }))}
             />
 
             {/* Work Email */}
@@ -659,6 +904,78 @@ export function EmployeeEditPage() {
               options={locations.map((l) => ({ value: l._id, label: `${l.name} (${l.city})` }))}
             />
 
+            {/* Cost Center */}
+            {isHrOrAdmin ? (
+              <SelectField
+                label="Cost Center"
+                value={formData.costCenterId}
+                onChange={(e) => handleChange('costCenterId', e.target.value)}
+                placeholder="Select Cost Center (Optional)..."
+                options={[
+                  { value: '', label: 'None / Corporate Overhead' },
+                  ...costCenters.map((c) => ({
+                    value: c._id,
+                    label: `${c.name} (${c.code})`,
+                  })),
+                ]}
+              />
+            ) : (
+              <div>
+                <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1 block">
+                  Cost Center
+                </label>
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md">
+                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {costCenters.find((c) => c._id === formData.costCenterId)
+                      ? `${costCenters.find((c) => c._id === formData.costCenterId)?.name} (${costCenters.find((c) => c._id === formData.costCenterId)?.code})`
+                      : employee?.costCenter
+                      ? `${employee.costCenter.name} (${employee.costCenter.code})`
+                      : 'None / Corporate Overhead'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                    <Lock className="h-2.5 w-2.5" />
+                    Locked
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Financial budget ledger allocation managed by HR.</p>
+              </div>
+            )}
+
+            {/* Direct Reporting Manager */}
+            {isHrOrAdmin ? (
+              <SelectField
+                label="Direct Reporting Manager"
+                value={formData.managerId}
+                onChange={(e) => handleChange('managerId', e.target.value)}
+                placeholder="None (Reports to Executive / Board)"
+                options={[
+                  { value: '', label: 'None (Reports to Executive / Board)' },
+                  ...potentialManagers.map((m) => ({
+                    value: m._id,
+                    label: `${m.displayName || `${m.firstName} ${m.lastName}`} (${m.employeeCode})`,
+                  })),
+                ]}
+              />
+            ) : (
+              <div>
+                <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1 block">
+                  Direct Reporting Manager
+                </label>
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md">
+                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {employee?.manager
+                      ? `${employee.manager.displayName || `${employee.manager.firstName} ${employee.manager.lastName}`} (${employee.manager.employeeCode})`
+                      : 'None (Reports to Executive / Board)'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                    <Lock className="h-2.5 w-2.5" />
+                    Locked
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Supervisory reporting alignment managed by HR.</p>
+              </div>
+            )}
+
             {/* Employment Type */}
             <SelectField
               label="Employment Type"
@@ -666,12 +983,10 @@ export function EmployeeEditPage() {
               onChange={(e) => handleChange('employmentType', e.target.value)}
               disabled={!isHrOrAdmin}
               helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
-              options={[
-                { value: 'FULL_TIME', label: 'Full Time' },
-                { value: 'PART_TIME', label: 'Part Time' },
-                { value: 'CONTRACT', label: 'Contract' },
-                { value: 'INTERN', label: 'Intern' },
-              ]}
+              options={EMPLOYMENT_TYPE_OPTIONS.map((t) => ({
+                value: t.value,
+                label: t.label,
+              }))}
             />
           </div>
         </div>

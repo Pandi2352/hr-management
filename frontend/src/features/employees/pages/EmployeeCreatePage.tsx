@@ -20,8 +20,15 @@ import { CredentialsModal } from '../components/CredentialsModal';
 import { useToast } from '../../../components/ui/toast';
 import { employeesApi } from '../api/employees.api';
 import { organizationApi } from '../../organization/api/organization.api';
-import type { Department, Designation, LocationItem } from '../../organization/types/organization.types';
+import type { Department, Designation, LocationItem, CostCenter } from '../../organization/types/organization.types';
 import type { Employee } from '../types/employees.types';
+import {
+  EMPLOYMENT_TYPE_OPTIONS,
+  EMPLOYMENT_STATUS_OPTIONS,
+  getEmploymentTypeLabel,
+  getEmploymentStatusLabel,
+  getEmploymentStatusBadgeClass,
+} from '../constants/employment.constants';
 
 const WIZARD_STEPS = [
   { id: 1, title: 'Identity & Photo', icon: User, desc: 'Personal Info & Photo' },
@@ -53,6 +60,7 @@ export function EmployeeCreatePage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [potentialManagers, setPotentialManagers] = useState<Employee[]>([]);
 
   // Form State
@@ -83,22 +91,31 @@ export function EmployeeCreatePage() {
     status: 'ACTIVE' as const,
     joiningDate: new Date().toISOString().split('T')[0],
 
-    // Step 3: Contact
+    // Step 3: Contact & Emergency
     workEmail: '',
     personalEmail: '',
     phone: '',
+    alternatePhone: '',
+    secondaryEmail: '',
     currentAddress: {
       addressLine1: '',
+      addressLine2: '',
       city: '',
       state: '',
       country: '',
       postalCode: '',
     },
-    emergencyContact: {
-      name: '',
-      relationship: 'Spouse',
-      phone: '',
-    },
+    emergencyContacts: [
+      {
+        name: '',
+        relationship: 'Spouse',
+        phone: '',
+        alternatePhone: '',
+        email: '',
+        address: '',
+        isPrimary: true,
+      },
+    ],
 
     // Step 4: Skills & Education
     primarySkill: '',
@@ -111,15 +128,17 @@ export function EmployeeCreatePage() {
   useEffect(() => {
     async function loadRefs() {
       try {
-        const [depts, desigs, locs, emps] = await Promise.all([
+        const [depts, desigs, locs, costs, emps] = await Promise.all([
           organizationApi.getDepartments(),
           organizationApi.getDesignations(),
           organizationApi.getLocations(),
+          organizationApi.getCostCenters(),
           employeesApi.getEmployees({ pageSize: 50 }),
         ]);
         setDepartments(depts || []);
         setDesignations(desigs || []);
         setLocations(locs || []);
+        setCostCenters(costs || []);
         setPotentialManagers(emps.data || []);
 
         // Pre-select first options if available
@@ -153,11 +172,54 @@ export function EmployeeCreatePage() {
     }));
   };
 
-  const handleEmergencyChange = (field: string, value: string) => {
+  const handleEmergencyContactChange = (index: number, field: string, value: any) => {
+    setFormData((prev) => {
+      const list = [...prev.emergencyContacts];
+      list[index] = { ...list[index], [field]: value };
+      return { ...prev, emergencyContacts: list };
+    });
+  };
+
+  const handleSetPrimaryEmergencyContact = (index: number) => {
     setFormData((prev) => ({
       ...prev,
-      emergencyContact: { ...prev.emergencyContact, [field]: value },
+      emergencyContacts: prev.emergencyContacts.map((c, i) => ({
+        ...c,
+        isPrimary: i === index,
+      })),
     }));
+  };
+
+  const handleAddEmergencyContact = () => {
+    if (formData.emergencyContacts.length >= 3) {
+      toast.error('A maximum of 3 emergency contacts can be configured.', 'Limit Reached');
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      emergencyContacts: [
+        ...prev.emergencyContacts,
+        {
+          name: '',
+          relationship: 'Other',
+          phone: '',
+          alternatePhone: '',
+          email: '',
+          address: '',
+          isPrimary: prev.emergencyContacts.length === 0,
+        },
+      ],
+    }));
+  };
+
+  const handleRemoveEmergencyContact = (index: number) => {
+    setFormData((prev) => {
+      const list = prev.emergencyContacts.filter((_, i) => i !== index);
+      if (list.length > 0 && !list.some((c) => c.isPrimary)) {
+        list[0].isPrimary = true;
+      }
+      return { ...prev, emergencyContacts: list };
+    });
   };
 
   // Avatar Upload Handlers
@@ -191,14 +253,14 @@ export function EmployeeCreatePage() {
     setFormData((prev) => ({ ...prev, avatarUrl: '' }));
   };
 
-  const handleAutoGenerateCode = async () => {
+  const handleGenerateCode = async () => {
     setIsGeneratingCode(true);
     try {
       const res = await employeesApi.generateEmployeeCode();
       handleChange('employeeCode', res.employeeCode);
       toast.success(`Generated ID: ${res.employeeCode}`, 'ID Assigned');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to auto-generate employee ID');
+      toast.error(err?.response?.data?.message || 'Failed to generate employee ID');
     } finally {
       setIsGeneratingCode(false);
     }
@@ -304,11 +366,17 @@ export function EmployeeCreatePage() {
 
         workEmail: formData.workEmail.trim() || undefined,
         personalEmail: formData.personalEmail.trim() || undefined,
-        phone: formData.phone || undefined,
+        phone: formData.phone.trim() || undefined,
+        alternatePhone: formData.alternatePhone.trim() || undefined,
+        secondaryEmail: formData.secondaryEmail.trim() || undefined,
         currentAddress: formData.currentAddress,
-        emergencyContacts: formData.emergencyContact.name
-          ? [{ ...formData.emergencyContact, isPrimary: true }]
-          : [],
+        emergencyContacts: formData.emergencyContacts
+          .filter((c) => c.name.trim())
+          .map((c, idx, arr) => ({
+            ...c,
+            // Ensure at least one primary if contacts exist
+            isPrimary: arr.some((item) => item.isPrimary) ? c.isPrimary : idx === 0,
+          })),
 
         education: formData.degree
           ? [{ institution: formData.institution || 'University', degree: formData.degree, startDate: '2016', endDate: '2020' }]
@@ -662,24 +730,9 @@ export function EmployeeCreatePage() {
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                      Employee ID / Code
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleAutoGenerateCode}
-                      disabled={isGeneratingCode}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)] hover:underline cursor-pointer disabled:opacity-50"
-                    >
-                      {isGeneratingCode ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3 w-3" />
-                      )}
-                      <span>Auto-Generate</span>
-                    </button>
-                  </div>
+                  <label className="block text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1">
+                    Employee ID / Code
+                  </label>
                   <div className="flex items-center gap-2">
                     <Input
                       value={formData.employeeCode}
@@ -691,7 +744,7 @@ export function EmployeeCreatePage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={handleAutoGenerateCode}
+                      onClick={handleGenerateCode}
                       disabled={isGeneratingCode}
                       className="shrink-0 h-9 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-slate-300 dark:border-slate-700"
                       title="Generate next sequential Employee ID based on organization prefix"
@@ -745,25 +798,48 @@ export function EmployeeCreatePage() {
                   error={fieldErrors.locationId}
                 />
                 <SelectField
+                  label="Cost Center"
+                  value={formData.costCenterId}
+                  onChange={(e) => handleChange('costCenterId', e.target.value)}
+                  placeholder="Select Cost Center (Optional)..."
+                  options={[
+                    { value: '', label: 'None / Corporate Overhead' },
+                    ...costCenters.map((c) => ({
+                      value: c._id,
+                      label: `${c.name} (${c.code})`,
+                    })),
+                  ]}
+                />
+                <SelectField
                   label="Direct Reporting Manager"
                   value={formData.managerId}
                   onChange={(e) => handleChange('managerId', e.target.value)}
                   placeholder="None (Reports to Executive / Board)"
-                  options={potentialManagers.map((m) => ({
-                    value: m._id,
-                    label: `${m.displayName || `${m.firstName} ${m.lastName}`} (${m.employeeCode})`,
-                  }))}
+                  options={[
+                    { value: '', label: 'None (Reports to Executive / Board)' },
+                    ...potentialManagers.map((m) => ({
+                      value: m._id,
+                      label: `${m.displayName || `${m.firstName} ${m.lastName}`} (${m.employeeCode})`,
+                    })),
+                  ]}
                 />
                 <SelectField
                   label="Employment Type"
                   value={formData.employmentType}
                   onChange={(e) => handleChange('employmentType', e.target.value)}
-                  options={[
-                    { value: 'FULL_TIME', label: 'Full Time Permanent' },
-                    { value: 'PART_TIME', label: 'Part Time' },
-                    { value: 'CONTRACT', label: 'Independent Contractor' },
-                    { value: 'INTERN', label: 'Internship' },
-                  ]}
+                  options={EMPLOYMENT_TYPE_OPTIONS.map((t) => ({
+                    value: t.value,
+                    label: t.label,
+                  }))}
+                />
+                <SelectField
+                  label="Employment Status"
+                  value={formData.status}
+                  onChange={(e) => handleChange('status', e.target.value)}
+                  options={EMPLOYMENT_STATUS_OPTIONS.map((s) => ({
+                    value: s.value,
+                    label: s.label,
+                  }))}
                 />
                 <Input
                   label="Joining Date"
@@ -812,7 +888,7 @@ export function EmployeeCreatePage() {
               {/* Sub-section 1: Email & Telephone */}
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
-                  Contact Information
+                  Personal Contact
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   <Input
@@ -826,6 +902,25 @@ export function EmployeeCreatePage() {
                     error={fieldErrors.personalEmail}
                   />
                   <Input
+                    label="Personal Mobile Number"
+                    value={formData.phone}
+                    onChange={(e) => handleChange('phone', e.target.value)}
+                    placeholder="e.g. +91 98765 43210"
+                  />
+                  <Input
+                    label="Alternate Phone Number"
+                    value={formData.alternatePhone}
+                    onChange={(e) => handleChange('alternatePhone', e.target.value)}
+                    placeholder="e.g. +91 98765 00000"
+                  />
+                  <Input
+                    label="Secondary Email"
+                    type="email"
+                    value={formData.secondaryEmail}
+                    onChange={(e) => handleChange('secondaryEmail', e.target.value)}
+                    placeholder="e.g. m.chen.backup@gmail.com"
+                  />
+                  <Input
                     label="Corporate Work Email (Auto-Generated if Blank)"
                     type="email"
                     value={formData.workEmail}
@@ -837,12 +932,6 @@ export function EmployeeCreatePage() {
                     }
                     helperText="Leave blank to auto-generate from employee name."
                   />
-                  <Input
-                    label="Direct Phone Number"
-                    value={formData.phone}
-                    onChange={(e) => handleChange('phone', e.target.value)}
-                    placeholder="e.g. +1 (555) 234-5678"
-                  />
                 </div>
               </div>
 
@@ -853,69 +942,158 @@ export function EmployeeCreatePage() {
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   <Input
-                    label="Street Address"
+                    label="Address Line 1"
                     value={formData.currentAddress.addressLine1}
                     onChange={(e) => handleAddressChange('addressLine1', e.target.value)}
-                    placeholder="e.g. 100 Market Street, Suite 400"
+                    placeholder="e.g. 100 Market Street, Flat 4B"
+                  />
+                  <Input
+                    label="Address Line 2"
+                    value={formData.currentAddress.addressLine2}
+                    onChange={(e) => handleAddressChange('addressLine2', e.target.value)}
+                    placeholder="e.g. Near Tech Park, Landmark"
                   />
                   <Input
                     label="City"
                     value={formData.currentAddress.city}
                     onChange={(e) => handleAddressChange('city', e.target.value)}
-                    placeholder="e.g. San Francisco"
+                    placeholder="e.g. Bengaluru"
                   />
                   <Input
                     label="State / Province"
                     value={formData.currentAddress.state}
                     onChange={(e) => handleAddressChange('state', e.target.value)}
-                    placeholder="e.g. California"
+                    placeholder="e.g. Karnataka"
                   />
                   <Input
                     label="Country"
                     value={formData.currentAddress.country}
                     onChange={(e) => handleAddressChange('country', e.target.value)}
-                    placeholder="e.g. United States"
+                    placeholder="e.g. India"
                   />
                   <Input
-                    label="Postal / Zip Code"
+                    label="Postal / ZIP Code"
                     value={formData.currentAddress.postalCode}
                     onChange={(e) => handleAddressChange('postalCode', e.target.value)}
-                    placeholder="e.g. 94105"
+                    placeholder="e.g. 560045"
                   />
                 </div>
               </div>
 
-              {/* Sub-section 3: Emergency Contact */}
+              {/* Sub-section 3: Emergency Contacts (Master Data) */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
-                  Emergency Contact
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  <Input
-                    label="Emergency Contact Name"
-                    value={formData.emergencyContact.name}
-                    onChange={(e) => handleEmergencyChange('name', e.target.value)}
-                    placeholder="e.g. Chloe Chen"
-                  />
-                  <SelectField
-                    label="Relationship"
-                    value={formData.emergencyContact.relationship}
-                    onChange={(e) => handleEmergencyChange('relationship', e.target.value)}
-                    options={[
-                      { value: 'Spouse', label: 'Spouse' },
-                      { value: 'Parent', label: 'Parent' },
-                      { value: 'Sibling', label: 'Sibling' },
-                      { value: 'Child', label: 'Child' },
-                      { value: 'Friend', label: 'Friend' },
-                      { value: 'Other', label: 'Other' },
-                    ]}
-                  />
-                  <Input
-                    label="Emergency Phone"
-                    value={formData.emergencyContact.phone}
-                    onChange={(e) => handleEmergencyChange('phone', e.target.value)}
-                    placeholder="e.g. +1 (555) 999-0000"
-                  />
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Emergency Contacts
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      One primary contact required. Configure up to 3 emergency contacts for employee master data.
+                    </p>
+                  </div>
+                  {formData.emergencyContacts.length < 3 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddEmergencyContact}
+                      className="text-xs cursor-pointer h-8"
+                    >
+                      + Add Emergency Contact
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  {formData.emergencyContacts.map((contact, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-4 rounded-md border transition-colors ${
+                        contact.isPrimary
+                          ? 'border-[var(--primary)] bg-violet-50/20 dark:bg-violet-950/10'
+                          : 'border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-900/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                            Contact #{idx + 1}
+                          </span>
+                          {contact.isPrimary ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--primary)] text-white">
+                              ★ Primary Contact
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSetPrimaryEmergencyContact(idx)}
+                              className="text-[10px] text-[var(--primary)] font-semibold hover:underline cursor-pointer"
+                            >
+                              Set as Primary
+                            </button>
+                          )}
+                        </div>
+                        {formData.emergencyContacts.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEmergencyContact(idx)}
+                            className="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <Input
+                          label="Full Name"
+                          value={contact.name}
+                          onChange={(e) => handleEmergencyContactChange(idx, 'name', e.target.value)}
+                          placeholder="e.g. Jane Smith"
+                        />
+                        <SelectField
+                          label="Relationship"
+                          value={contact.relationship}
+                          onChange={(e) => handleEmergencyContactChange(idx, 'relationship', e.target.value)}
+                          options={[
+                            { value: 'Spouse', label: 'Spouse' },
+                            { value: 'Parent', label: 'Parent' },
+                            { value: 'Sibling', label: 'Sibling' },
+                            { value: 'Child', label: 'Child' },
+                            { value: 'Relative', label: 'Relative' },
+                            { value: 'Friend', label: 'Friend' },
+                            { value: 'Colleague', label: 'Colleague' },
+                            { value: 'Other', label: 'Other' },
+                          ]}
+                        />
+                        <Input
+                          label="Primary Phone"
+                          value={contact.phone}
+                          onChange={(e) => handleEmergencyContactChange(idx, 'phone', e.target.value)}
+                          placeholder="e.g. +91 98765 43210"
+                        />
+                        <Input
+                          label="Alternate Phone"
+                          value={contact.alternatePhone}
+                          onChange={(e) => handleEmergencyContactChange(idx, 'alternatePhone', e.target.value)}
+                          placeholder="e.g. +91 98765 11111"
+                        />
+                        <Input
+                          label="Email Address"
+                          type="email"
+                          value={contact.email}
+                          onChange={(e) => handleEmergencyContactChange(idx, 'email', e.target.value)}
+                          placeholder="e.g. jane.smith@example.com"
+                        />
+                        <Input
+                          label="Residential Address"
+                          value={contact.address}
+                          onChange={(e) => handleEmergencyContactChange(idx, 'address', e.target.value)}
+                          placeholder="e.g. 42 Park Avenue, Bengaluru"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1042,7 +1220,10 @@ export function EmployeeCreatePage() {
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                        {formData.employmentType}
+                        {getEmploymentTypeLabel(formData.employmentType)}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getEmploymentStatusBadgeClass(formData.status)}`}>
+                        {getEmploymentStatusLabel(formData.status)}
                       </span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                         Joining: {formData.joiningDate}
@@ -1187,6 +1368,7 @@ export function EmployeeCreatePage() {
                     <span className="font-semibold text-slate-900 dark:text-slate-100">
                       {[
                         formData.currentAddress.addressLine1,
+                        formData.currentAddress.addressLine2,
                         formData.currentAddress.city,
                         formData.currentAddress.state,
                         formData.currentAddress.country,
@@ -1195,14 +1377,19 @@ export function EmployeeCreatePage() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Direct Phone</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.phone || '—'}</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Personal Phone</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      {formData.phone || '—'} {formData.alternatePhone ? `(Alt: ${formData.alternatePhone})` : ''}
+                    </span>
                   </div>
                   <div>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Emergency Contact</span>
                     <span className="font-semibold text-slate-900 dark:text-slate-100">
-                      {formData.emergencyContact.name
-                        ? `${formData.emergencyContact.name} (${formData.emergencyContact.relationship}) - ${formData.emergencyContact.phone}`
+                      {formData.emergencyContacts.filter((c) => c.name.trim()).length > 0
+                        ? formData.emergencyContacts
+                            .filter((c) => c.name.trim())
+                            .map((c) => `${c.name} (${c.relationship}${c.isPrimary ? ' - Primary' : ''}): ${c.phone}`)
+                            .join('; ')
                         : '—'}
                     </span>
                   </div>

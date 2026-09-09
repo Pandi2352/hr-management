@@ -11,6 +11,7 @@ import { Employee, EmployeeDocument } from './schemas/employee.schema';
 import { Department, DepartmentDocument } from '../organization/schemas/department.schema';
 import { Designation, DesignationDocument } from '../organization/schemas/designation.schema';
 import { Location, LocationDocument } from '../organization/schemas/location.schema';
+import { CostCenter, CostCenterDocument } from '../organization/schemas/cost-center.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuditAction, AuditResource } from '../../common/audit/audit.constants';
@@ -55,6 +56,7 @@ export class EmployeesService {
     @InjectModel(Department.name) private deptModel: Model<DepartmentDocument>,
     @InjectModel(Designation.name) private desigModel: Model<DesignationDocument>,
     @InjectModel(Location.name) private locModel: Model<LocationDocument>,
+    @InjectModel(CostCenter.name) private costCenterModel: Model<CostCenterDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly provisioningService: EmployeeProvisioningService,
     private readonly scopeService: EmployeeScopeService,
@@ -179,18 +181,21 @@ export class EmployeesService {
     const departmentIds = [...new Set(result.data.map((e) => e.departmentId).filter(Boolean))];
     const designationIds = [...new Set(result.data.map((e) => e.designationId).filter(Boolean))];
     const locationIds = [...new Set(result.data.map((e) => e.locationId).filter(Boolean))];
+    const costCenterIds = [...new Set(result.data.map((e) => e.costCenterId).filter(Boolean))];
     const managerIds = [...new Set(result.data.map((e) => e.managerId).filter(Boolean))];
 
-    const [departments, designations, locations, managers] = await Promise.all([
+    const [departments, designations, locations, costCenters, managers] = await Promise.all([
       this.deptModel.find({ _id: { $in: departmentIds } }).lean(),
       this.desigModel.find({ _id: { $in: designationIds } }).lean(),
       this.locModel.find({ _id: { $in: locationIds } }).lean(),
+      this.costCenterModel.find({ _id: { $in: costCenterIds } }).lean(),
       this.empModel.find({ _id: { $in: managerIds } }, 'firstName lastName displayName employeeCode avatarUrl').lean(),
     ]);
 
     const deptMap = new Map(departments.map((d) => [String(d._id), d.name]));
     const desigMap = new Map(designations.map((d) => [String(d._id), d.title]));
     const locMap = new Map(locations.map((l) => [String(l._id), l.name]));
+    const costCenterMap = new Map(costCenters.map((c) => [String(c._id), c.name]));
     const managerMap = new Map(managers.map((m) => [String(m._id), m]));
 
     const enrichedData = result.data.map((emp) => {
@@ -200,6 +205,7 @@ export class EmployeesService {
         departmentName: emp.departmentId ? deptMap.get(emp.departmentId) || null : null,
         designationTitle: emp.designationId ? desigMap.get(emp.designationId) || null : null,
         locationName: emp.locationId ? locMap.get(emp.locationId) || null : null,
+        costCenterName: emp.costCenterId ? costCenterMap.get(emp.costCenterId) || null : null,
         manager: emp.managerId ? managerMap.get(emp.managerId) || null : null,
       };
     });
@@ -285,10 +291,11 @@ export class EmployeesService {
 
     await this.assertEmployeeInScope(employee, orgId, scopeUser);
 
-    const [dept, desig, loc, manager, directReports, auditLogs] = await Promise.all([
+    const [dept, desig, loc, costCenter, manager, directReports, auditLogs] = await Promise.all([
       employee.departmentId ? this.deptModel.findOne({ _id: employee.departmentId }).lean() : null,
       employee.designationId ? this.desigModel.findOne({ _id: employee.designationId }).lean() : null,
       employee.locationId ? this.locModel.findOne({ _id: employee.locationId }).lean() : null,
+      employee.costCenterId ? this.costCenterModel.findOne({ _id: employee.costCenterId }).lean() : null,
       employee.managerId
         ? this.empModel.findOne({ _id: employee.managerId }, 'firstName lastName displayName employeeCode workEmail avatarUrl').lean()
         : null,
@@ -307,6 +314,7 @@ export class EmployeesService {
       department: dept,
       designation: desig,
       location: loc,
+      costCenter: costCenter,
       manager,
       directReports,
       // findForResource returns a paginated envelope; the detail page wants the rows.

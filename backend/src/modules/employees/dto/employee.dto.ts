@@ -21,9 +21,25 @@ export const EMPLOYMENT_TYPES = [
   'CONTRACT',
   'INTERN',
   'TEMPORARY',
+  'CONSULTANT',
 ] as const;
 
 export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
+
+export const EMPLOYMENT_STATUSES = [
+  'ACTIVE',
+  'PROBATION',
+  'ON_NOTICE',
+  'NOTICE_PERIOD',
+  'SUSPENDED',
+  'INACTIVE',
+  'TERMINATED',
+  'ON_LEAVE',
+  'RESIGNED',
+  'JOINING',
+] as const;
+
+export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
 
 export class EmergencyContactDto {
   @ApiProperty()
@@ -40,6 +56,21 @@ export class EmergencyContactDto {
   @IsString()
   @IsNotEmpty()
   phone: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  alternatePhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  address?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -261,6 +292,16 @@ export class CreateEmployeeDto {
   @IsString()
   phone?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  alternatePhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  secondaryEmail?: string;
+
   @ApiPropertyOptional({ type: AddressDto })
   @IsOptional()
   @ValidateNested()
@@ -310,12 +351,12 @@ export class CreateEmployeeDto {
   employmentType: EmploymentType;
 
   @ApiPropertyOptional({
-    enum: ['ACTIVE', 'PROBATION', 'ON_LEAVE', 'NOTICE_PERIOD', 'TERMINATED'],
+    enum: EMPLOYMENT_STATUSES,
     default: 'ACTIVE',
   })
   @IsOptional()
-  @IsEnum(['ACTIVE', 'PROBATION', 'ON_LEAVE', 'NOTICE_PERIOD', 'TERMINATED'])
-  status?: 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'NOTICE_PERIOD' | 'TERMINATED';
+  @IsEnum(EMPLOYMENT_STATUSES)
+  status?: EmploymentStatus;
 
   @ApiProperty()
   @IsString()
@@ -400,12 +441,12 @@ export class EmployeeQueryDto extends PaginationQueryDto {
 
 export class ChangeEmployeeStatusDto {
   @ApiProperty({
-    enum: ['ACTIVE', 'PROBATION', 'ON_LEAVE', 'SUSPENDED', 'RESIGNED', 'TERMINATED', 'INACTIVE'],
+    enum: EMPLOYMENT_STATUSES,
   })
   @IsString()
   @IsNotEmpty()
-  @IsEnum(['ACTIVE', 'PROBATION', 'ON_LEAVE', 'SUSPENDED', 'RESIGNED', 'TERMINATED', 'INACTIVE'])
-  status: 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE';
+  @IsEnum(EMPLOYMENT_STATUSES)
+  status: EmploymentStatus;
 
   @ApiPropertyOptional()
   @IsOptional()
