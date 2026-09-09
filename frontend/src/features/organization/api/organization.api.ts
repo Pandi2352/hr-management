@@ -101,4 +101,15 @@ export const organizationApi = {
     const res = await apiClient.patch(`/organization/cost-centers/${id}/status`);
     return res.data.data as CostCenter;
   },
+
+  // Org Chart
+  getOrgChart: async () => {
+    const res = await apiClient.get('/employees/org-chart');
+    return res.data.data as {
+      roots: import('../types/organization.types').OrgChartNode[];
+      totalEmployees: number;
+      totalDepartments: number;
+      totalDesignations: number;
+    };
+  },
 };

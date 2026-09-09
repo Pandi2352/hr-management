@@ -66,6 +66,14 @@ export class EmployeesController {
     return ResultEntity.ok(data);
   }
 
+  @Get('org-chart')
+  @RequirePermissions(PERMISSIONS.EMPLOYEE_READ)
+  async getOrgChart(@Request() req: any) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.employeesService.getOrgChart(orgId);
+    return ResultEntity.ok(data);
+  }
+
   @Get('export')
   @RequirePermissions(PERMISSIONS.EMPLOYEE_EXPORT)
   async exportEmployees(@Request() req: any, @Query() query: EmployeeQueryDto, @Response() res: any) {

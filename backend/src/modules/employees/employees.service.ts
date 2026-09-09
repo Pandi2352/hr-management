@@ -49,6 +49,28 @@ function statusAuditAction(status: string): AuditAction {
   }
 }
 
+export interface OrgChartNode {
+  _id: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  avatarUrl?: string;
+  initials: string;
+  workEmail: string;
+  phone?: string;
+  departmentId?: string;
+  departmentName: string;
+  departmentCode: string;
+  designationId?: string;
+  designationTitle: string;
+  designationCode: string;
+  managerId?: string | null;
+  status: string;
+  directReportsCount: number;
+  children: OrgChartNode[];
+}
+
 @Injectable()
 export class EmployeesService {
   constructor(
@@ -1087,5 +1109,86 @@ export class EmployeesService {
     );
 
     return headers + rows.join('\n');
+  }
+
+  // 9. ORGANIZATION HIERARCHY CHART TREE
+  async getOrgChart(orgId: string): Promise<{
+    roots: OrgChartNode[];
+    totalEmployees: number;
+    totalDepartments: number;
+    totalDesignations: number;
+  }> {
+    const employees = await this.empModel
+      .find({ organizationId: orgId, isDeleted: false })
+      .lean();
+
+    const departments = await this.deptModel.find({ organizationId: orgId }).lean();
+    const designations = await this.desigModel.find({ organizationId: orgId }).lean();
+
+    const deptMap = new Map<string, any>();
+    departments.forEach((d) => deptMap.set(String(d._id), d));
+
+    const desigMap = new Map<string, any>();
+    designations.forEach((d) => desigMap.set(String(d._id), d));
+
+    const nodeMap = new Map<string, OrgChartNode>();
+
+    employees.forEach((emp: any) => {
+      const dept = emp.departmentId ? deptMap.get(String(emp.departmentId)) : null;
+      const desig = emp.designationId ? desigMap.get(String(emp.designationId)) : null;
+
+      const initials = `${(emp.firstName || '').charAt(0)}${(emp.lastName || '').charAt(0)}`.toUpperCase() || 'EM';
+
+      const node: OrgChartNode = {
+        _id: String(emp._id),
+        employeeCode: emp.employeeCode,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        displayName: emp.displayName || `${emp.firstName} ${emp.lastName}`.trim(),
+        avatarUrl: emp.avatarUrl || '',
+        initials,
+        workEmail: emp.workEmail,
+        phone: emp.phone || '',
+        departmentId: emp.departmentId ? String(emp.departmentId) : undefined,
+        departmentName: dept?.name || 'Unassigned',
+        departmentCode: dept?.code || '',
+        designationId: emp.designationId ? String(emp.designationId) : undefined,
+        designationTitle: desig?.title || 'Staff Member',
+        designationCode: desig?.code || '',
+        managerId: emp.managerId ? String(emp.managerId) : null,
+        status: emp.status || 'ACTIVE',
+        directReportsCount: 0,
+        children: [],
+      };
+
+      nodeMap.set(String(emp._id), node);
+    });
+
+    const roots: OrgChartNode[] = [];
+
+    // Link children to parents
+    nodeMap.forEach((node) => {
+      if (node.managerId && nodeMap.has(node.managerId)) {
+        const manager = nodeMap.get(node.managerId)!;
+        manager.children.push(node);
+        manager.directReportsCount += 1;
+      } else {
+        roots.push(node);
+      }
+    });
+
+    // Sort roots & children by hierarchy or code
+    const sortNodes = (nodes: OrgChartNode[]) => {
+      nodes.sort((a, b) => a.employeeCode.localeCompare(b.employeeCode, undefined, { numeric: true }));
+      nodes.forEach((n) => sortNodes(n.children));
+    };
+    sortNodes(roots);
+
+    return {
+      roots,
+      totalEmployees: employees.length,
+      totalDepartments: departments.length,
+      totalDesignations: designations.length,
+    };
   }
 }

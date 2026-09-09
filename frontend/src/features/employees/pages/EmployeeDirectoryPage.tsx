@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Send,
   MoreHorizontal,
+  Network,
 } from 'lucide-react';
 import { Button, SelectField, Avatar, Tooltip, Dropdown, SearchInput } from '../../../components/ui';
 import { cn } from '../../../utils/cn';
@@ -651,15 +652,26 @@ export function EmployeeDirectoryPage() {
         title="Employee Directory"
         description="Master roster of all corporate personnel, reporting hierarchy, and team assignments."
         actions={
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => navigate('/employees/new')}
-            className="flex items-center gap-1.5"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            <span>Add Employee</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/organization/chart')}
+              className="flex items-center gap-1.5 text-xs font-semibold"
+            >
+              <Network className="h-3.5 w-3.5 text-teal-600" />
+              <span>Org Chart View</span>
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate('/employees/new')}
+              className="flex items-center gap-1.5"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span>Add Employee</span>
+            </Button>
+          </div>
         }
       />
 

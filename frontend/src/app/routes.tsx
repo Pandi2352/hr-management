@@ -12,6 +12,7 @@ import { OrganizationProfilePage } from "../features/organization/pages/Organiza
 import { DepartmentsPage } from "../features/organization/pages/DepartmentsPage";
 import { DepartmentTreePage } from "../features/organization/pages/DepartmentTreePage";
 import { DesignationsPage } from "../features/organization/pages/DesignationsPage";
+import { OrgChartPage } from "../features/organization/pages/OrgChartPage";
 import { LocationsPage } from "../features/organization/pages/LocationsPage";
 import { CostCentersPage } from "../features/organization/pages/CostCentersPage";
 import { EmployeeDirectoryPage } from "../features/employees/pages/EmployeeDirectoryPage";
@@ -139,6 +140,10 @@ export const router = createBrowserRouter([
             element: <EmployeeDirectoryPage />,
           },
           {
+            path: "chart",
+            element: <OrgChartPage />,
+          },
+          {
             path: "new",
             element: <EmployeeCreatePage />,
           },
@@ -225,6 +230,10 @@ export const router = createBrowserRouter([
           {
             path: "profile",
             element: <OrganizationProfilePage />,
+          },
+          {
+            path: "chart",
+            element: <OrgChartPage />,
           },
           {
             path: "departments",

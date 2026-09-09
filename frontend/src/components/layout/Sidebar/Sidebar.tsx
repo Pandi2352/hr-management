@@ -163,7 +163,7 @@ export function Sidebar({
     { id: "calendar", icon: CalendarCheck, label: "Attendance Calendar", href: "/attendance", tint: "teal" },
     { id: "id-card", icon: IdentificationCard, label: "Employee Directory", href: "/employees", tint: "violet" },
     { id: "chat", icon: ChatTeardropDots, label: "Approvals & Requests", href: "/approvals", tint: "rose" },
-    { id: "tree", icon: TreeStructure, label: "Organization Structure", href: "/organization/departments", tint: "cyan" },
+    { id: "tree", icon: TreeStructure, label: "Organization Chart", href: "/organization/chart", tint: "teal" },
     { id: "business-settings", icon: SlidersHorizontal, label: "Business Settings & Gateway", href: "/settings/business", tint: "amber" },
   ];
 
@@ -176,6 +176,7 @@ export function Sidebar({
   const workspaceItems = [
     { title: "Dashboard", icon: SquaresFour, href: "/", exact: true, tint: "indigo" },
     { title: "Org Profile", icon: Buildings, href: "/organization/profile", tint: "violet" },
+    { title: "Org Chart", icon: TreeStructure, href: "/organization/chart", tint: "teal" },
     { title: "Departments", icon: CirclesThreePlus, href: "/organization/departments", exact: true, tint: "sky" },
     { title: "Designations", icon: Certificate, href: "/organization/designations", tint: "teal" },
     { title: "Locations", icon: MapPinArea, href: "/organization/locations", tint: "emerald" },

@@ -94,3 +94,33 @@ export interface CostCenter {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface OrgChartNode {
+  _id: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  avatarUrl?: string;
+  initials: string;
+  workEmail: string;
+  phone?: string;
+  departmentId?: string;
+  departmentName: string;
+  departmentCode: string;
+  designationId?: string;
+  designationTitle: string;
+  designationCode: string;
+  managerId?: string | null;
+  status: string;
+  directReportsCount: number;
+  children: OrgChartNode[];
+}
+
+export interface OrgChartData {
+  roots: OrgChartNode[];
+  totalEmployees: number;
+  totalDepartments: number;
+  totalDesignations: number;
+}
+

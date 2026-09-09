@@ -529,7 +529,7 @@ export function EmployeeCreatePage() {
   const selectedMgr = potentialManagers.find((m) => (m._id === formData.managerId || (m as any).id === formData.managerId));
 
   return (
-    <div className="space-y-6 w-full max-w-6xl mx-auto pb-12">
+    <div className="space-y-6 w-full pb-12">
       {/* 1. TOP TITLE HEADER CARD */}
       <div className="rounded-md border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
