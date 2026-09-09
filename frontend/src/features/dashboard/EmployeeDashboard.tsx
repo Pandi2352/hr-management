@@ -255,6 +255,10 @@ export function EmployeeDashboard() {
   const avatarUrl = employee?.avatarUrl || user?.avatarUrl || null;
   const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 
+  const shiftLabel = employee?.shiftSchedule
+    ? `${employee.shiftSchedule.startTime} – ${employee.shiftSchedule.endTime}`
+    : '9:00 AM – 6:00 PM';
+
   const { time, secs, ampm } = formatTime(now);
 
   // Live leave wallets — ring shows remaining of total entitled.
@@ -444,7 +448,10 @@ export function EmployeeDashboard() {
           <div className="flex items-center gap-8">
             <div>
               <p className="text-[10.5px] text-slate-500 font-medium uppercase tracking-wide">Work Hours</p>
-              <p className="text-white font-semibold text-[14px] mt-0.5">9:00 AM – 6:00 PM</p>
+              <p className="text-white font-semibold text-[14px] mt-0.5">
+                {shiftLabel}
+                {employee?.shiftSchedule ? ` · ${employee.shiftSchedule.name}` : ''}
+              </p>
             </div>
             <div>
               <p className="text-[10.5px] text-slate-500 font-medium uppercase tracking-wide">Elapsed</p>

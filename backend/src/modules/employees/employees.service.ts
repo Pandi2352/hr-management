@@ -27,6 +27,7 @@ import { generateUuid } from '../../common/utils/uuid.util';
 import { EmployeeProvisioningService } from './employee-provisioning.service';
 import { EmployeeScopeService, type RequestUser } from './employee-scope.service';
 import { DocumentStorageService } from './document-storage.service';
+import { Shift, ShiftDocument } from '../attendance/schemas/shift.schema';
 import { UsersService } from '../users/users.service';
 import { AssignRolesDto } from '../users/dto/users.dto';
 import { resolve, join, extname } from 'path';
@@ -82,6 +83,7 @@ export class EmployeesService {
     @InjectModel(Location.name) private locModel: Model<LocationDocument>,
     @InjectModel(CostCenter.name) private costCenterModel: Model<CostCenterDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Shift.name) private shiftModel: Model<ShiftDocument>,
     private readonly provisioningService: EmployeeProvisioningService,
     private readonly scopeService: EmployeeScopeService,
     private readonly auditService: AuditService,
@@ -456,7 +458,7 @@ export class EmployeesService {
 
     await this.assertEmployeeInScope(employee, orgId, scopeUser);
 
-    const [dept, desig, loc, costCenter, manager, hrPerson, directReports, auditLogs] = await Promise.all([
+    const [dept, desig, loc, costCenter, manager, hrPerson, shiftDoc, directReports, auditLogs] = await Promise.all([
       employee.departmentId ? this.deptModel.findOne({ _id: employee.departmentId }).lean() : null,
       employee.designationId ? this.desigModel.findOne({ _id: employee.designationId }).lean() : null,
       employee.locationId ? this.locModel.findOne({ _id: employee.locationId }).lean() : null,
@@ -466,6 +468,9 @@ export class EmployeesService {
         : null,
       (employee as any).hrId
         ? this.empModel.findOne({ _id: (employee as any).hrId }, 'firstName lastName displayName employeeCode workEmail avatarUrl').lean()
+        : null,
+      (employee as any).shiftId
+        ? this.shiftModel.findOne({ _id: (employee as any).shiftId, isDeleted: false }).lean()
         : null,
       this.empModel
         .find({ managerId: id, organizationId: orgId, isDeleted: false }, 'firstName lastName displayName employeeCode workEmail avatarUrl status designationId')
@@ -485,6 +490,9 @@ export class EmployeesService {
       costCenter: costCenter,
       manager,
       hr: hrPerson,
+      shiftSchedule: shiftDoc
+        ? { _id: String((shiftDoc as any)._id), name: (shiftDoc as any).name, code: (shiftDoc as any).code, startTime: (shiftDoc as any).startTime, endTime: (shiftDoc as any).endTime, graceMinutes: (shiftDoc as any).graceMinutes }
+        : null,
       directReports,
       profileCompletion: this.calculateProfileCompletion(employee),
       // findForResource returns a paginated envelope; the detail page wants the rows.
@@ -898,6 +906,7 @@ export class EmployeesService {
       delete updatePayload.workEmail;
       delete updatePayload.managerId;
       delete updatePayload.hrId;
+      delete updatePayload.shiftId;
       delete updatePayload.workType;
       delete updatePayload.shift;
       delete updatePayload.payrollInfo;

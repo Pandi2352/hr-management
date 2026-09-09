@@ -456,7 +456,11 @@ export function EmployeeDetailPage() {
                 </div>
                 <div>
                   <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Assigned Shift</span>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.shift || 'GENERAL'}</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.shiftSchedule
+                      ? `${employee.shiftSchedule.name} (${employee.shiftSchedule.startTime} – ${employee.shiftSchedule.endTime})`
+                      : employee.shift || 'GENERAL'}
+                  </p>
                 </div>
               </div>
             </div>

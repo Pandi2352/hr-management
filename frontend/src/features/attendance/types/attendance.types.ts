@@ -8,6 +8,12 @@ export interface AttendanceRecord {
   source: 'WEB' | 'MANUAL';
   status: 'OPEN' | 'PRESENT';
   workMinutes: number;
+  isLate?: boolean;
+  lateMinutes?: number;
+  isEarlyExit?: boolean;
+  earlyExitMinutes?: number;
+  overtimeMinutes?: number;
+  regularized?: boolean;
   note?: string;
   employee?: {
     _id: string;

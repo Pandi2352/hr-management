@@ -6,6 +6,8 @@ import { useToast } from '../../../components/ui/toast';
 import { useAuth } from '../../auth/context/AuthContext';
 import { employeesApi } from '../api/employees.api';
 import { organizationApi } from '../../organization/api/organization.api';
+import { attendanceApi } from '../../attendance/api/attendance.api';
+import type { Shift } from '../../attendance/types/shift.types';
 import type { Department, Designation, LocationItem, CostCenter } from '../../organization/types/organization.types';
 import type { Employee, EmergencyContact } from '../types/employees.types';
 import {
@@ -34,6 +36,7 @@ export function EmployeeEditPage() {
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [potentialManagers, setPotentialManagers] = useState<Employee[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState<boolean>(false);
@@ -80,6 +83,7 @@ export function EmployeeEditPage() {
     joiningDate: string;
     workType: 'ON_SITE' | 'REMOTE' | 'HYBRID';
     shift: 'GENERAL' | 'MORNING' | 'EVENING' | 'NIGHT' | 'FLEXIBLE';
+    shiftId: string;
     identification: {
       idType?: string;
       idNumber?: string;
@@ -145,6 +149,7 @@ export function EmployeeEditPage() {
     joiningDate: '',
     workType: 'ON_SITE',
     shift: 'GENERAL',
+    shiftId: '',
     identification: {
       idType: 'National ID',
       idNumber: '',
@@ -169,13 +174,14 @@ export function EmployeeEditPage() {
         // Reference lists are best-effort: an employee editing their own file
         // may lack some list permissions, but the form must still open with
         // the employee record itself (which is self-service allowed).
-        const [empRes, deptsRes, desigsRes, locsRes, costsRes, empsRes] = await Promise.allSettled([
+        const [empRes, deptsRes, desigsRes, locsRes, costsRes, empsRes, shiftsRes] = await Promise.allSettled([
           employeesApi.getEmployeeById(id),
           organizationApi.getDepartments(),
           organizationApi.getDesignations(),
           organizationApi.getLocations(),
           organizationApi.getCostCenters(),
           employeesApi.getEmployees({ pageSize: 100 }),
+          attendanceApi.getShifts('ACTIVE'),
         ]);
         if (empRes.status !== 'fulfilled') throw empRes.reason;
         const emp = empRes.value;
@@ -184,12 +190,14 @@ export function EmployeeEditPage() {
         const locs = locsRes.status === 'fulfilled' ? locsRes.value : [];
         const costs = costsRes.status === 'fulfilled' ? costsRes.value : [];
         const emps = empsRes.status === 'fulfilled' ? empsRes.value : null;
+        const shiftList = shiftsRes.status === 'fulfilled' ? shiftsRes.value : [];
         setEmployee(emp);
         setDepartments(depts || []);
         setDesignations(desigs || []);
         setLocations(locs || []);
         setCostCenters(costs || []);
         setPotentialManagers(((emps as any)?.data || []).filter((m: any) => m._id !== id));
+        setShifts(shiftList);
 
         setFormData({
           firstName: emp.firstName || '',
@@ -243,6 +251,7 @@ export function EmployeeEditPage() {
           joiningDate: emp.joiningDate || '',
           workType: emp.workType || 'ON_SITE',
           shift: emp.shift || 'GENERAL',
+          shiftId: (emp as any).shiftId || '',
           identification: {
             idType: emp.identification?.idType || 'National ID',
             idNumber: emp.identification?.idNumber || emp.nationalId || '',
@@ -1167,20 +1176,29 @@ export function EmployeeEditPage() {
               ]}
             />
 
-            {/* Shift Schedule */}
+            {/* Shift Schedule (master) */}
             <SelectField
-              label="Assigned Shift Schedule"
-              value={formData.shift}
-              onChange={(e) => handleChange('shift', e.target.value)}
+              label="Work Shift"
+              value={formData.shiftId}
+              onChange={(e) => handleChange('shiftId', e.target.value)}
               disabled={!isHrOrAdmin}
-              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
-              options={[
-                { value: 'GENERAL', label: 'General (9:00 AM - 6:00 PM)' },
-                { value: 'MORNING', label: 'Morning (6:00 AM - 2:00 PM)' },
-                { value: 'EVENING', label: 'Evening (2:00 PM - 10:00 PM)' },
-                { value: 'NIGHT', label: 'Night (10:00 PM - 6:00 AM)' },
-                { value: 'FLEXIBLE', label: 'Flexible Hours' },
-              ]}
+              placeholder={shifts.length === 0 ? 'No shifts configured…' : 'Select Shift…'}
+              helperText={
+                isHrOrAdmin
+                  ? shifts.find((s) => s._id === formData.shiftId)
+                    ? (() => {
+                        const s = shifts.find((x) => x._id === formData.shiftId)!;
+                        return `${s.startTime} – ${s.endTime} · grace ${s.graceMinutes}m`;
+                      })()
+                    : 'Drives late / early / overtime flags'
+                  : (employee as any)?.shiftSchedule
+                    ? `${(employee as any).shiftSchedule.name} (${(employee as any).shiftSchedule.startTime} – ${(employee as any).shiftSchedule.endTime}) · Managed by HR`
+                    : 'Managed by HR Administrator'
+              }
+              options={shifts.map((s) => ({
+                value: s._id,
+                label: `${s.name} (${s.startTime} – ${s.endTime})`,
+              }))}
             />
           </div>
         </div>

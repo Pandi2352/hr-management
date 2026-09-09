@@ -29,6 +29,7 @@ import { CredentialsModal } from '../components/CredentialsModal';
 import { useToast } from '../../../components/ui/toast';
 import { employeesApi } from '../api/employees.api';
 import { organizationApi } from '../../organization/api/organization.api';
+import { attendanceApi } from '../../attendance/api/attendance.api';
 import type { Department, Designation, LocationItem, CostCenter } from '../../organization/types/organization.types';
 import type { Employee } from '../types/employees.types';
 import {
@@ -75,6 +76,7 @@ export function EmployeeCreatePage() {
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [potentialManagers, setPotentialManagers] = useState<Employee[]>([]);
+  const [shifts, setShifts] = useState<{ _id: string; name: string; startTime: string; endTime: string }[]>([]);
 
   // Form State Structured per the 10 Steps
   const [formData, setFormData] = useState({
@@ -131,6 +133,7 @@ export function EmployeeCreatePage() {
     workType: 'ON_SITE' as 'ON_SITE' | 'REMOTE' | 'HYBRID',
     costCenterId: '',
     shift: 'GENERAL' as 'GENERAL' | 'MORNING' | 'EVENING' | 'NIGHT' | 'FLEXIBLE',
+    shiftId: '',
 
     // Step 6: Identification
     idType: 'PASSPORT',
@@ -190,6 +193,15 @@ export function EmployeeCreatePage() {
         if (depts && depts.length > 0) setFormData((prev) => ({ ...prev, departmentId: depts[0]._id }));
         if (desigs && desigs.length > 0) setFormData((prev) => ({ ...prev, designationId: desigs[0]._id }));
         if (locs && locs.length > 0) setFormData((prev) => ({ ...prev, locationId: locs[0]._id }));
+
+        attendanceApi
+          .getShifts('ACTIVE')
+          .then((list) => {
+            setShifts(list || []);
+            const general = (list || []).find((s) => s.code === 'GENERAL');
+            if (general) setFormData((prev) => (prev.shiftId ? prev : { ...prev, shiftId: general._id }));
+          })
+          .catch(() => {});
       } catch {
         // Non-blocking
       }
@@ -474,6 +486,7 @@ export function EmployeeCreatePage() {
         workType: formData.workType,
         costCenterId: formData.costCenterId || undefined,
         shift: formData.shift,
+        shiftId: formData.shiftId || undefined,
 
         // Identification
         nationalId: formData.idNumber || undefined,
@@ -1237,15 +1250,13 @@ export function EmployeeCreatePage() {
                 <SelectField
                   label="Work Shift Schedule"
                   required
-                  value={formData.shift}
-                  onChange={(e) => handleChange('shift', e.target.value)}
-                  options={[
-                    { value: 'GENERAL', label: 'General Day Shift (9:00 AM - 6:00 PM)' },
-                    { value: 'MORNING', label: 'Morning Shift (6:00 AM - 2:30 PM)' },
-                    { value: 'EVENING', label: 'Evening Shift (2:00 PM - 10:30 PM)' },
-                    { value: 'NIGHT', label: 'Night Shift (10:00 PM - 6:30 AM)' },
-                    { value: 'FLEXIBLE', label: 'Flexible / Staggered Hours' },
-                  ]}
+                  value={formData.shiftId}
+                  onChange={(e) => handleChange('shiftId', e.target.value)}
+                  placeholder={shifts.length === 0 ? 'Loading shifts…' : 'Select Shift…'}
+                  options={shifts.map((s) => ({
+                    value: s._id,
+                    label: `${s.name} (${s.startTime} – ${s.endTime})`,
+                  }))}
                   helperText="Standard shift timing for attendance tracking and payroll."
                 />
               </div>
@@ -1770,7 +1781,7 @@ export function EmployeeCreatePage() {
                   <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
                     <p><strong className="text-slate-900 dark:text-slate-100">Work Type:</strong> {formData.workType}</p>
                     <p><strong className="text-slate-900 dark:text-slate-100">Cost Center:</strong> {selectedCost ? `${selectedCost.name} (${selectedCost.code})` : 'Default'}</p>
-                    <p><strong className="text-slate-900 dark:text-slate-100">Shift:</strong> {formData.shift}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Shift:</strong> {shifts.find((s) => s._id === formData.shiftId) ? `${shifts.find((s) => s._id === formData.shiftId)!.name} (${shifts.find((s) => s._id === formData.shiftId)!.startTime} – ${shifts.find((s) => s._id === formData.shiftId)!.endTime})` : formData.shift}</p>
                   </div>
                 </div>
 

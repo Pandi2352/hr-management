@@ -10,6 +10,9 @@ import type { AttendanceRecord, AttendanceSummary } from '../types/attendance.ty
 import { CheckInOutCard } from '../components/CheckInOutCard';
 import { MyAttendanceTable } from '../components/MyAttendanceTable';
 import { TeamAttendanceTable } from '../components/TeamAttendanceTable';
+import { MyRegularizations } from '../components/MyRegularizations';
+import { RegularizationInbox } from '../components/RegularizationInbox';
+import { ShiftManager } from '../components/ShiftManager';
 
 function currentMonth(): string {
   return new Date().toISOString().slice(0, 7);
@@ -19,11 +22,18 @@ function isHr(userRoles?: string[]) {
   return Boolean(userRoles?.some((r) => ['SUPER_ADMIN', 'HR_ADMIN'].includes(r.toUpperCase())));
 }
 
+function canDecide(userRoles?: string[]) {
+  return Boolean(userRoles?.some((r) => ['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER'].includes(r.toUpperCase())));
+}
+
+type AttendanceTab = 'mine' | 'requests' | 'inbox' | 'team' | 'shifts';
+
 export function AttendancePage() {
   const toast = useToast();
   const { user } = useAuth();
   const hr = isHr(user?.roles);
-  const [tab, setTab] = useState<'mine' | 'team'>('mine');
+  const decider = canDecide(user?.roles);
+  const [tab, setTab] = useState<AttendanceTab>('mine');
 
   // My tab
   const [month, setMonth] = useState(currentMonth());
@@ -46,8 +56,9 @@ export function AttendancePage() {
       setTodayRecord(today.record);
       setMyRecords(mine.records);
       setSummary(mine.summary);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Could not load attendance.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Could not load attendance.');
     } finally {
       setIsLoadingMine(false);
     }
@@ -61,8 +72,9 @@ export function AttendancePage() {
     setIsLoadingTeam(true);
     try {
       setTeamRecords(await attendanceApi.teamRecords({ from, to }));
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Could not load team attendance.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Could not load team attendance.');
     } finally {
       setIsLoadingTeam(false);
     }
@@ -81,14 +93,17 @@ export function AttendancePage() {
 
   return (
     <div className="w-full space-y-4">
-      <PageHeader title="Attendance" description="Daily check in / out with selectable time, plus monthly history." />
+      <PageHeader title="Attendance" description="Daily check in / out, corrections, shifts and team oversight." />
 
-      <SegmentedTabs<'mine' | 'team'>
+      <SegmentedTabs<AttendanceTab>
         active={tab}
         onChange={setTab}
         tabs={[
           { id: 'mine', label: 'My Attendance' },
-          ...(hr ? [{ id: 'team' as const, label: 'Team Attendance' }] : []),
+          { id: 'requests', label: 'My Requests' },
+          ...(decider ? [{ id: 'inbox' as const, label: 'Requests Inbox' }] : []),
+          ...(hr ? [{ id: 'team' as const, label: 'Team' }] : []),
+          ...(hr ? [{ id: 'shifts' as const, label: 'Shifts' }] : []),
         ]}
       />
 
@@ -134,6 +149,10 @@ export function AttendancePage() {
           </div>
         ))}
 
+      {tab === 'requests' && <MyRegularizations />}
+
+      {tab === 'inbox' && decider && <RegularizationInbox onChanged={loadMine} />}
+
       {tab === 'team' && hr && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -159,6 +178,8 @@ export function AttendancePage() {
           )}
         </div>
       )}
+
+      {tab === 'shifts' && hr && <ShiftManager />}
     </div>
   );
 }

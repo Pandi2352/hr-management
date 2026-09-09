@@ -320,6 +320,10 @@ export class Employee {
   })
   shift: 'GENERAL' | 'MORNING' | 'EVENING' | 'NIGHT' | 'FLEXIBLE';
 
+  /** Assigned shift from the shift master (takes precedence over legacy `shift`). */
+  @Prop({ type: String, default: null, index: true })
+  shiftId?: string | null;
+
   // Identification & Verification
   @Prop({ type: () => IdentificationInfo, default: () => ({}) })
   identification?: IdentificationInfo;

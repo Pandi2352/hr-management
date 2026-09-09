@@ -448,6 +448,11 @@ export class CreateEmployeeDto {
   @IsString()
   managerId?: string;
 
+  @ApiPropertyOptional({ description: 'Assigned shift from the shift master' })
+  @IsOptional()
+  @IsString()
+  shiftId?: string;
+
   @ApiPropertyOptional({ description: 'Assigned reporting HR person (employee _id)' })
   @IsOptional()
   @IsString()

@@ -11,6 +11,8 @@ import { Employee, EmployeeDocument } from '../employees/schemas/employee.schema
 import { AuditService } from '../../common/audit/audit.service';
 import { AuditAction, AuditResource } from '../../common/audit/audit.constants';
 import { PunchDto } from './dto/attendance.dto';
+import { ShiftService } from './shift.service';
+import { evaluateDay } from './shift-time.util';
 
 export interface RequestUser {
   userId: string;
@@ -36,6 +38,7 @@ export class AttendanceService {
   constructor(
     @InjectModel(AttendanceRecord.name) private readonly recordModel: Model<AttendanceRecordDocument>,
     @InjectModel(Employee.name) private readonly empModel: Model<EmployeeDocument>,
+    private readonly shiftService: ShiftService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -77,10 +80,13 @@ export class AttendanceService {
       throw new ConflictException(`Already checked in on ${date} at ${existing.checkIn}.`);
     }
 
+    const rule = await this.shiftService.ruleFor(employee);
+    const late = evaluateDay(time, '', rule);
+
     const record = existing
       ? await this.recordModel.findByIdAndUpdate(
           existing._id,
-          { $set: { checkIn: time, source: dto.date || dto.time ? 'MANUAL' : 'WEB', note: dto.note?.trim() || '' } },
+          { $set: { checkIn: time, source: dto.date || dto.time ? 'MANUAL' : 'WEB', note: dto.note?.trim() || '', isLate: late.isLate, lateMinutes: late.lateMinutes } },
           { new: true },
         )
       : await this.recordModel.create({
@@ -91,6 +97,8 @@ export class AttendanceService {
           source: dto.date || dto.time ? 'MANUAL' : 'WEB',
           status: 'OPEN',
           note: dto.note?.trim() || '',
+          isLate: late.isLate,
+          lateMinutes: late.lateMinutes,
         });
 
     await this.auditService.record({
@@ -126,13 +134,21 @@ export class AttendanceService {
       throw new BadRequestException('Check-out time must be after check-in time.');
     }
 
+    const rule = await this.shiftService.ruleFor(employee);
+    const flags = evaluateDay(record.checkIn, time, rule);
+
     const updated = await this.recordModel.findByIdAndUpdate(
       record._id,
       {
         $set: {
           checkOut: time,
           status: 'PRESENT',
-          workMinutes: toMinutes(time) - toMinutes(record.checkIn),
+          workMinutes: flags.workMinutes,
+          isLate: flags.isLate,
+          lateMinutes: flags.lateMinutes,
+          isEarlyExit: flags.isEarlyExit,
+          earlyExitMinutes: flags.earlyExitMinutes,
+          overtimeMinutes: flags.overtimeMinutes,
           ...(dto.note?.trim() ? { note: dto.note.trim() } : {}),
         },
       },

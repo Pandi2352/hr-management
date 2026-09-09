@@ -1,5 +1,6 @@
 import { Avatar } from '../../../components/ui';
 import { formatRecordDate, formatWorkMinutes, type AttendanceRecord } from '../types/attendance.types';
+import { FlagBadges } from './MyAttendanceTable';
 
 export function TeamAttendanceTable({ records }: { records: AttendanceRecord[] }) {
   if (records.length === 0) {
@@ -52,6 +53,7 @@ export function TeamAttendanceTable({ records }: { records: AttendanceRecord[] }
                 >
                   {r.status === 'PRESENT' ? 'Present' : 'Open'}
                 </span>
+                <FlagBadges record={r} />
               </td>
             </tr>
           ))}

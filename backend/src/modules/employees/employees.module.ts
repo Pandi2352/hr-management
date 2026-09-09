@@ -12,6 +12,7 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { Role, RoleSchema } from '../users/schemas/role.schema';
 
 import { Organization, OrganizationSchema } from '../organization/schemas/organization.schema';
+import { Shift, ShiftSchema } from '../attendance/schemas/shift.schema';
 import { MailModule } from '../mail/mail.module';
 import { UsersModule } from '../users/users.module';
 import { EmployeeProvisioningService } from './employee-provisioning.service';
@@ -29,6 +30,9 @@ import { DocumentStorageService } from './document-storage.service';
       { name: User.name, schema: UserSchema },
       { name: Role.name, schema: RoleSchema },
       { name: Organization.name, schema: OrganizationSchema },
+      // Shift master lookup for the populated work schedule (no cycle:
+      // the attendance module never imports the employees module).
+      { name: Shift.name, schema: ShiftSchema },
     ]),
     OrganizationModule,
     MailModule,

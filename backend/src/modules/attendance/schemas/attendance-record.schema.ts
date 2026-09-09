@@ -38,6 +38,25 @@ export class AttendanceRecord {
   @Prop({ type: Number, default: 0, min: 0 })
   workMinutes: number;
 
+  @Prop({ type: Boolean, default: false })
+  isLate: boolean;
+
+  @Prop({ type: Number, default: 0, min: 0 })
+  lateMinutes: number;
+
+  @Prop({ type: Boolean, default: false })
+  isEarlyExit: boolean;
+
+  @Prop({ type: Number, default: 0, min: 0 })
+  earlyExitMinutes: number;
+
+  @Prop({ type: Number, default: 0, min: 0 })
+  overtimeMinutes: number;
+
+  /** True when times came from an approved regularization. */
+  @Prop({ type: Boolean, default: false })
+  regularized: boolean;
+
   @Prop({ default: '', trim: true })
   note: string;
 

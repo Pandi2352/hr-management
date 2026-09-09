@@ -1,5 +1,32 @@
 import { formatRecordDate, formatWorkMinutes, type AttendanceRecord } from '../types/attendance.types';
 
+export function FlagBadges({ record }: { record: AttendanceRecord }) {
+  return (
+    <span className="ml-1.5 inline-flex flex-wrap gap-1 align-middle">
+      {record.isLate ? (
+        <span className="rounded-full bg-amber-50 px-1.5 py-px text-[10px] font-bold text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+          Late {record.lateMinutes}m
+        </span>
+      ) : null}
+      {record.isEarlyExit ? (
+        <span className="rounded-full bg-orange-50 px-1.5 py-px text-[10px] font-bold text-orange-700 dark:bg-orange-950/50 dark:text-orange-300">
+          Early {record.earlyExitMinutes}m
+        </span>
+      ) : null}
+      {(record.overtimeMinutes || 0) > 0 ? (
+        <span className="rounded-full bg-sky-50 px-1.5 py-px text-[10px] font-bold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+          OT {formatWorkMinutes(record.overtimeMinutes || 0)}
+        </span>
+      ) : null}
+      {record.regularized ? (
+        <span className="rounded-full bg-violet-50 px-1.5 py-px text-[10px] font-bold text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+          Regularized
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function MyAttendanceTable({ records }: { records: AttendanceRecord[] }) {
   if (records.length === 0) {
     return (
@@ -40,6 +67,7 @@ export function MyAttendanceTable({ records }: { records: AttendanceRecord[] }) 
                   {r.status === 'PRESENT' ? 'Present' : 'Open'}
                 </span>
                 {r.source === 'MANUAL' && <span className="ml-1 text-[10px] text-ink-3">· manual</span>}
+                <FlagBadges record={r} />
               </td>
             </tr>
           ))}

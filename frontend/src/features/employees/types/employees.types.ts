@@ -179,6 +179,17 @@ export interface Employee {
   employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY' | 'CONSULTANT';
   workType?: WorkType;
   shift?: Shift;
+  /** Assigned shift from the shift master (replaces the legacy enum). */
+  shiftId?: string | null;
+  /** Populated shift master schedule (from shiftId). */
+  shiftSchedule?: {
+    _id: string;
+    name: string;
+    code: string;
+    startTime: string;
+    endTime: string;
+    graceMinutes: number;
+  } | null;
   identification?: IdentificationInfo;
   payrollInfo?: PayrollInfo;
   profileCompletion?: ProfileCompletion;
