@@ -41,6 +41,35 @@ export const employeesApi = {
     return response.data.data;
   },
 
+  getMyTeam: async (): Promise<{
+    manager: {
+      _id: string;
+      employeeCode: string;
+      displayName: string;
+      workEmail: string;
+      avatarUrl?: string | null;
+    } | null;
+    departmentHead: {
+      _id: string;
+      employeeCode: string;
+      displayName: string;
+      workEmail: string;
+      avatarUrl?: string | null;
+    } | null;
+    department: { _id: string; name: string; code: string } | null;
+    reportingHr: {
+      _id: string;
+      employeeCode: string;
+      displayName: string;
+      workEmail: string;
+      avatarUrl?: string | null;
+    } | null;
+    hrContacts: { name: string; email: string; avatarUrl?: string | null }[];
+  }> => {
+    const response = await apiClient.get('/employees/me/team');
+    return response.data.data;
+  },
+
   generateEmployeeCode: async (): Promise<{ employeeCode: string }> => {
     const response = await apiClient.get<{ success: boolean; data: { employeeCode: string } }>(
       '/employees/generate-code'
@@ -94,6 +123,23 @@ export const employeesApi = {
       `/employees/${id}/resend-onboarding`
     );
     return response.data;
+  },
+
+  // --- Linked login roles (assign HR / Manager access to an employee) ---
+
+  getEmployeeLogin: async (
+    id: string,
+  ): Promise<{ linked: boolean; userId: string | null; email: string | null; roles: string[]; status: string | null }> => {
+    const response = await apiClient.get(`/employees/${id}/roles`);
+    return response.data.data;
+  },
+
+  assignEmployeeRoles: async (
+    id: string,
+    roles: string[],
+  ): Promise<{ message: string; roles: string[]; userId: string; email: string }> => {
+    const response = await apiClient.patch(`/employees/${id}/roles`, { roles });
+    return response.data.data;
   },
 
   uploadAvatar: async (id: string, file: File): Promise<{ avatarUrl: string }> => {

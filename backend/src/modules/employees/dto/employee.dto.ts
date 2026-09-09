@@ -448,6 +448,11 @@ export class CreateEmployeeDto {
   @IsString()
   managerId?: string;
 
+  @ApiPropertyOptional({ description: 'Assigned reporting HR person (employee _id)' })
+  @IsOptional()
+  @IsString()
+  hrId?: string;
+
   @ApiProperty({ enum: EMPLOYMENT_TYPES, default: 'FULL_TIME' })
   @IsEnum(EMPLOYMENT_TYPES)
   employmentType: EmploymentType;

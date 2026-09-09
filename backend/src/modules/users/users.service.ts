@@ -66,7 +66,12 @@ const DEFAULT_SYSTEM_ROLES = [
       PERMISSIONS.ORG_LOCATIONS_MANAGE,
       PERMISSIONS.ORG_COST_CENTERS_MANAGE,
       PERMISSIONS.USERS_READ,
+      PERMISSIONS.USERS_MANAGE,
       PERMISSIONS.AUDIT_READ,
+      PERMISSIONS.HOLIDAY_READ,
+      PERMISSIONS.HOLIDAY_MANAGE,
+      PERMISSIONS.LEAVE_READ,
+      PERMISSIONS.LEAVE_MANAGE,
     ],
   },
   {
@@ -74,14 +79,19 @@ const DEFAULT_SYSTEM_ROLES = [
     code: UserRole.MANAGER.toLowerCase(),
     description: 'Supervisory oversight for departmental subordinates and direct reports.',
     isSystem: true,
-    permissions: [PERMISSIONS.EMPLOYEE_READ, PERMISSIONS.ORG_PROFILE_READ],
+    permissions: [
+      PERMISSIONS.EMPLOYEE_READ,
+      PERMISSIONS.ORG_PROFILE_READ,
+      PERMISSIONS.HOLIDAY_READ,
+      PERMISSIONS.LEAVE_READ,
+    ],
   },
   {
     name: 'Standard Employee',
     code: UserRole.EMPLOYEE.toLowerCase(),
     description: 'Self-service profile access, credentials management, and personal records.',
     isSystem: true,
-    permissions: [PERMISSIONS.EMPLOYEE_READ],
+    permissions: [PERMISSIONS.EMPLOYEE_READ, PERMISSIONS.HOLIDAY_READ, PERMISSIONS.LEAVE_READ],
   },
 ];
 
@@ -156,6 +166,8 @@ export class UsersService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     await this.seedDefaultRoles();
     await this.migrateLegacyPermissions();
+    await this.syncSystemRolePermissions();
+    await this.syncUserPermissionsWithRoles();
     await this.grantEmployeeSelfServiceReads();
     await this.seedDefaultSecurityPolicy();
   }
@@ -222,13 +234,42 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * Employees provisioned before self-service reads existed carry
-   * `permissions: []`, so their own detail/edit and org reference lookups
-   * 403. Grants the two base reads to employee-role holders missing them.
-   * Idempotent — a no-op once applied.
+   * Ensures every seeded system role holds at least its current default
+   * permission set. Additive only — permissions introduced after the role was
+   * first seeded (e.g. holiday/leave reads) are granted; nothing is removed,
+   * so intentional customisations are preserved.
+   */
+  private async syncSystemRolePermissions(): Promise<void> {
+    let synced = 0;
+    for (const roleDef of DEFAULT_SYSTEM_ROLES) {
+      const role = await this.roleModel.findOne({ code: roleDef.code }).lean();
+      if (!role) continue;
+      const missing = roleDef.permissions.filter((p) => !(role.permissions || []).includes(p));
+      if (missing.length === 0) continue;
+      await this.roleModel.updateOne(
+        { code: roleDef.code },
+        { $set: { permissions: Array.from(new Set([...(role.permissions || []), ...missing])) } },
+      );
+      synced++;
+    }
+    if (synced > 0) {
+      this.logger.info(null, 'Synced system role permissions with defaults', { synced });
+    }
+  }
+
+  /**
+   * Employees provisioned before self-service reads existed carry empty
+   * permission sets, so their own detail/edit, holiday calendar and leave
+   * lookups 403. Grants the base self-service reads to employee-role holders
+   * missing them. Idempotent — a no-op once applied.
    */
   private async grantEmployeeSelfServiceReads(): Promise<void> {
-    const baseReads = [PERMISSIONS.EMPLOYEE_READ, PERMISSIONS.ORG_PROFILE_READ];
+    const baseReads = [
+      PERMISSIONS.EMPLOYEE_READ,
+      PERMISSIONS.ORG_PROFILE_READ,
+      PERMISSIONS.HOLIDAY_READ,
+      PERMISSIONS.LEAVE_READ,
+    ];
     const candidates = await this.userModel
       .find({ isDeleted: { $ne: true } })
       .select('_id roles permissions')
@@ -252,6 +293,45 @@ export class UsersService implements OnModuleInit {
 
     if (granted > 0) {
       this.logger.info(null, 'Granted employee self-service reads', { granted });
+    }
+  }
+
+  /**
+   * Re-syncs every user's permission snapshot with the current defaults of
+   * their assigned roles. Additive only — permissions granted directly or by
+   * earlier defaults are kept; newly introduced role permissions (e.g.
+   * users:manage for HR) are added so existing logins gain them without a
+   * manual re-assignment. Same matching rules as assignRoles.
+   */
+  private async syncUserPermissionsWithRoles(): Promise<void> {
+    const allRoles = await this.roleModel.find().lean();
+    const identifiersFor = (role: (typeof allRoles)[number]) => [
+      role.name,
+      role.code,
+      role.code.toUpperCase(),
+    ];
+
+    const users = await this.userModel.find({ isDeleted: { $ne: true } }).select('_id roles permissions').lean();
+    let synced = 0;
+    for (const u of users) {
+      const roles: string[] = (u as any).roles || [];
+      const perms: string[] = (u as any).permissions || [];
+      if (perms.includes('*')) continue;
+      const matched = allRoles.filter((role) =>
+        roles.some((assigned) => identifiersFor(role).includes(assigned)),
+      );
+      if (matched.length === 0) continue;
+      const expected = Array.from(new Set(matched.flatMap((r) => r.permissions || [])));
+      const missing = expected.filter((p) => !perms.includes(p));
+      if (missing.length === 0) continue;
+      await this.userModel.updateOne(
+        { _id: (u as any)._id },
+        { $set: { permissions: Array.from(new Set([...perms, ...missing])) } },
+      );
+      synced++;
+    }
+    if (synced > 0) {
+      this.logger.info(null, 'Synced user permission snapshots with role defaults', { synced });
     }
   }
 

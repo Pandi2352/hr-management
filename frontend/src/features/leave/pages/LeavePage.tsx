@@ -1,87 +1,108 @@
-import { useState } from 'react';
-import { Plus } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { CalendarDays } from 'lucide-react';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { SegmentedTabs } from '../../../components/ui';
+import { Spinner } from '../../../components/ui/Spinner';
 import { useToast } from '../../../components/ui/toast';
-import { LeaveMetricsCards } from '../components/LeaveMetricsCards';
-import { EmployeeLeaveTable } from '../components/EmployeeLeaveTable';
-import { AddLeaveModal } from '../components/AddLeaveModal';
-import {
-  MOCK_LEAVE_METRICS,
-  MOCK_LEAVE_RECORDS,
-} from '../data/mockLeaveData';
-import type { LeaveRecord, LeaveStatus } from '../types/leave.types';
+import { useAuth } from '../../auth/context/AuthContext';
+import { leaveApi } from '../api/leave.api';
+import type { MyLeaveSummary } from '../types/leave-balance.types';
+import { MyLeaveBalances } from '../components/MyLeaveBalances';
+import { TeamLeaveBalances } from '../components/TeamLeaveBalances';
+import { LeaveTypesManager } from '../components/LeaveTypesManager';
+
+type LeaveTab = 'mine' | 'team' | 'types';
+
+function isHr(userRoles?: string[]) {
+  return Boolean(
+    userRoles?.some((r) => ['SUPER_ADMIN', 'HR_ADMIN'].includes(r.toUpperCase())),
+  );
+}
 
 export function LeavePage() {
   const toast = useToast();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>(MOCK_LEAVE_RECORDS);
-  const [selectedMetricId, setSelectedMetricId] = useState<string>('planned');
+  const { user } = useAuth();
+  const hr = isHr(user?.roles);
+  const [tab, setTab] = useState<LeaveTab>('mine');
+  const [myYear, setMyYear] = useState(() => new Date().getFullYear());
+  const [teamYear, setTeamYear] = useState(() => new Date().getFullYear());
+  const [summary, setSummary] = useState<MyLeaveSummary | null>(null);
+  const [isLoadingMine, setIsLoadingMine] = useState(true);
 
-  const handleDownloadReport = () => {
-    toast.success('Leave summary report exported successfully', 'Export Ready');
-  };
+  useEffect(() => {
+    let active = true;
+    setIsLoadingMine(true);
+    leaveApi
+      .getMyBalances(myYear)
+      .then((data) => {
+        if (active) setSummary(data);
+      })
+      .catch((err: any) => {
+        if (active) {
+          if (err?.response?.status !== 404) {
+            toast.error(err?.response?.data?.message || 'Could not load your leave balances.');
+          }
+          setSummary(null);
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoadingMine(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [myYear, toast]);
 
-  const handleAddLeave = (newRecord: LeaveRecord) => {
-    setLeaveRecords([newRecord, ...leaveRecords]);
-    toast.success(`Leave applied successfully for ${newRecord.name}`, 'Application Submitted');
-  };
-
-  const handleViewRecord = (record: LeaveRecord) => {
-    toast.info(`Viewing leave record for ${record.name} (${record.leaveType})`);
-  };
-
-  const handleStatusChange = (recordId: string, newStatus: LeaveStatus) => {
-    setLeaveRecords((prev) =>
-      prev.map((r) => (r.id === recordId ? { ...r, status: newStatus } : r))
-    );
-    toast.success(`Status updated to "${newStatus}"`, 'Status Changed');
-  };
+  const tabs: { id: LeaveTab; label: string; visible: boolean }[] = [
+    { id: 'mine', label: 'My Balances', visible: true },
+    { id: 'team', label: 'Team Balances', visible: hr },
+    { id: 'types', label: 'Leave Types', visible: hr },
+  ];
 
   return (
-    <div className="w-full space-y-6">
-      {/* Top Header matching Screenshot */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Leaves
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Dashboard <span className="mx-1">/</span>{' '}
-            <span className="text-slate-600 dark:text-slate-300 font-medium">Leaves</span>
-          </p>
-        </div>
-
-        <Button
-          variant="primary"
-          onClick={() => setIsAddModalOpen(true)}
-          className="gap-1.5 shadow-xs"
-        >
-          <Plus className="h-4 w-4" />
-          Add Leave
-        </Button>
-      </div>
-
-      {/* 4 Summary Gauge Metric Cards */}
-      <LeaveMetricsCards
-        metrics={MOCK_LEAVE_METRICS}
-        activeCardId={selectedMetricId}
-        onSelectCard={setSelectedMetricId}
+    <div className="w-full space-y-4">
+      <PageHeader
+        title="Leaves"
+        description="Yearly leave wallets, carry-forward balances and holiday entitlements."
+        actions={
+          <Link
+            to="/holidays"
+            className="flex items-center gap-1.5 rounded-md border border-teal-700 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-950/40"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            Holiday Calendar
+          </Link>
+        }
       />
 
-      {/* Employee Leave Table */}
-      <EmployeeLeaveTable
-        records={leaveRecords}
-        onDownloadReport={handleDownloadReport}
-        onViewRecord={handleViewRecord}
-        onStatusChange={handleStatusChange}
+      <SegmentedTabs<LeaveTab>
+        active={tab}
+        onChange={setTab}
+        tabs={tabs.filter((t) => t.visible).map((t) => ({ id: t.id, label: t.label }))}
       />
 
-      {/* Add Leave Application Modal */}
-      <AddLeaveModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAddLeave={handleAddLeave}
-      />
+      {tab === 'mine' &&
+        (isLoadingMine ? (
+          <div className="flex items-center justify-center py-16">
+            <Spinner size="lg" variant="violet" />
+          </div>
+        ) : summary ? (
+          <MyLeaveBalances summary={summary} isLoading={false} year={myYear} onYearChange={setMyYear} />
+        ) : (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              No employee record linked to this login
+            </p>
+            <p className="mx-auto mt-1 max-w-sm text-xs text-slate-400">
+              Leave wallets appear once HR links your employee file and assigns balances.
+            </p>
+          </div>
+        ))}
+
+      {tab === 'team' && hr && <TeamLeaveBalances year={teamYear} onYearChange={setTeamYear} />}
+
+      {tab === 'types' && hr && <LeaveTypesManager />}
     </div>
   );
 }

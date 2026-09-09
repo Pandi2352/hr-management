@@ -61,6 +61,7 @@ export function EmployeeEditPage() {
     alternatePhone: string;
     secondaryEmail: string;
     managerId: string;
+    hrId: string;
     currentAddress: {
       addressLine1?: string;
       addressLine2?: string;
@@ -115,6 +116,7 @@ export function EmployeeEditPage() {
     alternatePhone: '',
     secondaryEmail: '',
     managerId: '',
+    hrId: '',
     currentAddress: {
       addressLine1: '',
       addressLine2: '',
@@ -210,6 +212,7 @@ export function EmployeeEditPage() {
           alternatePhone: emp.alternatePhone || '',
           secondaryEmail: emp.secondaryEmail || '',
           managerId: emp.managerId || '',
+          hrId: emp.hrId || '',
           currentAddress: {
             addressLine1: emp.currentAddress?.addressLine1 || '',
             addressLine2: emp.currentAddress?.addressLine2 || '',
@@ -1098,6 +1101,42 @@ export function EmployeeEditPage() {
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">Supervisory reporting alignment managed by HR.</p>
+              </div>
+            )}
+
+            {/* Reporting HR */}
+            {isHrOrAdmin ? (
+              <SelectField
+                label="Reporting HR"
+                value={formData.hrId}
+                onChange={(e) => handleChange('hrId', e.target.value)}
+                placeholder="None (No dedicated HR contact)"
+                helperText="Day-to-day HR contact shown on the employee dashboard."
+                options={[
+                  { value: '', label: 'None (No dedicated HR contact)' },
+                  ...potentialManagers.map((m) => ({
+                    value: m._id,
+                    label: `${m.displayName || `${m.firstName} ${m.lastName}`} (${m.employeeCode})`,
+                  })),
+                ]}
+              />
+            ) : (
+              <div>
+                <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1 block">
+                  Reporting HR
+                </label>
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md">
+                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {employee?.hr
+                      ? `${employee.hr.displayName || `${employee.hr.firstName} ${employee.hr.lastName}`} (${employee.hr.employeeCode})`
+                      : 'None (No dedicated HR contact)'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                    <Lock className="h-2.5 w-2.5" />
+                    Locked
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">HR contact assignment managed by HR.</p>
               </div>
             )}
 

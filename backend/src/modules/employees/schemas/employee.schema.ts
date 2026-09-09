@@ -297,6 +297,10 @@ export class Employee {
   @Prop({ type: String, default: null, index: true })
   managerId?: string | null;
 
+  /** Assigned reporting HR person (employee _id) — day-to-day HR contact. */
+  @Prop({ type: String, default: null, index: true })
+  hrId?: string | null;
+
   @Prop({
     default: 'FULL_TIME',
     enum: ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN', 'TEMPORARY', 'CONSULTANT'],

@@ -213,7 +213,12 @@ export class EmployeeProvisioningService {
     passwordHash: string;
     avatarUrl?: string;
   }): Promise<string> {
-    const selfServiceReads = [PERMISSIONS.EMPLOYEE_READ, PERMISSIONS.ORG_PROFILE_READ];
+    const selfServiceReads = [
+      PERMISSIONS.EMPLOYEE_READ,
+      PERMISSIONS.ORG_PROFILE_READ,
+      PERMISSIONS.HOLIDAY_READ,
+      PERMISSIONS.LEAVE_READ,
+    ];
     const existing = await this.userModel.findOne({ email: params.email.toLowerCase().trim() });
     if (existing) {
       existing.status = ('ACTIVE' as any);

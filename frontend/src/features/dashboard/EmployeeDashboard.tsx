@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { employeesApi } from '../employees/api/employees.api';
 import { profileApi } from '../profile/api/profile.api';
+import { leaveApi } from '../leave/api/leave.api';
+import type { MyLeaveSummary } from '../leave/types/leave-balance.types';
 import type { Employee } from '../employees/types/employees.types';
 import { useAuth } from '../auth/context/AuthContext';
 import defaultAvatarImg from '../../assets/default_avatar.jpg';
@@ -40,16 +42,18 @@ function LeaveRing({
   used: number; total: number; label: string; color: string;
 }) {
   const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
-  const r = 26;
+  const size = 76;
+  const r = 31;
+  const c = size / 2;
   const circ = 2 * Math.PI * r;
   const dash = circ - (pct / 100) * circ;
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative w-[60px] h-[60px]">
-        <svg width={60} height={60} className="-rotate-90">
-          <circle cx={30} cy={30} r={r} fill="none" strokeWidth={5} className="stroke-slate-100 dark:stroke-slate-800" />
+    <div className="flex min-w-0 flex-col items-center gap-1.5">
+      <div className="relative h-[76px] w-[76px] shrink-0">
+        <svg width={size} height={size} className="-rotate-90">
+          <circle cx={c} cy={c} r={r} fill="none" strokeWidth={8} stroke={color} opacity={0.15} />
           <circle
-            cx={30} cy={30} r={r} fill="none" strokeWidth={5}
+            cx={c} cy={c} r={r} fill="none" strokeWidth={8}
             stroke={color}
             strokeDasharray={circ}
             strokeDashoffset={dash}
@@ -57,13 +61,17 @@ function LeaveRing({
             style={{ transition: 'stroke-dashoffset 1s ease' }}
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-[14px] font-bold text-ink rotate-90">{used}</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+          <span className="text-[20px] font-black tabular-nums text-ink">{used}</span>
+          <span className="mt-0.5 text-[8px] font-bold tracking-widest text-ink-3 uppercase">left</span>
+        </div>
       </div>
-      <p className="text-[10px] text-ink-3 text-center leading-tight">
+      <p className="line-clamp-2 min-h-7 text-center text-[10.5px] leading-snug font-semibold text-ink-2">
         {label}
-        <br />
-        <span className="text-ink-4">/ {total}</span>
       </p>
+      <span className="rounded-full bg-surface-2 px-1.5 py-px font-mono text-[10px] font-medium text-ink-3">
+        of {total}
+      </span>
     </div>
   );
 }
@@ -108,6 +116,8 @@ export function EmployeeDashboard() {
   const [userProfile, setUserProfile] = useState<{ phone?: string | null; employeeCode?: string | null; linkedEmployeeId?: string | null } | null>(null);
   const [noEmployeeRecord, setNoEmployeeRecord] = useState(false);
   const [profilePct, setProfilePct] = useState(0);
+  const [leaveSummary, setLeaveSummary] = useState<MyLeaveSummary | null>(null);
+  const [team, setTeam] = useState<Awaited<ReturnType<typeof employeesApi.getMyTeam>> | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Live clock with seconds
@@ -134,7 +144,9 @@ export function EmployeeDashboard() {
     Promise.allSettled([
       employeesApi.getMyProfile(),
       profileApi.getMyProfile(),
-    ]).then(([empRes, profRes]) => {
+      leaveApi.getMyBalances(new Date().getFullYear()),
+      employeesApi.getMyTeam(),
+    ]).then(([empRes, profRes, leaveRes, teamRes]) => {
       if (!active) return;
       if (empRes.status === 'fulfilled' && empRes.value) {
         setEmployee(empRes.value);
@@ -150,6 +162,12 @@ export function EmployeeDashboard() {
       }
       if (profRes.status === 'fulfilled' && profRes.value) {
         setUserProfile(profRes.value as any);
+      }
+      if (leaveRes.status === 'fulfilled' && leaveRes.value) {
+        setLeaveSummary(leaveRes.value);
+      }
+      if (teamRes.status === 'fulfilled' && teamRes.value) {
+        setTeam(teamRes.value);
       }
       setLoading(false);
     });
@@ -197,13 +215,18 @@ export function EmployeeDashboard() {
 
   const { time, secs, ampm } = formatTime(now);
 
-  // Leave data - from live employee profile completion or blank if not loaded
-  const leaveBalance = employee ? [
-    { label: 'Annual Leave',  used: 12, total: 20, color: '#0ea5e9' },
-    { label: 'Sick Leave',    used: 8,  total: 12, color: '#8b5cf6' },
-    { label: 'Casual Leave',  used: 3,  total: 6,  color: '#f59e0b' },
-    { label: 'Unpaid Leave',  used: 1,  total: 5,  color: '#f87171' },
-  ] : [];
+  // Live leave wallets — ring shows remaining of total entitled.
+  const RING_COLORS = ['#0ea5e9', '#8b5cf6', '#f59e0b', '#10b981'];
+  const leaveBalance = (leaveSummary?.balances || [])
+    .filter((b) => (b.allocated || 0) + (b.carriedForward || 0) > 0)
+    .slice(0, 4)
+    .map((b, idx) => ({
+      label: b.leaveType?.name || 'Leave',
+      used: b.available,
+      total: (b.allocated || 0) + (b.carriedForward || 0),
+      color: RING_COLORS[idx % RING_COLORS.length],
+    }));
+  const pendingLeaveDays = (leaveSummary?.balances || []).reduce((a, b) => a + (b.pending || 0), 0);
 
   const handleAiSend = () => {
     const q = aiQuery.trim();
@@ -405,13 +428,15 @@ export function EmployeeDashboard() {
             </Link>
           </div>
           {leaveBalance.length > 0 ? (
-            <div className="grid grid-cols-4 gap-1 place-items-center">
+            <div className="grid grid-cols-2 place-items-center gap-x-1 gap-y-3">
               {leaveBalance.map(lb => (
                 <LeaveRing key={lb.label} used={lb.used} total={lb.total} label={lb.label} color={lb.color} />
               ))}
             </div>
           ) : (
-            <p className="text-[11px] text-ink-3 text-center py-4">Leave data not available</p>
+            <p className="text-[11px] text-ink-3 text-center py-4">
+              {leaveSummary ? 'No leave wallets assigned yet — HR publishes them yearly.' : 'Leave data not available'}
+            </p>
           )}
         </div>
 
@@ -425,9 +450,9 @@ export function EmployeeDashboard() {
           </div>
           <div className="space-y-2">
             {[
-              { icon: '📋', label: 'Leave Requests',        badge: 2,  href: '/leave',   badgeColor: 'text-rose-500' },
-              { icon: '📄', label: 'Document Verification', badge: 1,  href: '/profile', badgeColor: 'text-rose-500' },
-              { icon: '👤', label: 'Profile Update',         badge: 1,  href: '/profile', badgeColor: 'text-amber-500' },
+              { icon: '📋', label: 'Leave Requests', badge: pendingLeaveDays, badgeUnit: pendingLeaveDays === 1 ? 'day' : 'days', href: '/leave', badgeColor: pendingLeaveDays > 0 ? 'text-rose-500' : 'text-ink-3' },
+              { icon: '🎉', label: 'Restricted Holidays Left', badge: leaveSummary?.restricted.remaining ?? 0, badgeUnit: 'left', href: '/holidays', badgeColor: 'text-teal-600 dark:text-teal-400' },
+              { icon: '👤', label: 'Profile Completion', badge: profilePct, badgeUnit: '% complete', href: employeeId ? `/employees/${employeeId}/edit` : '/profile', badgeColor: 'text-amber-500' },
             ].map(req => (
               <Link key={req.label} to={req.href}
                 className="flex items-center justify-between p-2.5 rounded-md bg-surface-2/60 hover:bg-surface-2 border border-hairline transition-colors group">
@@ -435,7 +460,7 @@ export function EmployeeDashboard() {
                   <span className="text-base">{req.icon}</span>
                   <div>
                     <p className="text-[11px] font-semibold text-ink">{req.label}</p>
-                    <p className={`text-[10px] font-medium ${req.badgeColor}`}>{req.badge} pending</p>
+                    <p className={`text-[10px] font-medium ${req.badgeColor}`}>{req.badge} {req.badgeUnit}</p>
                   </div>
                 </div>
                 <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-ink-3 fill-current">
@@ -498,21 +523,15 @@ export function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* ── ROW 4: My Info (logged-in user + employee file) ───────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ── ROW 4: My Info — identity, manager & HR, always visible ──── */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
 
         {/* Employee Code */}
         <div className="rounded-md border border-hairline bg-surface p-4">
           <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-wide mb-1">Employee ID</p>
           <p className="text-[18px] font-black text-ink">{employeeCode || '—'}</p>
           <p className="text-[11px] text-ink-3 mt-0.5">{employee?.employmentType?.replace(/_/g, ' ') || user?.roles?.[0]?.replace(/_/g, ' ') || '—'}</p>
-        </div>
-
-        {/* Work Email — always the logged-in account */}
-        <div className="rounded-md border border-hairline bg-surface p-4">
-          <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-wide mb-1">Work Email</p>
-          <p className="text-[12px] font-semibold text-ink break-all">{workEmail}</p>
-          <p className="text-[11px] text-ink-3 mt-0.5">Primary contact</p>
+          <p className="mt-2 truncate text-[11px] font-semibold text-ink-2" title={workEmail}>{workEmail}</p>
         </div>
 
         {/* Status */}
@@ -526,20 +545,100 @@ export function EmployeeDashboard() {
             <p className="text-[13px] font-bold text-ink">{employee?.status || '—'}</p>
           </div>
           <p className="text-[11px] text-ink-3 mt-1">Current standing</p>
+          {joiningDate !== '—' && (
+            <p className="mt-2 text-[11px] text-ink-3">Joined <strong className="text-ink-2">{joiningDate}</strong></p>
+          )}
         </div>
 
-        {/* Manager */}
+        {/* Reporting Manager + Department Head */}
         <div className="rounded-md border border-hairline bg-surface p-4">
-          <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-wide mb-1">Reporting Manager</p>
-          {employee?.manager ? (
-            <>
-              <p className="text-[13px] font-bold text-ink">
-                {employee.manager.displayName || `${employee.manager.firstName} ${employee.manager.lastName}`}
-              </p>
-              <p className="text-[11px] text-ink-3 mt-0.5">{employee.manager.employeeCode}</p>
-            </>
+          <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-wide mb-2">My Manager</p>
+          {(team?.manager || employee?.manager) ? (
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white">
+                {(team?.manager || employee?.manager)?.avatarUrl ? (
+                  <img
+                    src={(team?.manager || employee?.manager)?.avatarUrl || ''}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  (((team?.manager || employee?.manager)?.displayName || 'M') as string).slice(0, 2).toUpperCase()
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-bold text-ink">
+                  {(team?.manager || employee?.manager)?.displayName}
+                </span>
+                <span className="block truncate text-[11px] text-ink-3" title={(team?.manager || employee?.manager)?.workEmail || ''}>
+                  {(team?.manager || employee?.manager)?.workEmail || (team?.manager || employee?.manager)?.employeeCode}
+                </span>
+              </span>
+            </div>
           ) : (
             <p className="text-[13px] font-semibold text-ink-3">{employee ? 'Not assigned' : '—'}</p>
+          )}
+          {team?.departmentHead && (
+            <div className="mt-2.5 border-t border-hairline pt-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-3">Dept. Head · {team.department?.name}</p>
+              <p className="mt-0.5 truncate text-[12px] font-semibold text-ink" title={team.departmentHead.workEmail}>
+                {team.departmentHead.displayName}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* HR Support — assigned reporting HR first, HR team fallback */}
+        <div className="rounded-md border border-hairline bg-gradient-to-br from-violet-500/[0.07] to-fuchsia-500/[0.07] bg-surface p-4">
+          <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-wide mb-2">My HR Support</p>
+          {team?.reportingHr ? (
+            <a href={`mailto:${team.reportingHr.workEmail}`} className="flex items-center gap-2.5 rounded-md p-1 transition-colors hover:bg-surface-2" title={`Email ${team.reportingHr.displayName}`}>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-600 text-xs font-bold text-white">
+                {team.reportingHr.avatarUrl ? (
+                  <img
+                    src={team.reportingHr.avatarUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  team.reportingHr.displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-bold text-ink">{team.reportingHr.displayName}</span>
+                <span className="block truncate text-[11px] text-ink-3">{team.reportingHr.workEmail}</span>
+              </span>
+            </a>
+          ) : (team?.hrContacts || []).length > 0 ? (
+            <div className="space-y-2">
+              {team!.hrContacts.slice(0, 2).map((hr) => (
+                <a key={hr.email} href={`mailto:${hr.email}`} className="flex items-center gap-2.5 rounded-md p-1 transition-colors hover:bg-surface-2" title={`Email ${hr.name}`}>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-600 text-xs font-bold text-white">
+                    {hr.avatarUrl ? (
+                      <img
+                        src={hr.avatarUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      hr.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-bold text-ink">{hr.name}</span>
+                    <span className="block truncate text-[11px] text-ink-3">{hr.email}</span>
+                  </span>
+                </a>
+              ))}
+              {team!.hrContacts.length > 2 && (
+                <p className="text-[11px] text-ink-3">+{team!.hrContacts.length - 2} more in HR team</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-[13px] font-semibold text-ink-3">Contact HR via front desk</p>
           )}
         </div>
       </div>
@@ -550,10 +649,11 @@ export function EmployeeDashboard() {
           <span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
           Quick Links
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           {[
             { label: 'My Attendance', icon: '🕐', href: '/attendance', color: 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border-teal-100 dark:border-teal-800/40' },
             { label: 'My Leaves',     icon: '✈️', href: '/leave',       color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-800/40' },
+            { label: 'Holidays',      icon: '🎉', href: '/holidays',    color: 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border-orange-100 dark:border-orange-800/40' },
             { label: 'Org Chart',     icon: '🌳', href: '/organization/chart', color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-800/40' },
             { label: employeeId ? 'My Employee File' : 'My Profile', icon: '👤', href: employeeId ? `/employees/${employeeId}` : '/profile', color: 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border-violet-100 dark:border-violet-800/40' },
           ].map(link => (

@@ -165,6 +165,17 @@ export interface Employee {
     avatarUrl?: string;
     workEmail?: string;
   } | null;
+  /** Assigned reporting HR person (employee _id). */
+  hrId?: string | null;
+  hr?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    displayName?: string;
+    employeeCode: string;
+    avatarUrl?: string;
+    workEmail?: string;
+  } | null;
   employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY' | 'CONSULTANT';
   workType?: WorkType;
   shift?: Shift;

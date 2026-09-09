@@ -28,6 +28,8 @@ import { BusinessSettingsPage } from "../features/settings/pages/BusinessSetting
 import { AuditLogsPage } from "../features/audit/pages/AuditLogsPage";
 import { LoginHistoryPage } from "../features/audit/pages/LoginHistoryPage";
 import { AttendancePage } from "../features/attendance/pages/AttendancePage";
+import { HolidayCalendarPage } from "../features/holidays/pages/HolidayCalendarPage";
+import { HolidaysManagePage } from "../features/holidays/pages/HolidaysManagePage";
 import { RecruitmentPage } from "../features/recruitment/pages/RecruitmentPage";
 import { PayrollPage } from "../features/payroll/pages/PayrollPage";
 import { LeavePage } from "../features/leave/pages/LeavePage";
@@ -239,6 +241,23 @@ export const router = createBrowserRouter([
       {
         path: "leave",
         element: <LeavePage />,
+      },
+      {
+        path: "holidays",
+        children: [
+          {
+            index: true,
+            element: <HolidayCalendarPage />,
+          },
+          {
+            path: "manage",
+            element: (
+              <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                <HolidaysManagePage />
+              </RoleGuard>
+            ),
+          },
+        ],
       },
       {
         path: "payroll",

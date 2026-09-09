@@ -26,6 +26,7 @@ import {
   ClockUser,
   Receipt,
   AirplaneTilt,
+  SunHorizon,
   SealCheck,
   CaretUpDown,
   UserCheck,
@@ -168,6 +169,7 @@ export function Sidebar({
     { id: "id-card", icon: IdentificationCard, label: "Employee Directory", href: "/employees", tint: "violet" },
     { id: "chat", icon: ChatTeardropDots, label: "Approvals & Requests", href: "/approvals", tint: "rose" },
     { id: "tree", icon: TreeStructure, label: "Organization Chart", href: "/organization/chart", tint: "teal" },
+    { id: "holidays", icon: SunHorizon, label: "Holidays", href: "/holidays", tint: "orange" },
     { id: "business-settings", icon: SlidersHorizontal, label: "Business Settings & Gateway", href: "/settings/business", tint: "amber" },
   ];
 
@@ -175,6 +177,7 @@ export function Sidebar({
     { id: "dashboard", icon: SquaresFour, label: "My Dashboard", href: "/", tint: "indigo" },
     { id: "attendance", icon: ClockUser, label: "My Attendance", href: "/attendance", tint: "teal" },
     { id: "leave", icon: AirplaneTilt, label: "Leaves & Time Off", href: "/leave", tint: "amber" },
+    { id: "holidays", icon: SunHorizon, label: "Holidays", href: "/holidays", tint: "orange" },
     { id: "tree", icon: TreeStructure, label: "Organization Chart", href: "/organization/chart", tint: "teal" },
     { id: "contacts", icon: AddressBook, label: "Colleague Directory", href: "/contacts", tint: "sky" },
     { id: "employee-file", icon: IdentificationCard, label: "My Employee File", href: "/my-employee", tint: "violet" },
@@ -218,6 +221,7 @@ export function Sidebar({
     { title: "Attendance", icon: ClockUser, href: "/attendance", tint: "teal" },
     { title: "Payroll", icon: Receipt, href: "/payroll", tint: "emerald" },
     { title: "Leaves", icon: AirplaneTilt, href: "/leave", tint: "amber" },
+    { title: "Holidays", icon: SunHorizon, href: "/holidays", tint: "orange" },
     { title: "Approvals", icon: SealCheck, href: "/approvals", soon: true, tint: "rose" },
   ];
 
@@ -225,6 +229,7 @@ export function Sidebar({
     { title: "Dashboard", icon: SquaresFour, href: "/", exact: true, tint: "indigo" },
     { title: "My Attendance", icon: ClockUser, href: "/attendance", tint: "teal" },
     { title: "My Leaves", icon: AirplaneTilt, href: "/leave", tint: "amber" },
+    { title: "Holidays", icon: SunHorizon, href: "/holidays", tint: "orange" },
     { title: "My Employee File", icon: IdentificationCard, href: "/my-employee", tint: "violet" },
     { title: "My Profile", icon: UserList, href: "/profile", tint: "blue" },
   ];

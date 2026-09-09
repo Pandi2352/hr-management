@@ -76,6 +76,11 @@ export enum AuditResource {
   EMPLOYEE = 'EMPLOYEE',
   EMPLOYEE_DOCUMENT = 'EMPLOYEE_DOCUMENT',
 
+  // Time off
+  HOLIDAY = 'HOLIDAY',
+  LEAVE_TYPE = 'LEAVE_TYPE',
+  LEAVE_BALANCE = 'LEAVE_BALANCE',
+
   // Compliance
   AUDIT_LOG = 'AUDIT_LOG',
 }
@@ -145,5 +150,8 @@ export const AUDIT_RESOURCE_LABELS: Record<string, string> = {
   [AuditResource.COST_CENTER]: 'Cost Center',
   [AuditResource.EMPLOYEE]: 'Employee',
   [AuditResource.EMPLOYEE_DOCUMENT]: 'Employee Document',
+  [AuditResource.HOLIDAY]: 'Holiday',
+  [AuditResource.LEAVE_TYPE]: 'Leave Type',
+  [AuditResource.LEAVE_BALANCE]: 'Leave Balance',
   [AuditResource.AUDIT_LOG]: 'Audit Log',
 };

@@ -17,6 +17,8 @@ import {
   Send,
   MoreHorizontal,
   Network,
+  Handshake,
+  Briefcase,
 } from 'lucide-react';
 import { Button, SelectField, Avatar, Tooltip, Dropdown, SearchInput } from '../../../components/ui';
 import { cn } from '../../../utils/cn';
@@ -26,6 +28,11 @@ import { ViewToolbar, ToolbarAction } from '../../../components/data-table/ViewT
 import { ConfirmDialog } from '../../../components/overlay/ConfirmDialog';
 import { useToast } from '../../../components/ui/toast';
 import { StatusTransitionModal } from '../components/StatusTransitionModal';
+import { AssignReportingHrModal } from '../components/AssignReportingHrModal';
+import { AssignManagerModal } from '../components/AssignManagerModal';
+import { ChangeDesignationModal } from '../components/ChangeDesignationModal';
+import { canEditEmployment } from '../utils/employee-permissions';
+import { useAuth } from '../../auth/context/AuthContext';
 import { employeesApi } from '../api/employees.api';
 import { organizationApi } from '../../organization/api/organization.api';
 import type { Employee, EmployeeStats } from '../types/employees.types';
@@ -85,6 +92,8 @@ const STATUS_CARD_TONE: Record<string, { pill: string; card: string }> = {
 export function EmployeeDirectoryPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
+  const mayEditEmployment = canEditEmployment(user);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [totalItems, setTotalItems] = useState<number>(0);
@@ -115,6 +124,11 @@ export function EmployeeDirectoryPage() {
 
   // Status Modal State
   const [statusModalTarget, setStatusModalTarget] = useState<Employee | null>(null);
+
+  // Quick-action targets (assign reporting HR / manager / designation)
+  const [hrTarget, setHrTarget] = useState<Employee | null>(null);
+  const [managerTarget, setManagerTarget] = useState<Employee | null>(null);
+  const [designationTarget, setDesignationTarget] = useState<Employee | null>(null);
 
   // Delete State
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
@@ -481,6 +495,45 @@ export function EmployeeDirectoryPage() {
             </button>
           </Tooltip>
 
+          {mayEditEmployment && (
+            <Tooltip content="Assign Reporting HR" placement="top">
+              <button
+                type="button"
+                onClick={() => setHrTarget(row)}
+                className="p-1.5 rounded-md text-slate-500 hover:bg-violet-50 hover:text-violet-600 transition-colors cursor-pointer dark:hover:bg-violet-950/40 dark:hover:text-violet-400"
+                aria-label="Assign Reporting HR"
+              >
+                <Handshake className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+          )}
+
+          {mayEditEmployment && (
+            <Tooltip content="Assign Manager" placement="top">
+              <button
+                type="button"
+                onClick={() => setManagerTarget(row)}
+                className="p-1.5 rounded-md text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors cursor-pointer dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+                aria-label="Assign Manager"
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+          )}
+
+          {mayEditEmployment && (
+            <Tooltip content="Change Designation" placement="top">
+              <button
+                type="button"
+                onClick={() => setDesignationTarget(row)}
+                className="p-1.5 rounded-md text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-colors cursor-pointer dark:hover:bg-amber-950/40 dark:hover:text-amber-400"
+                aria-label="Change Designation"
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+          )}
+
           {row.personalEmail && (
             <Tooltip content="Resend Credentials" placement="top">
               <button
@@ -562,6 +615,36 @@ export function EmployeeDirectoryPage() {
               <Edit2 className="h-3.5 w-3.5" />
               Edit
             </button>
+            {mayEditEmployment && (
+              <button
+                type="button"
+                onClick={() => setHrTarget(employee)}
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+              >
+                <Handshake className="h-3.5 w-3.5" />
+                Assign HR
+              </button>
+            )}
+            {mayEditEmployment && (
+              <button
+                type="button"
+                onClick={() => setManagerTarget(employee)}
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+                Assign Manager
+              </button>
+            )}
+            {mayEditEmployment && (
+              <button
+                type="button"
+                onClick={() => setDesignationTarget(employee)}
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[12px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+                Change Designation
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setDeleteTarget(employee)}
@@ -918,6 +1001,32 @@ export function EmployeeDirectoryPage() {
           employeeName={statusModalTarget.displayName || `${statusModalTarget.firstName} ${statusModalTarget.lastName}`}
           currentStatus={statusModalTarget.status}
           onConfirm={handleStatusChange}
+        />
+      )}
+
+      {/* Quick actions: assign reporting HR / manager / designation */}
+      {hrTarget && (
+        <AssignReportingHrModal
+          isOpen={!!hrTarget}
+          employee={hrTarget}
+          onClose={() => setHrTarget(null)}
+          onSaved={fetchEmployees}
+        />
+      )}
+      {managerTarget && (
+        <AssignManagerModal
+          isOpen={!!managerTarget}
+          employee={managerTarget}
+          onClose={() => setManagerTarget(null)}
+          onSaved={fetchEmployees}
+        />
+      )}
+      {designationTarget && (
+        <ChangeDesignationModal
+          isOpen={!!designationTarget}
+          employee={designationTarget}
+          onClose={() => setDesignationTarget(null)}
+          onSaved={fetchEmployees}
         />
       )}
     </div>

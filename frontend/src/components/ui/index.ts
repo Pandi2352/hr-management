@@ -12,3 +12,4 @@ export * from './toast';
 export * from './tooltip';
 export * from './SearchInput';
 export * from './Spinner';
+export * from './SegmentedTabs';

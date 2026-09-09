@@ -34,6 +34,12 @@ export const PERMISSIONS = {
   AUDIT_READ: 'audit:read',
   AUDIT_EXPORT: 'audit:export',
   AUDIT_LOGIN_HISTORY: 'audit:login_history',
+
+  // Holidays & leave
+  HOLIDAY_READ: 'holiday:read',
+  HOLIDAY_MANAGE: 'holiday:manage',
+  LEAVE_READ: 'leave:read',
+  LEAVE_MANAGE: 'leave:manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

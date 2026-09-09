@@ -13,6 +13,7 @@ import { Role, RoleSchema } from '../users/schemas/role.schema';
 
 import { Organization, OrganizationSchema } from '../organization/schemas/organization.schema';
 import { MailModule } from '../mail/mail.module';
+import { UsersModule } from '../users/users.module';
 import { EmployeeProvisioningService } from './employee-provisioning.service';
 import { EmployeeScopeService } from './employee-scope.service';
 import { DocumentStorageService } from './document-storage.service';
@@ -31,6 +32,9 @@ import { DocumentStorageService } from './document-storage.service';
     ]),
     OrganizationModule,
     MailModule,
+    // Role assignment on an employee's login delegates to UsersService.
+    // No cycle: UsersModule imports AuthModule + MailModule only.
+    UsersModule,
   ],
   controllers: [EmployeesController],
   providers: [EmployeesService, EmployeeProvisioningService, EmployeeScopeService, DocumentStorageService],

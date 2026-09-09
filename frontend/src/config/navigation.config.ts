@@ -90,6 +90,12 @@ export const navigationConfig: NavGroupConfig[] = [
         permission: "leave.read",
       },
       {
+        title: "Holidays",
+        href: "/holidays",
+        icon: CalendarDays,
+        permission: "holiday:read",
+      },
+      {
         title: "Approvals",
         href: "/approvals",
         icon: CheckSquare,
@@ -139,6 +145,8 @@ export const routeBreadcrumbMap: Record<string, BreadcrumbMeta> = {
   "/payroll": { title: "Payroll", parent: "/" },
   "/leave": { title: "Leaves", parent: "/" },
   "/leave/requests": { title: "Leave Requests", parent: "/leave" },
+  "/holidays": { title: "Holidays", parent: "/" },
+  "/holidays/manage": { title: "Manage Holidays", parent: "/holidays" },
   "/approvals": { title: "Approvals", parent: "/" },
   "/organization": { title: "Organization", parent: "/" },
   "/security": { title: "Roles & Security", parent: "/" },

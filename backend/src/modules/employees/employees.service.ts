@@ -27,6 +27,8 @@ import { generateUuid } from '../../common/utils/uuid.util';
 import { EmployeeProvisioningService } from './employee-provisioning.service';
 import { EmployeeScopeService, type RequestUser } from './employee-scope.service';
 import { DocumentStorageService } from './document-storage.service';
+import { UsersService } from '../users/users.service';
+import { AssignRolesDto } from '../users/dto/users.dto';
 import { resolve, join, extname } from 'path';
 import { existsSync } from 'fs';
 import { mkdir, writeFile, unlink } from 'fs/promises';
@@ -84,6 +86,7 @@ export class EmployeesService {
     private readonly scopeService: EmployeeScopeService,
     private readonly auditService: AuditService,
     private readonly storageService: DocumentStorageService,
+    private readonly usersService: UsersService,
   ) {}
 
   /**
@@ -231,13 +234,15 @@ export class EmployeesService {
     const locationIds = [...new Set(result.data.map((e) => e.locationId).filter(Boolean))];
     const costCenterIds = [...new Set(result.data.map((e) => e.costCenterId).filter(Boolean))];
     const managerIds = [...new Set(result.data.map((e) => e.managerId).filter(Boolean))];
+    const hrIds = [...new Set(result.data.map((e) => (e as any).hrId).filter(Boolean))];
 
-    const [departments, designations, locations, costCenters, managers] = await Promise.all([
+    const [departments, designations, locations, costCenters, managers, hrPeople] = await Promise.all([
       this.deptModel.find({ _id: { $in: departmentIds } }).lean(),
       this.desigModel.find({ _id: { $in: designationIds } }).lean(),
       this.locModel.find({ _id: { $in: locationIds } }).lean(),
       this.costCenterModel.find({ _id: { $in: costCenterIds } }).lean(),
       this.empModel.find({ _id: { $in: managerIds } }, 'firstName lastName displayName employeeCode avatarUrl').lean(),
+      this.empModel.find({ _id: { $in: hrIds } }, 'firstName lastName displayName employeeCode workEmail avatarUrl').lean(),
     ]);
 
     const deptMap = new Map(departments.map((d) => [String(d._id), d.name]));
@@ -245,6 +250,7 @@ export class EmployeesService {
     const locMap = new Map(locations.map((l) => [String(l._id), l.name]));
     const costCenterMap = new Map(costCenters.map((c) => [String(c._id), c.name]));
     const managerMap = new Map(managers.map((m) => [String(m._id), m]));
+    const hrMap = new Map(hrPeople.map((h) => [String(h._id), h]));
 
     const enrichedData = result.data.map((emp) => {
       const json = JSON.parse(JSON.stringify(emp));
@@ -255,6 +261,7 @@ export class EmployeesService {
         locationName: emp.locationId ? locMap.get(emp.locationId) || null : null,
         costCenterName: emp.costCenterId ? costCenterMap.get(emp.costCenterId) || null : null,
         manager: emp.managerId ? managerMap.get(emp.managerId) || null : null,
+        hr: (emp as any).hrId ? hrMap.get((emp as any).hrId) || null : null,
       };
     });
 
@@ -359,6 +366,84 @@ export class EmployeesService {
     return null;
   }
 
+  // 1.10. MY TEAM — manager, department head & HR contacts for self-service
+  async getMyTeam(userId: string, orgId: string, email: string) {
+    const cleanEmail = (email || '').toLowerCase().trim();
+    let employee: any = null;
+    if (userId) {
+      employee = await this.empModel.findOne({ organizationId: orgId, userId, isDeleted: false }).lean();
+    }
+    if (!employee && cleanEmail) {
+      employee = await this.empModel
+        .findOne({
+          organizationId: orgId,
+          isDeleted: false,
+          $or: [{ workEmail: cleanEmail }, { personalEmail: cleanEmail }],
+        })
+        .lean();
+    }
+    if (!employee) {
+      throw new NotFoundException('No employee record is linked to this login.');
+    }
+
+    const person = (e: any) =>
+      e
+        ? {
+            _id: String(e._id),
+            employeeCode: e.employeeCode,
+            displayName: e.displayName || `${e.firstName} ${e.lastName}`.trim(),
+            workEmail: e.workEmail,
+            avatarUrl: e.avatarUrl || null,
+          }
+        : null;
+
+    const [managerDoc, deptDoc, hrUsers, reportingHrDoc] = await Promise.all([
+      employee.managerId
+        ? this.empModel.findOne({ _id: employee.managerId, isDeleted: false }, 'firstName lastName displayName employeeCode workEmail avatarUrl').lean()
+        : null,
+      employee.departmentId
+        ? this.deptModel.findOne({ _id: employee.departmentId, organizationId: orgId, isDeleted: false }, '_id name code headEmployeeId').lean()
+        : null,
+      this.userModel
+        .find(
+          {
+            organizationId: orgId,
+            status: 'ACTIVE',
+            isDeleted: { $ne: true },
+            roles: {
+              $in: ['SUPER_ADMIN', 'super_admin', 'Super Administrator', 'HR_ADMIN', 'hr_admin', 'HR Admin'],
+            },
+          },
+          'firstName lastName email avatarUrl roles',
+        )
+        .limit(5)
+        .lean(),
+      employee.hrId
+        ? this.empModel.findOne({ _id: employee.hrId, isDeleted: false }, 'firstName lastName displayName employeeCode workEmail avatarUrl').lean()
+        : null,
+    ]);
+
+    let departmentHead: any = null;
+    if (deptDoc?.headEmployeeId && String(deptDoc.headEmployeeId) !== String(employee._id)) {
+      const head = await this.empModel
+        .findOne({ _id: deptDoc.headEmployeeId, isDeleted: false }, 'firstName lastName displayName employeeCode workEmail avatarUrl')
+        .lean();
+      departmentHead = person(head);
+    }
+
+    return {
+      manager: person(managerDoc),
+      departmentHead,
+      department: deptDoc ? { _id: String(deptDoc._id), name: deptDoc.name, code: deptDoc.code } : null,
+      reportingHr: person(reportingHrDoc),
+      hrContacts: (hrUsers || []).map((u: any) => ({
+        name: `${u.firstName} ${u.lastName}`.trim(),
+        email: u.email,
+        avatarUrl: u.avatarUrl || null,
+      })),
+    };
+  }
+
   // 2. GET EMPLOYEE BY ID (SCOPED WITH TENANT ISOLATION)
   async getEmployeeById(id: string, orgId: string, scopeUser?: RequestUser): Promise<any> {
     const employee = await this.empModel
@@ -371,13 +456,16 @@ export class EmployeesService {
 
     await this.assertEmployeeInScope(employee, orgId, scopeUser);
 
-    const [dept, desig, loc, costCenter, manager, directReports, auditLogs] = await Promise.all([
+    const [dept, desig, loc, costCenter, manager, hrPerson, directReports, auditLogs] = await Promise.all([
       employee.departmentId ? this.deptModel.findOne({ _id: employee.departmentId }).lean() : null,
       employee.designationId ? this.desigModel.findOne({ _id: employee.designationId }).lean() : null,
       employee.locationId ? this.locModel.findOne({ _id: employee.locationId }).lean() : null,
       employee.costCenterId ? this.costCenterModel.findOne({ _id: employee.costCenterId }).lean() : null,
       employee.managerId
         ? this.empModel.findOne({ _id: employee.managerId }, 'firstName lastName displayName employeeCode workEmail avatarUrl').lean()
+        : null,
+      (employee as any).hrId
+        ? this.empModel.findOne({ _id: (employee as any).hrId }, 'firstName lastName displayName employeeCode workEmail avatarUrl').lean()
         : null,
       this.empModel
         .find({ managerId: id, organizationId: orgId, isDeleted: false }, 'firstName lastName displayName employeeCode workEmail avatarUrl status designationId')
@@ -396,6 +484,7 @@ export class EmployeesService {
       location: loc,
       costCenter: costCenter,
       manager,
+      hr: hrPerson,
       directReports,
       profileCompletion: this.calculateProfileCompletion(employee),
       // findForResource returns a paginated envelope; the detail page wants the rows.
@@ -808,6 +897,7 @@ export class EmployeesService {
       delete updatePayload.joiningDate;
       delete updatePayload.workEmail;
       delete updatePayload.managerId;
+      delete updatePayload.hrId;
       delete updatePayload.workType;
       delete updatePayload.shift;
       delete updatePayload.payrollInfo;
@@ -1003,6 +1093,85 @@ export class EmployeesService {
 
     await this.audit(orgId, userId, statusAuditAction(dto.status), id, existing, updated, `Employee ${existing.employeeCode} status changed to ${dto.status}`);
     return updated;
+  }
+
+  // 5.1. LINKED LOGIN ROLES — assign HR / Manager / Employee access
+  /** Resolves the login account behind an employee file (direct link, then email). */
+  private async resolveLinkedUser(employee: {
+    userId?: string | null;
+    workEmail?: string | null;
+    personalEmail?: string | null;
+  }) {
+    if (employee.userId) {
+      const byId = await this.userModel.findOne({ _id: employee.userId, isDeleted: false }).lean();
+      if (byId) return byId;
+    }
+    const emails = [employee.workEmail, employee.personalEmail]
+      .map((e) => (e || '').toLowerCase().trim())
+      .filter(Boolean);
+    if (emails.length === 0) return null;
+    return this.userModel.findOne({ email: { $in: emails }, isDeleted: false }).lean();
+  }
+
+  /** Read-only view of the login behind an employee (for the Assign-Roles UI). */
+  async getEmployeeLogin(id: string, orgId: string, scopeUser?: RequestUser) {
+    const employee = await this.empModel.findOne({ _id: id, organizationId: orgId, isDeleted: false }).lean();
+    if (!employee) throw new NotFoundException('Employee not found');
+
+    await this.assertEmployeeInScope(employee, orgId, scopeUser);
+
+    const linked: any = await this.resolveLinkedUser(employee);
+    if (!linked) {
+      return { linked: false as const, userId: null, email: null, roles: [], status: null };
+    }
+    return {
+      linked: true as const,
+      userId: String(linked._id),
+      email: linked.email,
+      roles: linked.roles || [],
+      status: linked.status,
+    };
+  }
+
+  /**
+   * Assigns system roles (HR Admin, Manager, Employee…) to the employee's
+   * login account. Delegates to UsersService so last-super-admin protection,
+   * permission sync and user audit stay in one place; adds an employee
+   * timeline entry so the change is visible on the file.
+   */
+  async assignEmployeeRoles(
+    id: string,
+    dto: AssignRolesDto,
+    orgId: string,
+    actorUserId: string,
+    scopeUser?: RequestUser,
+  ) {
+    const employee = await this.empModel.findOne({ _id: id, organizationId: orgId, isDeleted: false });
+    if (!employee) throw new NotFoundException('Employee not found');
+
+    await this.assertEmployeeInScope(employee, orgId, scopeUser);
+
+    const linked: any = await this.resolveLinkedUser(employee);
+    if (!linked) {
+      throw new NotFoundException(
+        'No login account is linked to this employee yet. Create the login via onboarding first.',
+      );
+    }
+
+    const before = { roles: linked.roles || [], departmentScope: linked.departmentScope || [] };
+    const result = await this.usersService.assignRoles(String(linked._id), dto, actorUserId);
+
+    await this.audit(
+      orgId,
+      actorUserId,
+      AuditAction.ROLE_ASSIGNED,
+      id,
+      before,
+      { roles: result.roles },
+      `Updated login roles for ${employee.employeeCode} to ${result.roles.join(', ') || 'none'}`,
+    );
+
+    return { ...result, userId: String(linked._id), email: linked.email };
   }
 
   // 6. RESEND ONBOARDING CREDENTIALS

@@ -121,6 +121,7 @@ export function EmployeeCreatePage() {
     departmentId: '',
     designationId: '',
     managerId: '',
+    hrId: '',
     locationId: '',
     employmentType: 'FULL_TIME' as const,
     joiningDate: new Date().toISOString().split('T')[0],
@@ -463,6 +464,7 @@ export function EmployeeCreatePage() {
         departmentId: formData.departmentId || undefined,
         designationId: formData.designationId || undefined,
         managerId: formData.managerId || undefined,
+        hrId: formData.hrId || undefined,
         locationId: formData.locationId || undefined,
         employmentType: formData.employmentType,
         joiningDate: formData.joiningDate,
@@ -1124,6 +1126,20 @@ export function EmployeeCreatePage() {
                     })),
                   ]}
                   helperText="Primary manager who approves leaves, transitions, and reviews."
+                />
+                <SelectField
+                  label="Reporting HR"
+                  value={formData.hrId}
+                  onChange={(e) => handleChange('hrId', e.target.value)}
+                  placeholder="Select Reporting HR..."
+                  options={[
+                    { value: '', label: 'None / Assign later' },
+                    ...potentialManagers.map((m) => ({
+                      value: m._id || (m as any).id,
+                      label: `${m.displayName || `${m.firstName} ${m.lastName}`} (${m.employeeCode})`,
+                    })),
+                  ]}
+                  helperText="Day-to-day HR contact shown on the employee dashboard."
                 />
                 <SelectField
                   label="Office Location"

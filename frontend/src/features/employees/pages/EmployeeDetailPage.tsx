@@ -7,6 +7,7 @@ import { employeesApi } from '../api/employees.api';
 import { EmployeeHeaderBanner } from '../components/EmployeeHeaderBanner';
 import { CredentialsModal } from '../components/CredentialsModal';
 import { StatusTransitionModal } from '../components/StatusTransitionModal';
+import { AssignHrRoleModal } from '../components/AssignHrRoleModal';
 import { AuditTimeline } from '../../audit/components/AuditTimeline';
 import { DocumentVault } from '../components/DocumentVault';
 import { EmployeeLifecycleTimeline } from '../../lifecycle/components/EmployeeLifecycleTimeline';
@@ -33,11 +34,19 @@ export function EmployeeDetailPage() {
     user?.permissions?.includes('EMPLOYEE_CREATE')
   );
 
+  // Role assignment (e.g. making an employee HR) needs the accounts right.
+  const canAssignRoles = Boolean(
+    user?.roles?.some((r) => ['SUPER_ADMIN'].includes(r.toUpperCase())) ||
+    user?.permissions?.includes('*') ||
+    user?.permissions?.includes('users:manage'),
+  );
+
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showCredentials, setShowCredentials] = useState<boolean>(false);
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
+  const [showRolesModal, setShowRolesModal] = useState<boolean>(false);
   const [isResending, setIsResending] = useState<boolean>(false);
 
   useEffect(() => {
@@ -111,6 +120,7 @@ export function EmployeeDetailPage() {
         onShareCredentials={isHrOrAdmin ? () => setShowCredentials(true) : undefined}
         onStatusChange={isHrOrAdmin ? () => setShowStatusModal(true) : undefined}
         onResendCredentials={isHrOrAdmin ? handleResendCredentials : undefined}
+        onAssignRoles={canAssignRoles ? () => setShowRolesModal(true) : undefined}
         onAvatarUpdated={(newUrl) => setEmployee((prev) => (prev ? { ...prev, avatarUrl: newUrl } : null))}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -149,7 +159,8 @@ export function EmployeeDetailPage() {
               </div>
             </div>
 
-            {/* Reporting Manager Widget */}
+            {/* Reporting Manager + Reporting HR Widgets */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
                 Reporting Line Manager
@@ -157,7 +168,7 @@ export function EmployeeDetailPage() {
               {employee.manager ? (
                 <div
                   onClick={() => navigate(`/employees/${employee.manager?._id}`)}
-                  className="flex items-center gap-3 p-3.5 rounded-md border border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 cursor-pointer max-w-md transition-colors"
+                  className="flex items-center gap-3 p-3.5 rounded-md border border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 cursor-pointer transition-colors"
                 >
                   <Avatar
                     src={employee.manager.avatarUrl}
@@ -174,6 +185,32 @@ export function EmployeeDetailPage() {
               ) : (
                 <p className="text-xs text-slate-500 italic">No direct reporting manager (Executive Tier).</p>
               )}
+            </div>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+                Reporting HR
+              </h3>
+              {employee.hr ? (
+                <div
+                  onClick={() => navigate(`/employees/${employee.hr?._id}`)}
+                  className="flex items-center gap-3 p-3.5 rounded-md border border-violet-200/70 hover:border-violet-300 bg-violet-50/40 dark:border-violet-900/50 dark:bg-violet-950/20 dark:hover:border-violet-800 cursor-pointer transition-colors"
+                >
+                  <Avatar
+                    src={employee.hr.avatarUrl}
+                    name={employee.hr.displayName || `${employee.hr.firstName} ${employee.hr.lastName}`}
+                    size="md"
+                  />
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {employee.hr.displayName || `${employee.hr.firstName} ${employee.hr.lastName}`}
+                    </h4>
+                    <p className="text-xs text-slate-400 font-mono">{employee.hr.employeeCode}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">No reporting HR assigned yet.</p>
+              )}
+            </div>
             </div>
           </div>
         )}
@@ -385,6 +422,14 @@ export function EmployeeDetailPage() {
                     {employee.manager
                       ? `${employee.manager.displayName || `${employee.manager.firstName} ${employee.manager.lastName}`} (${employee.manager.employeeCode})`
                       : 'None (Executive Tier)'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Reporting HR</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.hr
+                      ? `${employee.hr.displayName || `${employee.hr.firstName} ${employee.hr.lastName}`} (${employee.hr.employeeCode})`
+                      : 'Not assigned'}
                   </p>
                 </div>
                 <div>
@@ -623,6 +668,16 @@ export function EmployeeDetailPage() {
         currentStatus={employee.status}
         onConfirm={handleStatusChange}
       />
+
+      {/* HR Role Assignment Modal */}
+      {showRolesModal && (
+        <AssignHrRoleModal
+          isOpen={showRolesModal}
+          employee={employee}
+          onClose={() => setShowRolesModal(false)}
+          onSaved={() => {}}
+        />
+      )}
     </div>
   );
 }

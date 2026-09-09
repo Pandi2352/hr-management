@@ -31,6 +31,7 @@ import {
   EmployeeQueryDto,
   ChangeEmployeeStatusDto,
 } from './dto/employee.dto';
+import { AssignRolesDto } from '../users/dto/users.dto';
 import { OrganizationService } from '../organization/organization.service';
 import { ResultEntity } from '../../common/response';
 
@@ -129,6 +130,15 @@ export class EmployeesController {
     return ResultEntity.ok(data);
   }
 
+  /** Manager, department head & HR contacts for the logged-in employee. */
+  @Get('me/team')
+  async getMyTeam(@Request() req: any): Promise<any> {
+    const orgId = await this.getOrgId(req);
+    const userId = req.user?.userId || req.user?.id || req.user?._id || req.user?.sub;
+    const data = await this.employeesService.getMyTeam(userId, orgId, req.user?.email);
+    return ResultEntity.ok(data);
+  }
+
   private hasPerm(user: any, perm: string): boolean {
     if (!user) return false;
     if (user.roles?.includes(UserRole.SUPER_ADMIN) || user.roles?.includes('SUPER_ADMIN')) return true;
@@ -221,6 +231,34 @@ export class EmployeesController {
     const orgId = await this.getOrgId(req);
     const result = await this.employeesService.resendOnboardingCredentials(id, orgId, req.user.userId, req.user);
     return result;
+  }
+
+  // --- LINKED LOGIN ROLES (assign HR / Manager access to an employee) ---
+
+  @Get(':id/roles')
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  async getEmployeeLogin(@Request() req: any, @Param('id') id: string) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.employeesService.getEmployeeLogin(id, orgId, req.user);
+    return ResultEntity.ok(data);
+  }
+
+  @Patch(':id/roles')
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  async assignEmployeeRoles(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: AssignRolesDto,
+  ) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.employeesService.assignEmployeeRoles(
+      id,
+      dto,
+      orgId,
+      req.user.userId || req.user.id,
+      req.user,
+    );
+    return ResultEntity.ok(data, 'Login roles updated successfully');
   }
 
   // --- DOCUMENT VAULT ---------------------------------------------------

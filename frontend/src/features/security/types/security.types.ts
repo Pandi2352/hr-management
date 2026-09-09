@@ -129,6 +129,16 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    category: 'Holidays & Leave',
+    description: 'Governance over holiday calendars, leave types and yearly leave wallets',
+    permissions: [
+      { key: 'holiday:read', label: 'View Holidays', description: 'See the holiday calendar and restricted-holiday entitlement.' },
+      { key: 'holiday:manage', label: 'Manage Holidays', description: 'Add, edit and remove calendar holidays and settings.' },
+      { key: 'leave:read', label: 'View Leave Balances', description: 'See own and team leave wallets and types.' },
+      { key: 'leave:manage', label: 'Manage Leave', description: 'Assign balances, seed years and manage leave types.' },
+    ],
+  },
+  {
     category: 'Audit & Compliance',
     description: 'Forensic visibility into administrative actions and authentication records',
     permissions: [

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ArrowLeft, Edit2, KeyRound, Camera, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit2, KeyRound, Camera, Loader2, ShieldCheck } from 'lucide-react';
 import { Button, Avatar } from '../../../components/ui';
 import { useToast } from '../../../components/ui/toast';
 import { employeesApi } from '../api/employees.api';
@@ -12,6 +12,7 @@ export interface EmployeeHeaderBannerProps {
   onShareCredentials?: () => void;
   onStatusChange?: () => void;
   onResendCredentials?: () => void;
+  onAssignRoles?: () => void;
   onAvatarUpdated?: (newUrl: string) => void;
   activeTab: string;
   onTabChange: (tabId: string) => void;
@@ -25,6 +26,7 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
   onShareCredentials,
   onStatusChange,
   onResendCredentials,
+  onAssignRoles,
   onAvatarUpdated,
   activeTab,
   onTabChange,
@@ -106,6 +108,18 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
             >
               <KeyRound className="h-3.5 w-3.5" />
               <span>Share Credentials</span>
+            </Button>
+          )}
+
+          {onAssignRoles && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onAssignRoles}
+              className="flex items-center gap-1.5 cursor-pointer text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-950/40"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Assign Role</span>
             </Button>
           )}
 
