@@ -177,7 +177,8 @@ export function Sidebar({
     { id: "leave", icon: AirplaneTilt, label: "Leaves & Time Off", href: "/leave", tint: "amber" },
     { id: "tree", icon: TreeStructure, label: "Organization Chart", href: "/organization/chart", tint: "teal" },
     { id: "contacts", icon: AddressBook, label: "Colleague Directory", href: "/contacts", tint: "sky" },
-    { id: "profile", icon: IdentificationCard, label: "My Profile", href: "/profile", tint: "violet" },
+    { id: "employee-file", icon: IdentificationCard, label: "My Employee File", href: "/my-employee", tint: "violet" },
+    { id: "profile", icon: UserList, label: "My Profile", href: "/profile", tint: "blue" },
   ];
 
   const railItems = isEmployeeOnly ? employeeRailItems : adminRailItems;
@@ -224,7 +225,8 @@ export function Sidebar({
     { title: "Dashboard", icon: SquaresFour, href: "/", exact: true, tint: "indigo" },
     { title: "My Attendance", icon: ClockUser, href: "/attendance", tint: "teal" },
     { title: "My Leaves", icon: AirplaneTilt, href: "/leave", tint: "amber" },
-    { title: "My Profile", icon: IdentificationCard, href: "/profile", tint: "violet" },
+    { title: "My Employee File", icon: IdentificationCard, href: "/my-employee", tint: "violet" },
+    { title: "My Profile", icon: UserList, href: "/profile", tint: "blue" },
   ];
 
   const employeeCompanyItems = [

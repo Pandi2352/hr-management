@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/toast';
 import { profileApi } from './api/profile.api';
+import { employeesApi } from '../employees/api/employees.api';
 import { cn } from '../../utils/cn';
 import defaultAvatarImg from '../../assets/default_avatar.jpg';
 
@@ -28,26 +29,37 @@ export function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<ProfileTab>('information');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [linkedEmployee, setLinkedEmployee] = useState<any>(null);
 
-  // Profile Form States
-  const [fullName, setFullName] = useState(
-    user?.name || (user?.firstName ? `${user.firstName} ${user.lastName}` : 'Emma Smith')
-  );
-  const [email, setEmail] = useState(user?.email || 'emma.smith@gmail.com');
-  const [phone, setPhone] = useState('+1 (123) 456-7890');
-  const [role, setRole] = useState(
-    user?.roles?.[0] ? user.roles[0].replace('_', ' ') : 'Administrator'
-  );
-  const [location, setLocation] = useState('San Francisco');
+  const userFullName = user?.name || (user?.firstName ? `${user.firstName} ${user.lastName}`.trim() : '');
+  const userEmail = user?.email || '';
+  const userRoleLabel = user?.roles?.[0] ? user.roles[0].replace(/_/g, ' ') : '';
+
+  // Profile Form States — always derived from the logged-in user, never placeholders
+  const [fullName, setFullName] = useState(userFullName);
+  const [email, setEmail] = useState(userEmail);
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [role, setRole] = useState(userRoleLabel);
+  const [location, setLocation] = useState(user?.location || '');
   const [newPassword, setNewPassword] = useState('••••••••');
-  const [bio, setBio] = useState(
-    'I manage user roles, oversee platform settings, and ensure everything runs smoothly and securely. With a focus on performance, privacy, and efficiency, I help streamline daily operations so your team can focus on what matters most.'
-  );
-  const [dateOfBirth, setDateOfBirth] = useState('15 July 1990');
-  const [joinedDate, setJoinedDate] = useState('March 12, 2020');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [joinedDate, setJoinedDate] = useState('');
   const [avatarUrl, setAvatarUrl] = useState(
     user?.avatarUrl || defaultAvatarImg
   );
+
+  // Keep form in sync when the authenticated user refreshes (fresh /auth/me)
+  useEffect(() => {
+    if (user?.name) setFullName(user.name);
+    else if (user?.firstName) setFullName(`${user.firstName} ${user.lastName || ''}`.trim());
+    if (user?.email) setEmail(user.email);
+    if (user?.phone !== undefined && user.phone !== null) setPhone(user.phone);
+    if (user?.location !== undefined && user.location !== null) setLocation(user.location);
+    if (user?.bio !== undefined && user.bio !== null) setBio(user.bio);
+    if (user?.roles?.[0]) setRole(user.roles[0].replace(/_/g, ' '));
+    if (user?.avatarUrl) setAvatarUrl(user.avatarUrl);
+  }, [user?.id, user?.name, user?.email, user?.avatarUrl]);
 
   useEffect(() => {
     setAvatarUrl(user?.avatarUrl || defaultAvatarImg);
@@ -115,7 +127,7 @@ export function ProfilePage() {
     },
   ];
 
-  // Fetch initial profile on mount
+  // Fetch initial profile on mount + linked employee file for real job context
   useEffect(() => {
     profileApi
       .getMyProfile()
@@ -137,6 +149,17 @@ export function ProfilePage() {
       .catch(() => {
         // Use default fallback values
       });
+    // Linked employee file (department/designation/DOJ) — non-blocking
+    employeesApi
+      .getMyProfile()
+      .then((emp: any) => {
+        if (emp) {
+          setLinkedEmployee(emp);
+          if (emp.dateOfBirth) setDateOfBirth(emp.dateOfBirth);
+          if (emp.joiningDate) setJoinedDate(emp.joiningDate);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Upload Profile Picture Handler
@@ -287,24 +310,40 @@ export function ProfilePage() {
             {/* Profile Identity */}
             <div className="space-y-1">
               <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {fullName}
+                {fullName || userFullName || 'User'}
               </h1>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                Front-End Developer
+                {linkedEmployee?.designation?.title || linkedEmployee?.designationTitle || role || userRoleLabel || 'Team Member'}
+                {linkedEmployee?.department?.name || linkedEmployee?.departmentName ? ` • ${linkedEmployee.department?.name || linkedEmployee.departmentName}` : ''}
+                {linkedEmployee?.employeeCode ? ` • ${linkedEmployee.employeeCode}` : ''}
               </p>
 
-              {/* 3 Status Badges: Administrator (blue), Designer (orange), Active (green) */}
+              {/* Role + status badges from the logged-in account */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-600 text-white">
-                  Administrator
-                </span>
-                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-orange-500 text-white">
-                  Designer
-                </span>
+                {(user?.roles || []).slice(0, 3).map((r) => (
+                  <span key={r} className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-600 text-white">
+                    {r.replace(/_/g, ' ')}
+                  </span>
+                ))}
+                {linkedEmployee?.employmentType && (
+                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-orange-500 text-white">
+                    {linkedEmployee.employmentType.replace(/_/g, ' ')}
+                  </span>
+                )}
                 <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-600 text-white">
-                  Active
+                  {linkedEmployee?.status || 'Active'}
                 </span>
               </div>
+              {linkedEmployee?._id && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <a href={`/employees/${linkedEmployee._id}`} className="text-[11px] font-semibold text-blue-600 hover:underline dark:text-blue-400">
+                    View full employee file →
+                  </a>
+                  <a href={`/employees/${linkedEmployee._id}/edit`} className="text-[11px] font-semibold text-blue-600 hover:underline dark:text-blue-400">
+                    Edit employee details →
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 

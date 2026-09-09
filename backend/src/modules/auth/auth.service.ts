@@ -843,6 +843,61 @@ export class AuthService {
     return { message: `All active sessions (${result.modifiedCount}) have been terminated.` };
   }
 
+  async getCurrentUser(userId: string) {
+    const user = await this.userModel.findOne({ _id: userId, isDeleted: false });
+    if (!user) {
+      throw new UnauthorizedException('User account not found');
+    }
+    if (user.status !== 'ACTIVE') {
+      throw new ForbiddenException({
+        statusCode: 403,
+        errorCode: 'AUTH_ACCOUNT_INACTIVE',
+        message: 'This account is no longer active.',
+      });
+    }
+
+    let avatarUrl = user.avatarUrl || null;
+    let linkedEmployeeId: string | null = null;
+    try {
+      const cleanEmail = (user.email || '').toLowerCase().trim();
+      const linkedEmp =
+        (await this.employeeModel
+          .findOne({ userId: user._id, isDeleted: false })
+          .select('_id avatarUrl')
+          .lean()) ||
+        (cleanEmail
+          ? await this.employeeModel
+              .findOne({
+                $or: [{ workEmail: cleanEmail }, { personalEmail: cleanEmail }],
+                isDeleted: false,
+              })
+              .select('_id avatarUrl')
+              .lean()
+          : null);
+      if (linkedEmp) {
+        linkedEmployeeId = String((linkedEmp as any)._id);
+        if (!avatarUrl && (linkedEmp as any).avatarUrl) {
+          avatarUrl = (linkedEmp as any).avatarUrl;
+        }
+      }
+    } catch {
+      // Non-blocking enrichment
+    }
+
+    return {
+      id: user._id,
+      email: user.email,
+      name: `${user.firstName} ${user.lastName}`.trim(),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      roles: user.roles,
+      permissions: user.permissions || [],
+      organizationId: user.organizationId || null,
+      avatarUrl: avatarUrl || null,
+      linkedEmployeeId,
+    };
+  }
+
   private async recordAttempt(
     email: string,
     userId: string | null,

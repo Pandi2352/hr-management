@@ -12,9 +12,10 @@ export interface UserProfileData {
   phone?: string | null;
   location?: string | null;
   bio?: string | null;
-  department?: string;
-  designation?: string;
-  employeeCode?: string;
+  department?: string | null;
+  designation?: string | null;
+  employeeCode?: string | null;
+  linkedEmployeeId?: string | null;
 }
 
 export const profileApi = {

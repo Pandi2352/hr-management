@@ -106,7 +106,7 @@ export function EmployeeDetailPage() {
       {/* Reusable Header Banner Component */}
       <EmployeeHeaderBanner
         employee={employee}
-        onBack={() => navigate('/employees')}
+        onBack={() => navigate(isHrOrAdmin ? '/employees' : '/')}
         onEdit={() => navigate(`/employees/${employee._id}/edit`)}
         onShareCredentials={isHrOrAdmin ? () => setShowCredentials(true) : undefined}
         onStatusChange={isHrOrAdmin ? () => setShowStatusModal(true) : undefined}

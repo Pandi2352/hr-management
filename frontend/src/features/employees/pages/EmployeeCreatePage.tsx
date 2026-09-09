@@ -496,18 +496,22 @@ export function EmployeeCreatePage() {
         employeeCode: formData.employeeCode.trim() || undefined,
         workEmail: formData.workEmail.trim() || formData.personalEmail.trim(),
 
-        // Documents (Initial descriptors)
-        documents: formData.documents.map((d) => ({
-          title: d.title,
-          category: d.category,
-          documentType: d.category,
-          documentName: d.title,
-          fileUrl: d.fileUrl,
-          fileName: d.fileName,
-          issueDate: d.issueDate,
-          expiryDate: d.expiryDate,
-          verificationStatus: 'PENDING' as const,
-        })),
+        // Documents: step 9 only keeps local blob previews until upload.
+        // Blob URLs are not transferable to the server, so never send them —
+        // HR uploads real files via the Document Vault after creation.
+        documents: formData.documents
+          .filter((d) => d.fileUrl && !d.fileUrl.startsWith('blob:'))
+          .map((d) => ({
+            title: d.title,
+            category: d.category,
+            documentType: d.category,
+            documentName: d.title,
+            fileUrl: d.fileUrl,
+            fileName: d.fileName,
+            issueDate: d.issueDate,
+            expiryDate: d.expiryDate,
+            verificationStatus: 'PENDING' as const,
+          })),
       };
 
       const created = await employeesApi.createEmployee(payload);
@@ -1506,7 +1510,7 @@ export function EmployeeCreatePage() {
 
             <div className="p-6 space-y-6">
               <div className="p-3.5 rounded-md bg-slate-50 border border-slate-200 dark:bg-slate-900/50 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
-                <strong>Optional at Creation:</strong> HR is not forced to upload every document right now. You can upload available files now or request them from the employee through their Self-Service portal.
+                <strong>Optional at Creation:</strong> HR is not forced to upload every document right now. Files listed here are tracked locally; upload the real files via the employee&apos;s Document Vault after creation.
               </div>
 
               {/* Upload Input Bar */}

@@ -20,6 +20,7 @@ export interface AuthUser {
   phone?: string | null;
   location?: string | null;
   bio?: string | null;
+  linkedEmployeeId?: string | null;
 }
 
 export interface LoginResponse {

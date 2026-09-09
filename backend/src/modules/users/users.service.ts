@@ -156,6 +156,7 @@ export class UsersService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     await this.seedDefaultRoles();
     await this.migrateLegacyPermissions();
+    await this.grantEmployeeSelfServiceReads();
     await this.seedDefaultSecurityPolicy();
   }
 
@@ -217,6 +218,40 @@ export class UsersService implements OnModuleInit {
           granted: missing,
         });
       }
+    }
+  }
+
+  /**
+   * Employees provisioned before self-service reads existed carry
+   * `permissions: []`, so their own detail/edit and org reference lookups
+   * 403. Grants the two base reads to employee-role holders missing them.
+   * Idempotent — a no-op once applied.
+   */
+  private async grantEmployeeSelfServiceReads(): Promise<void> {
+    const baseReads = [PERMISSIONS.EMPLOYEE_READ, PERMISSIONS.ORG_PROFILE_READ];
+    const candidates = await this.userModel
+      .find({ isDeleted: { $ne: true } })
+      .select('_id roles permissions')
+      .lean();
+
+    let granted = 0;
+    for (const u of candidates) {
+      const roles: string[] = (u as any).roles || [];
+      const isEmployee = roles.some((r) => String(r).toLowerCase().includes('employee'));
+      if (!isEmployee) continue;
+      const perms: string[] = (u as any).permissions || [];
+      if (perms.includes('*')) continue;
+      const missing = baseReads.filter((p) => !perms.includes(p));
+      if (missing.length === 0) continue;
+      await this.userModel.updateOne(
+        { _id: (u as any)._id },
+        { $set: { permissions: Array.from(new Set([...perms, ...missing])) } },
+      );
+      granted++;
+    }
+
+    if (granted > 0) {
+      this.logger.info(null, 'Granted employee self-service reads', { granted });
     }
   }
 
@@ -744,7 +779,7 @@ export class UsersService implements OnModuleInit {
 
     const linkedEmp = await this.employeeModel
       .findOne({ $or: [{ userId }, { workEmail: user.email }] })
-      .select('employeeCode phone avatarUrl')
+      .select('_id employeeCode phone avatarUrl departmentId designationId')
       .lean();
 
     return {
@@ -755,13 +790,14 @@ export class UsersService implements OnModuleInit {
       lastName: user.lastName,
       roles: user.roles,
       permissions: user.permissions,
-      avatarUrl: user.avatarUrl || linkedEmp?.avatarUrl || null,
-      phone: user.phone || linkedEmp?.phone || null,
-      location: user.location || 'San Francisco',
+      avatarUrl: user.avatarUrl || (linkedEmp as any)?.avatarUrl || null,
+      phone: user.phone || (linkedEmp as any)?.phone || null,
+      location: user.location || null,
       bio: user.bio || null,
-      department: 'Engineering',
-      designation: 'Front-End Developer',
-      employeeCode: linkedEmp?.employeeCode || 'EMP000001',
+      department: null,
+      designation: null,
+      employeeCode: (linkedEmp as any)?.employeeCode || null,
+      linkedEmployeeId: linkedEmp ? String((linkedEmp as any)._id) : null,
     };
   }
 }

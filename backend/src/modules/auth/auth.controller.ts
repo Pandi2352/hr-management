@@ -38,6 +38,18 @@ export class AuthController {
     };
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get current authenticated user with fresh roles and linked employee' })
+  @ApiResponse({ status: 200, description: 'Current user profile' })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
+  async getMe(@Req() req: any) {
+    const userId = req.user?.userId || req.user?.sub;
+    const data = await this.authService.getCurrentUser(userId);
+    return ResultEntity.ok(data, 'Current user retrieved');
+  }
+
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Exchange the refresh cookie for a new access token (rotates the session)' })

@@ -19,6 +19,7 @@ import { EmployeeDirectoryPage } from "../features/employees/pages/EmployeeDirec
 import { EmployeeCreatePage } from "../features/employees/pages/EmployeeCreatePage";
 import { EmployeeDetailPage } from "../features/employees/pages/EmployeeDetailPage";
 import { EmployeeEditPage } from "../features/employees/pages/EmployeeEditPage";
+import { MyEmployeeDetailPage, MyEmployeeEditPage } from "../features/employees/pages/MyEmployeePages";
 import { UsersListPage } from "../features/security/pages/UsersListPage";
 import { RolesPermissionsPage } from "../features/security/pages/RolesPermissionsPage";
 import { RoleCreateEditPage } from "../features/security/pages/RoleCreateEditPage";
@@ -157,29 +158,39 @@ export const router = createBrowserRouter([
               </RoleGuard>
             ),
           },
+          // Self-service: any authenticated user may open these; the backend
+          // allows HR/admins everywhere and employees only on their own file
+          // (isSelfServiceUser check), returning 403 otherwise.
           {
             path: ":id",
-            element: (
-              <RoleGuard allowedRoles={ADMIN_ROLES}>
-                <EmployeeDetailPage />
-              </RoleGuard>
-            ),
+            element: <EmployeeDetailPage />,
           },
           {
             path: ":id/edit",
-            element: (
-              <RoleGuard allowedRoles={ADMIN_ROLES}>
-                <EmployeeEditPage />
-              </RoleGuard>
-            ),
+            element: <EmployeeEditPage />,
           },
           {
             path: ":id/timeline",
             element: (
-              <RoleGuard allowedRoles={ADMIN_ROLES}>
+              <RoleGuard allowedRoles={[...ADMIN_ROLES, "EMPLOYEE"]}>
                 <EmployeeLifecycleTimelinePage />
               </RoleGuard>
             ),
+          },
+        ],
+      },
+      // Convenience self-service routes — resolve the logged-in employee file
+      // then hand off to the full detail/edit pages above.
+      {
+        path: "my-employee",
+        children: [
+          {
+            index: true,
+            element: <MyEmployeeDetailPage />,
+          },
+          {
+            path: "edit",
+            element: <MyEmployeeEditPage />,
           },
         ],
       },

@@ -6,6 +6,7 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { Organization, OrganizationDocument } from '../organization/schemas/organization.schema';
 import { MailService } from '../mail/mail.service';
 import { generateUuid } from '../../common/utils/uuid.util';
+import { PERMISSIONS } from '../../common/constants';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { LoggerHelper } from '../../common/logger';
@@ -199,6 +200,10 @@ export class EmployeeProvisioningService {
   /**
    * 4. PROVISION LINKED USER ACCOUNT
    * Creates or activates linked User credential in auth domain.
+   *
+   * Every employee needs self-service reads (own file + org reference names
+   * for department/designation/location labels). Without them the employee
+   * dashboard resolves but detail/edit and reference dropdowns 403.
    */
   async provisionUserAccount(params: {
     orgId: string;
@@ -208,11 +213,17 @@ export class EmployeeProvisioningService {
     passwordHash: string;
     avatarUrl?: string;
   }): Promise<string> {
+    const selfServiceReads = [PERMISSIONS.EMPLOYEE_READ, PERMISSIONS.ORG_PROFILE_READ];
     const existing = await this.userModel.findOne({ email: params.email.toLowerCase().trim() });
     if (existing) {
       existing.status = ('ACTIVE' as any);
       existing.passwordHash = params.passwordHash;
       if (params.avatarUrl) existing.avatarUrl = params.avatarUrl;
+      const merged = new Set([...(existing.permissions || []), ...selfServiceReads]);
+      existing.permissions = Array.from(merged);
+      if (!existing.roles || existing.roles.length === 0) {
+        existing.roles = ['EMPLOYEE'];
+      }
       await existing.save();
       return existing._id;
     }
@@ -227,7 +238,7 @@ export class EmployeeProvisioningService {
       avatarUrl: params.avatarUrl || undefined,
       status: 'ACTIVE',
       roles: ['EMPLOYEE'],
-      permissions: [],
+      permissions: selfServiceReads,
       failedLoginAttempts: 0,
       isDeleted: false,
     });

@@ -122,7 +122,8 @@ export class EmployeesController {
   @Get('me')
   async getMyProfile(@Request() req: any): Promise<any> {
     const orgId = await this.getOrgId(req);
-    const userId = req.user?.id || req.user?._id;
+    // JwtStrategy attaches `userId` (not `id`/`_id`), so it must be read first.
+    const userId = req.user?.userId || req.user?.id || req.user?._id || req.user?.sub;
     const email = req.user?.email;
     const data = await this.employeesService.getMyEmployeeProfile(userId, orgId, email);
     return ResultEntity.ok(data);

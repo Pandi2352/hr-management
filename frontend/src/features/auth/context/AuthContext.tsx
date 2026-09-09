@@ -11,6 +11,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setSession: (user: AuthUser, accessToken: string) => void;
   updateUser: (partialUser: Partial<AuthUser>) => void;
+  refreshUser: () => Promise<AuthUser | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,29 +20,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Restore session from localStorage on app boot
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem("peopleos_user");
-      const token = localStorage.getItem("peopleos_access_token");
+  const applyUser = (parsed: AuthUser) => {
+    if (parsed.avatarUrl) {
+      localStorage.setItem("user_avatar", parsed.avatarUrl);
+    } else {
+      localStorage.removeItem("user_avatar");
+    }
+    localStorage.setItem("peopleos_user", JSON.stringify(parsed));
+    setUser(parsed);
+  };
 
-      if (storedUser && token) {
-        const parsed = JSON.parse(storedUser);
-        // Synchronize or clear user_avatar strictly based on active user
-        if (parsed.avatarUrl) {
-          localStorage.setItem("user_avatar", parsed.avatarUrl);
+  const refreshUser = async (): Promise<AuthUser | null> => {
+    try {
+      const fresh = await authApi.getMe();
+      applyUser(fresh);
+      return fresh;
+    } catch {
+      return user;
+    }
+  };
+
+  // Restore session from localStorage on app boot, then refresh from server
+  // so role/permission changes made by HR take effect without re-login.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const storedUser = localStorage.getItem("peopleos_user");
+        const token = localStorage.getItem("peopleos_access_token");
+
+        if (storedUser && token) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            if (active) applyUser(parsed);
+          } catch {
+            // corrupted storage — fall through to server refresh
+          }
+          try {
+            const fresh = await authApi.getMe();
+            if (active && fresh) applyUser(fresh);
+          } catch {
+            // offline or expired — keep cached user; apiClient refresh handles 401s
+          }
         } else {
           localStorage.removeItem("user_avatar");
         }
-        setUser(parsed);
-      } else {
-        localStorage.removeItem("user_avatar");
+      } finally {
+        if (active) setIsLoading(false);
       }
-    } catch {
-      // Ignored
-    } finally {
-      setIsLoading(false);
-    }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Listen for multi-component user profile updates
@@ -154,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         setSession,
         updateUser,
+        refreshUser,
       }}
     >
       {children}

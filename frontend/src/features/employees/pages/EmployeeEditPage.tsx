@@ -164,7 +164,10 @@ export function EmployeeEditPage() {
     async function loadData() {
       if (!id) return;
       try {
-        const [emp, depts, desigs, locs, costs, emps] = await Promise.all([
+        // Reference lists are best-effort: an employee editing their own file
+        // may lack some list permissions, but the form must still open with
+        // the employee record itself (which is self-service allowed).
+        const [empRes, deptsRes, desigsRes, locsRes, costsRes, empsRes] = await Promise.allSettled([
           employeesApi.getEmployeeById(id),
           organizationApi.getDepartments(),
           organizationApi.getDesignations(),
@@ -172,12 +175,19 @@ export function EmployeeEditPage() {
           organizationApi.getCostCenters(),
           employeesApi.getEmployees({ pageSize: 100 }),
         ]);
+        if (empRes.status !== 'fulfilled') throw empRes.reason;
+        const emp = empRes.value;
+        const depts = deptsRes.status === 'fulfilled' ? deptsRes.value : [];
+        const desigs = desigsRes.status === 'fulfilled' ? desigsRes.value : [];
+        const locs = locsRes.status === 'fulfilled' ? locsRes.value : [];
+        const costs = costsRes.status === 'fulfilled' ? costsRes.value : [];
+        const emps = empsRes.status === 'fulfilled' ? empsRes.value : null;
         setEmployee(emp);
         setDepartments(depts || []);
         setDesignations(desigs || []);
         setLocations(locs || []);
         setCostCenters(costs || []);
-        setPotentialManagers((emps?.data || []).filter((m: any) => m._id !== id));
+        setPotentialManagers(((emps as any)?.data || []).filter((m: any) => m._id !== id));
 
         setFormData({
           firstName: emp.firstName || '',

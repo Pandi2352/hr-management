@@ -330,23 +330,33 @@ export class EmployeesService {
   // 1.9. GET CURRENT AUTHENTICATED EMPLOYEE'S PROFILE
   async getMyEmployeeProfile(userId: string, orgId: string, email: string): Promise<any> {
     const cleanEmail = (email || '').toLowerCase().trim();
-    const employee = await this.empModel
-      .findOne({
-        organizationId: orgId,
-        isDeleted: false,
-        $or: [
-          { userId },
-          { workEmail: cleanEmail },
-          { personalEmail: cleanEmail },
-        ],
-      })
-      .lean();
 
-    if (!employee) {
-      return null;
+    // A `userId: undefined` clause would match every employee without a linked
+    // account and findOne would return whichever came first (wrong person).
+    // Match the linked account first, fall back to email only when needed.
+    if (userId) {
+      const byUser = await this.empModel
+        .findOne({ organizationId: orgId, userId, isDeleted: false })
+        .lean();
+      if (byUser) {
+        return this.getEmployeeById(byUser._id, orgId);
+      }
     }
 
-    return this.getEmployeeById(employee._id, orgId);
+    if (cleanEmail) {
+      const byEmail = await this.empModel
+        .findOne({
+          organizationId: orgId,
+          isDeleted: false,
+          $or: [{ workEmail: cleanEmail }, { personalEmail: cleanEmail }],
+        })
+        .lean();
+      if (byEmail) {
+        return this.getEmployeeById(byEmail._id, orgId);
+      }
+    }
+
+    return null;
   }
 
   // 2. GET EMPLOYEE BY ID (SCOPED WITH TENANT ISOLATION)
