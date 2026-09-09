@@ -25,6 +25,7 @@ import { RolesPermissionsPage } from "../features/security/pages/RolesPermission
 import { RoleCreateEditPage } from "../features/security/pages/RoleCreateEditPage";
 import { SecuritySettingsPage } from "../features/security/pages/SecuritySettingsPage";
 import { BusinessSettingsPage } from "../features/settings/pages/BusinessSettingsPage";
+import { AiProvidersPage } from "../features/ai/pages/AiProvidersPage";
 import { AuditLogsPage } from "../features/audit/pages/AuditLogsPage";
 import { LoginHistoryPage } from "../features/audit/pages/LoginHistoryPage";
 import { AttendancePage } from "../features/attendance/pages/AttendancePage";
@@ -358,6 +359,14 @@ export const router = createBrowserRouter([
             element: (
               <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
                 <BusinessSettingsPage />
+              </RoleGuard>
+            ),
+          },
+          {
+            path: "ai-providers",
+            element: (
+              <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                <AiProvidersPage />
               </RoleGuard>
             ),
           },

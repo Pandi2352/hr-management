@@ -147,6 +147,7 @@ export const routeBreadcrumbMap: Record<string, BreadcrumbMeta> = {
   "/leave/requests": { title: "Leave Requests", parent: "/leave" },
   "/holidays": { title: "Holidays", parent: "/" },
   "/holidays/manage": { title: "Manage Holidays", parent: "/holidays" },
+  "/settings/ai-providers": { title: "AI Providers", parent: "/settings" },
   "/approvals": { title: "Approvals", parent: "/" },
   "/organization": { title: "Organization", parent: "/" },
   "/security": { title: "Roles & Security", parent: "/" },

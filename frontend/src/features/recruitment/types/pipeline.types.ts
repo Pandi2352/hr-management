@@ -24,6 +24,13 @@ export interface PipelineApplication {
   resumeUrl: string;
   status: PipelineStage;
   createdAt?: string;
+  aiScore?: number | null;
+  aiRecommendation?: 'SHORTLIST' | 'MAYBE' | 'REJECT' | null;
+  aiSummary?: string;
+  aiStrengths?: string[];
+  aiGaps?: string[];
+  aiProvider?: string | null;
+  aiScoredAt?: string | null;
 }
 
 export interface Interview {

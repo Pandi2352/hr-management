@@ -150,10 +150,38 @@ export function EmployeeDashboard() {
     }
   }, []);
 
-  // AI Assist
+  // AI Assist (AskHR Copilot — live answers from your own HR data)
   const [aiQuery, setAiQuery] = useState('');
-  const [aiReplies, setAiReplies] = useState<{ q: string; a: string }[]>([]);
+  const [aiReplies, setAiReplies] = useState<{ q: string; a: string; provider?: string }[]>([]);
+  const [isAsking, setIsAsking] = useState(false);
   const aiScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleAiSend = async () => {
+    const q = aiQuery.trim();
+    if (!q || isAsking) return;
+    setAiQuery('');
+    setIsAsking(true);
+    setAiReplies((prev) => [...prev, { q, a: '…' }]);
+    setTimeout(() => aiScrollRef.current?.scrollTo({ top: 9999, behavior: 'smooth' }), 80);
+    try {
+      const res = await aiApi.ask(q);
+      setAiReplies((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = { q, a: res.answer, provider: res.provider };
+        return next;
+      });
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setAiReplies((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = { q, a: msg || 'Assistant is unavailable right now. Try again later.' };
+        return next;
+      });
+    } finally {
+      setIsAsking(false);
+      setTimeout(() => aiScrollRef.current?.scrollTo({ top: 9999, behavior: 'smooth' }), 80);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -273,17 +301,6 @@ export function EmployeeDashboard() {
       color: RING_COLORS[idx % RING_COLORS.length],
     }));
   const pendingLeaveDays = (leaveSummary?.balances || []).reduce((a, b) => a + (b.pending || 0), 0);
-
-  const handleAiSend = () => {
-    const q = aiQuery.trim();
-    if (!q) return;
-    setAiReplies(prev => [
-      ...prev,
-      { q, a: 'HR AI responses coming soon. Please contact HR for now.' },
-    ]);
-    setAiQuery('');
-    setTimeout(() => aiScrollRef.current?.scrollTo({ top: 9999, behavior: 'smooth' }), 80);
-  };
 
   if (loading) {
     return (

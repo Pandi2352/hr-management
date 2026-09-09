@@ -58,6 +58,28 @@ export class JobApplication {
     index: true,
   })
   status: 'APPLIED' | 'SHORTLISTED' | 'INTERVIEWING' | 'OFFERED' | 'HIRED' | 'REJECTED' | 'WITHDRAWN';
+
+  /** AI shortlist snapshot (provider base for HR screening). */
+  @Prop({ type: Number, default: null, min: 0, max: 100 })
+  aiScore: number | null;
+
+  @Prop({ type: String, enum: ['SHORTLIST', 'MAYBE', 'REJECT', null], default: null })
+  aiRecommendation: 'SHORTLIST' | 'MAYBE' | 'REJECT' | null;
+
+  @Prop({ default: '', trim: true })
+  aiSummary: string;
+
+  @Prop({ type: [String], default: [] })
+  aiStrengths: string[];
+
+  @Prop({ type: [String], default: [] })
+  aiGaps: string[];
+
+  @Prop({ type: String, default: null })
+  aiProvider: string | null;
+
+  @Prop({ type: Date, default: null })
+  aiScoredAt: Date | null;
 }
 
 export const JobApplicationSchema = SchemaFactory.createForClass(JobApplication);

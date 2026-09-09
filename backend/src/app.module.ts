@@ -12,6 +12,7 @@ import { ProbationModule } from './modules/lifecycle/probation/probation.module'
 import { TransitionsModule } from './modules/lifecycle/transitions/transitions.module';
 import { LeaveModule } from './modules/leave/leave.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { AiModule } from './modules/ai/ai.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { S3Module } from './common/s3/s3.module';
 import { AuditModule } from './common/audit/audit.module';
@@ -38,6 +39,7 @@ import { RequestContextMiddleware } from './common/audit/request-context';
     TransitionsModule,
     LeaveModule,
     AttendanceModule,
+    AiModule,
     SettingsModule,
     S3Module,
   ],

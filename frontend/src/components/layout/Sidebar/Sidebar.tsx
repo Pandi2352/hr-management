@@ -27,6 +27,7 @@ import {
   Receipt,
   AirplaneTilt,
   SunHorizon,
+  Robot,
   SealCheck,
   CaretUpDown,
   UserCheck,
@@ -170,6 +171,7 @@ export function Sidebar({
     { id: "chat", icon: ChatTeardropDots, label: "Approvals & Requests", href: "/approvals", tint: "rose" },
     { id: "tree", icon: TreeStructure, label: "Organization Chart", href: "/organization/chart", tint: "teal" },
     { id: "holidays", icon: SunHorizon, label: "Holidays", href: "/holidays", tint: "orange" },
+    { id: "ai", icon: Robot, label: "AI Providers", href: "/settings/ai-providers", tint: "violet" },
     { id: "business-settings", icon: SlidersHorizontal, label: "Business Settings & Gateway", href: "/settings/business", tint: "amber" },
   ];
 
@@ -205,6 +207,7 @@ export function Sidebar({
 
   const governanceItems = [
     { title: "Business Settings", icon: SlidersHorizontal, href: "/settings/business", tint: "amber" },
+    { title: "AI Providers", icon: Robot, href: "/settings/ai-providers", tint: "violet" },
     { title: "Users Roster", icon: UserGear, href: "/security/users", tint: "violet" },
     { title: "Roles & Permissions", icon: ShieldCheck, href: "/security/roles", tint: "indigo" },
     { title: "Security Policies", icon: LockKey, href: "/security/settings", tint: "rose" },
