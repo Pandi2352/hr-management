@@ -22,6 +22,7 @@ import { UsersListPage } from "../features/security/pages/UsersListPage";
 import { RolesPermissionsPage } from "../features/security/pages/RolesPermissionsPage";
 import { RoleCreateEditPage } from "../features/security/pages/RoleCreateEditPage";
 import { SecuritySettingsPage } from "../features/security/pages/SecuritySettingsPage";
+import { BusinessSettingsPage } from "../features/settings/pages/BusinessSettingsPage";
 import { AuditLogsPage } from "../features/audit/pages/AuditLogsPage";
 import { LoginHistoryPage } from "../features/audit/pages/LoginHistoryPage";
 import { AttendancePage } from "../features/attendance/pages/AttendancePage";
@@ -278,7 +279,20 @@ export const router = createBrowserRouter([
       },
       {
         path: "settings",
-        element: <SecuritySettingsPage />,
+        children: [
+          {
+            index: true,
+            element: <BusinessSettingsPage />,
+          },
+          {
+            path: "business",
+            element: <BusinessSettingsPage />,
+          },
+          {
+            path: "security",
+            element: <SecuritySettingsPage />,
+          },
+        ],
       },
       {
         path: "audit",

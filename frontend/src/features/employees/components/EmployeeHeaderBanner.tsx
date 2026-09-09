@@ -169,6 +169,15 @@ export const EmployeeHeaderBanner: React.FC<EmployeeHeaderBannerProps> = ({
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400">
                   {employee.status}
                 </span>
+                {employee.profileCompletion && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide border ${
+                    employee.profileCompletion.percentage >= 100
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400'
+                      : 'bg-violet-50 text-violet-700 border-violet-200/60 dark:bg-violet-950/40 dark:text-violet-400'
+                  }`}>
+                    {employee.profileCompletion.percentage}% Complete
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
                 <span className="font-mono text-[var(--primary)] font-semibold">

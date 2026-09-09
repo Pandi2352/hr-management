@@ -10,6 +10,8 @@ import { RecruitmentModule } from './modules/recruitment/recruitment.module';
 import { OnboardingModule } from './modules/lifecycle/onboarding/onboarding.module';
 import { ProbationModule } from './modules/lifecycle/probation/probation.module';
 import { TransitionsModule } from './modules/lifecycle/transitions/transitions.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { S3Module } from './common/s3/s3.module';
 import { AuditModule } from './common/audit/audit.module';
 import { CacheModule } from './common/cache';
 import { RequestContextMiddleware } from './common/audit/request-context';
@@ -32,6 +34,8 @@ import { RequestContextMiddleware } from './common/audit/request-context';
     OnboardingModule,
     ProbationModule,
     TransitionsModule,
+    SettingsModule,
+    S3Module,
   ],
 })
 export class AppModule implements NestModule {

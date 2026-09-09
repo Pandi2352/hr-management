@@ -92,11 +92,18 @@ export class EmployeesService {
 
   /** Throws if the given employee sits outside the requesting user's department scope. */
   private async assertEmployeeInScope(
-    employee: { departmentId?: string | null },
+    employee: { departmentId?: string | null; userId?: string | null; personalEmail?: string | null; workEmail?: string | null },
     orgId: string,
     scopeUser?: RequestUser,
   ): Promise<void> {
     if (!scopeUser) return;
+
+    // Self-service access: an employee can always access their own profile
+    const userId = (scopeUser as any).id || (scopeUser as any).userId || (scopeUser as any)._id;
+    const userEmail = (scopeUser.email || '').toLowerCase().trim();
+    if (employee.userId && String(employee.userId) === String(userId)) return;
+    if (employee.personalEmail && employee.personalEmail.toLowerCase().trim() === userEmail) return;
+    if (employee.workEmail && employee.workEmail.toLowerCase().trim() === userEmail) return;
 
     const allowed = await this.scopeService.isEmployeeInScope(
       employee.departmentId,
@@ -108,6 +115,25 @@ export class EmployeesService {
         'This employee record is outside the departments you are permitted to access.',
       );
     }
+  }
+
+  /** Checks if the user is accessing their own linked employee profile */
+  async isSelfServiceUser(employeeId: string, orgId: string, user: any): Promise<boolean> {
+    if (!user) return false;
+    const userId = user.id || user.userId || user._id;
+    const userEmail = (user.email || '').toLowerCase().trim();
+    const emp = await this.empModel
+      .findOne({
+        _id: employeeId,
+        organizationId: orgId,
+        isDeleted: false,
+      })
+      .lean();
+    if (!emp) return false;
+    if (emp.userId && String(emp.userId) === String(userId)) return true;
+    if (emp.personalEmail && emp.personalEmail.toLowerCase().trim() === userEmail) return true;
+    if (emp.workEmail && emp.workEmail.toLowerCase().trim() === userEmail) return true;
+    return false;
   }
 
   private async audit(
@@ -279,6 +305,28 @@ export class EmployeesService {
     };
   }
 
+  // 1.9. GET CURRENT AUTHENTICATED EMPLOYEE'S PROFILE
+  async getMyEmployeeProfile(userId: string, orgId: string, email: string): Promise<any> {
+    const cleanEmail = (email || '').toLowerCase().trim();
+    const employee = await this.empModel
+      .findOne({
+        organizationId: orgId,
+        isDeleted: false,
+        $or: [
+          { userId },
+          { workEmail: cleanEmail },
+          { personalEmail: cleanEmail },
+        ],
+      })
+      .lean();
+
+    if (!employee) {
+      return null;
+    }
+
+    return this.getEmployeeById(employee._id, orgId);
+  }
+
   // 2. GET EMPLOYEE BY ID (SCOPED WITH TENANT ISOLATION)
   async getEmployeeById(id: string, orgId: string, scopeUser?: RequestUser): Promise<any> {
     const employee = await this.empModel
@@ -317,6 +365,7 @@ export class EmployeesService {
       costCenter: costCenter,
       manager,
       directReports,
+      profileCompletion: this.calculateProfileCompletion(employee),
       // findForResource returns a paginated envelope; the detail page wants the rows.
       auditLogs: auditLogs.data,
     };
@@ -334,6 +383,112 @@ export class EmployeesService {
     if (!employee) throw new NotFoundException('Employee not found');
     await this.assertEmployeeInScope(employee, orgId, scopeUser);
     return employee;
+  }
+
+  /**
+   * Calculates mathematically weighted employee profile completion percentage and missing items.
+   */
+  calculateProfileCompletion(employee: any) {
+    const missingFields: string[] = [];
+    let score = 0;
+
+    // 1. Personal Information (20%)
+    let personalComplete = true;
+    if (!employee.firstName || !employee.lastName) { personalComplete = false; missingFields.push('Full Legal Name'); }
+    if (!employee.avatarUrl) { personalComplete = false; missingFields.push('Profile Photo'); }
+    if (!employee.dateOfBirth) { personalComplete = false; missingFields.push('Date of Birth'); }
+    if (!employee.gender) { personalComplete = false; missingFields.push('Gender'); }
+    if (!employee.nationality) { personalComplete = false; missingFields.push('Nationality'); }
+    if (personalComplete) {
+      score += 20;
+    } else {
+      if (employee.firstName && employee.lastName) score += 10;
+      if (employee.avatarUrl) score += 5;
+      if (employee.dateOfBirth || employee.gender) score += 5;
+    }
+
+    // 2. Contact Information (15%)
+    let contactComplete = true;
+    if (!employee.personalEmail) { contactComplete = false; missingFields.push('Personal Email'); }
+    if (!employee.phone) { contactComplete = false; missingFields.push('Personal Mobile'); }
+    if (!employee.currentAddress?.addressLine1 || !employee.currentAddress?.city) {
+      contactComplete = false;
+      missingFields.push('Residential Address');
+    }
+    if (contactComplete) {
+      score += 15;
+    } else {
+      if (employee.personalEmail || employee.workEmail) score += 5;
+      if (employee.phone) score += 5;
+      if (employee.currentAddress?.addressLine1) score += 5;
+    }
+
+    // 3. Emergency Contact (15%)
+    const hasPrimaryEmergency = (employee.emergencyContacts || []).some(
+      (c: any) => c.name && c.phone && c.relationship,
+    );
+    if (hasPrimaryEmergency) {
+      score += 15;
+    } else {
+      missingFields.push('Primary Emergency Contact');
+    }
+
+    // 4. Employment (15%)
+    let employmentComplete = true;
+    if (!employee.departmentId) { employmentComplete = false; missingFields.push('Department Assignment'); }
+    if (!employee.designationId) { employmentComplete = false; missingFields.push('Job Designation'); }
+    if (!employee.joiningDate) { employmentComplete = false; missingFields.push('Date of Joining'); }
+    if (employmentComplete) {
+      score += 15;
+    } else {
+      if (employee.departmentId) score += 5;
+      if (employee.designationId) score += 5;
+      if (employee.joiningDate) score += 5;
+    }
+
+    // 5. Work Information (10%)
+    let workInfoComplete = true;
+    if (!employee.workType) { workInfoComplete = false; missingFields.push('Work Type (On-site/Remote/Hybrid)'); }
+    if (!employee.shift) { workInfoComplete = false; missingFields.push('Shift Schedule'); }
+    if (workInfoComplete) {
+      score += 10;
+    } else {
+      if (employee.workType || employee.shift) score += 5;
+    }
+
+    // 6. Identification (15%)
+    const hasId = Boolean(employee.identification?.idNumber || employee.nationalId);
+    if (hasId) {
+      score += 15;
+    } else {
+      missingFields.push('Government Identification');
+    }
+
+    // 7. Payroll / Payment Details (10%)
+    const hasPayroll = Boolean(employee.payrollInfo?.bankName && employee.payrollInfo?.accountNumber);
+    if (hasPayroll) {
+      score += 10;
+    } else {
+      missingFields.push('Bank & Payroll Account Details');
+    }
+
+    const percentage = Math.min(Math.max(Math.round(score), 0), 100);
+
+    return {
+      percentage,
+      isComplete: percentage === 100,
+      missingFields,
+      sections: {
+        personal: personalComplete,
+        contact: contactComplete,
+        emergency: hasPrimaryEmergency,
+        employment: employmentComplete,
+        workInfo: workInfoComplete,
+        identification: hasId,
+        payroll: hasPayroll,
+        documents: (employee.documents || []).length > 0,
+      },
+    };
   }
 
   /**
@@ -495,28 +650,43 @@ export class EmployeesService {
     return { employeeCode };
   }
 
+  // 3.1. GENERATE NEXT UNIQUE ORGANIZATION WORK EMAIL
+  async generateWorkEmail(
+    orgId: string,
+    firstName?: string,
+    lastName?: string,
+  ): Promise<{ workEmail: string }> {
+    const workEmail = await this.provisioningService.generateUniqueOrganizationEmail(
+      firstName || '',
+      lastName || '',
+      orgId,
+    );
+    return { workEmail };
+  }
+
   // 3. CREATE EMPLOYEE VIA PROVISIONING ENGINE
   async createEmployee(dto: CreateEmployeeDto, orgId: string, userId: string) {
     // 1. Atomic Employee ID Generation with collision retry
     const code = await this.provisioningService.generateUniqueEmployeeCode(orgId, dto.employeeCode);
 
-    // 2. Automatic Organization Email Generation with collision resolution
-    const workEmail = await this.provisioningService.generateUniqueOrganizationEmail(
-      dto.firstName,
-      dto.lastName,
-      orgId,
-      dto.workEmail,
-    );
+    // 2. Primary Connection & Login Email (Personal Gmail)
+    // The employee connects and logs in directly with their personal email / Gmail
+    const loginEmail = (dto.personalEmail || dto.workEmail || '').trim().toLowerCase();
+    if (!loginEmail) {
+      throw new BadRequestException('Personal email (Gmail) is required to connect with employee and create login credentials.');
+    }
+
+    const workEmail = dto.workEmail?.trim()?.toLowerCase() || loginEmail;
 
     // 3. Cryptographically Secure Temporary Password
     const { plainText: temporaryPassword, hash: passwordHashPromise } =
       this.provisioningService.generateSecureTemporaryPassword();
     const passwordHash = await passwordHashPromise;
 
-    // 4. Provision Linked User Account
+    // 4. Provision Linked User Account using personal email (Gmail)
     const linkedUserId = await this.provisioningService.provisionUserAccount({
       orgId,
-      email: workEmail,
+      email: loginEmail,
       firstName: dto.firstName,
       lastName: dto.lastName,
       passwordHash,
@@ -525,13 +695,28 @@ export class EmployeesService {
 
     const displayName = dto.displayName || `${dto.firstName} ${dto.lastName}`.trim();
 
-    // 5. Dispatch Onboarding Email to Personal Email
+    let deptName = '';
+    let desigTitle = '';
+    if (dto.departmentId) {
+      const d = await this.deptModel.findOne({ _id: dto.departmentId }).lean();
+      if (d) deptName = d.name;
+    }
+    if (dto.designationId) {
+      const dg = await this.desigModel.findOne({ _id: dto.designationId }).lean();
+      if (dg) desigTitle = dg.title;
+    }
+
+    // 5. Dispatch Onboarding Offer & Welcome Email with Login Password to Personal Gmail
     const emailResult = await this.provisioningService.dispatchOnboardingEmail({
-      personalEmail: dto.personalEmail,
+      personalEmail: loginEmail,
+      loginEmail,
       workEmail,
       employeeName: displayName,
       employeeCode: code,
       temporaryPassword,
+      department: deptName,
+      designation: desigTitle,
+      joiningDate: dto.joiningDate,
     });
 
     // 6. Create Employee Master Record
@@ -542,6 +727,7 @@ export class EmployeesService {
       userId: linkedUserId,
       employeeCode: code,
       displayName,
+      personalEmail: loginEmail,
       workEmail,
       initialPassword: temporaryPassword,
       onboardingEmailStatus: emailResult.status,
@@ -577,7 +763,8 @@ export class EmployeesService {
 
     const updatePayload: any = { ...dto };
 
-    // If regular employee (non HR/Admin), protect administrative and organizational assignments
+    // If regular employee (non HR/Admin), strictly enforce Profile Access Rules:
+    // HR-controlled fields cannot be modified by the employee directly
     if (scopeUser && !isHrOrAdmin) {
       delete updatePayload.employeeCode;
       delete updatePayload.status;
@@ -589,6 +776,13 @@ export class EmployeesService {
       delete updatePayload.joiningDate;
       delete updatePayload.workEmail;
       delete updatePayload.managerId;
+      delete updatePayload.workType;
+      delete updatePayload.shift;
+      delete updatePayload.payrollInfo;
+      delete updatePayload.confirmationDate;
+      delete updatePayload.resignationDate;
+      delete updatePayload.lastWorkingDate;
+      delete updatePayload.terminationReason;
     }
 
     if (updatePayload.employeeCode && updatePayload.employeeCode.trim().toUpperCase() !== existing.employeeCode) {

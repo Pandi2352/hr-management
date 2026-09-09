@@ -240,22 +240,31 @@ export class EmployeeProvisioningService {
    */
   async dispatchOnboardingEmail(params: {
     personalEmail?: string;
-    workEmail: string;
+    loginEmail?: string;
+    workEmail?: string;
     employeeName: string;
     employeeCode: string;
     temporaryPassword: string;
+    department?: string;
+    designation?: string;
+    joiningDate?: string;
   }): Promise<{ status: 'SENT' | 'FAILED' | 'PENDING'; sentAt?: Date }> {
-    if (!params.personalEmail || !params.personalEmail.includes('@')) {
+    const destination = (params.personalEmail || params.loginEmail || '').trim().toLowerCase();
+    if (!destination || !destination.includes('@')) {
       return { status: 'PENDING' };
     }
 
     try {
       const delivered = await this.mailService.sendOnboardingCredentialsEmail({
-        toEmail: params.personalEmail.trim().toLowerCase(),
+        toEmail: destination,
+        loginEmail: (params.loginEmail || destination).toLowerCase(),
         employeeName: params.employeeName,
         employeeCode: params.employeeCode,
-        workEmail: params.workEmail,
+        workEmail: params.workEmail || destination,
         temporaryPassword: params.temporaryPassword,
+        department: params.department,
+        designation: params.designation,
+        joiningDate: params.joiningDate,
       });
 
       return {

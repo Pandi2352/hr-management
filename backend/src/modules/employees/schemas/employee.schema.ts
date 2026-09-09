@@ -135,10 +135,62 @@ export class DocumentItem {
   reviewNote: string;
 
   @Prop({ default: '' })
+  remarks: string;
+
+  @Prop({ default: '' })
+  documentType: string;
+
+  @Prop({ default: '' })
+  documentName: string;
+
+  @Prop({ default: '' })
+  issueDate?: string;
+
+  @Prop({ default: '' })
+  expiryDate?: string;
+
+  @Prop({ default: '' })
   reviewedBy: string;
 
   @Prop({ type: Date, default: null })
   reviewedAt: Date | null;
+}
+
+export class IdentificationInfo {
+  @Prop({ default: 'PASSPORT' })
+  idType: string;
+
+  @Prop({ default: '', trim: true })
+  idNumber: string;
+
+  @Prop({ default: '' })
+  issueDate?: string;
+
+  @Prop({ default: '' })
+  expiryDate?: string;
+}
+
+export class PayrollInfo {
+  @Prop({ default: '', trim: true })
+  bankName: string;
+
+  @Prop({ default: '', trim: true })
+  accountNumber: string;
+
+  @Prop({ default: 'DIRECT_DEPOSIT', enum: ['DIRECT_DEPOSIT', 'BANK_TRANSFER', 'CHEQUE'] })
+  paymentMethod: string;
+
+  @Prop({ default: '', trim: true })
+  routingNumber?: string;
+
+  @Prop({ default: '', trim: true })
+  swiftCode?: string;
+
+  @Prop({ default: '', trim: true })
+  ifscCode?: string;
+
+  @Prop({ default: '', trim: true })
+  accountHolderName?: string;
 }
 
 @Schema({ timestamps: true, collection: 'employees' })
@@ -250,6 +302,27 @@ export class Employee {
     enum: ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN', 'TEMPORARY', 'CONSULTANT'],
   })
   employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY' | 'CONSULTANT';
+
+  // Work Information
+  @Prop({
+    default: 'ON_SITE',
+    enum: ['ON_SITE', 'REMOTE', 'HYBRID'],
+  })
+  workType: 'ON_SITE' | 'REMOTE' | 'HYBRID';
+
+  @Prop({
+    default: 'GENERAL',
+    enum: ['GENERAL', 'MORNING', 'EVENING', 'NIGHT', 'FLEXIBLE'],
+  })
+  shift: 'GENERAL' | 'MORNING' | 'EVENING' | 'NIGHT' | 'FLEXIBLE';
+
+  // Identification & Verification
+  @Prop({ type: () => IdentificationInfo, default: () => ({}) })
+  identification?: IdentificationInfo;
+
+  // Payroll & Payment
+  @Prop({ type: () => PayrollInfo, default: () => ({}) })
+  payrollInfo?: PayrollInfo;
 
   @Prop({
     default: 'ACTIVE',

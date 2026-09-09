@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ForbiddenException,
   Request,
   Response,
 } from '@nestjs/common';
@@ -22,7 +23,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/roles.decorator';
-import { PERMISSIONS } from '../../common/constants';
+import { PERMISSIONS, UserRole } from '../../common/constants';
 import { EmployeesService } from './employees.service';
 import {
   CreateEmployeeDto,
@@ -98,16 +99,47 @@ export class EmployeesController {
     return ResultEntity.ok(data);
   }
 
-  @Get(':id')
+  @Get('generate-email')
   @RequirePermissions(PERMISSIONS.EMPLOYEE_READ)
+  async generateWorkEmail(
+    @Request() req: any,
+    @Query('firstName') firstName?: string,
+    @Query('lastName') lastName?: string,
+  ) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.employeesService.generateWorkEmail(orgId, firstName, lastName);
+    return ResultEntity.ok(data);
+  }
+
+  @Get('me')
+  async getMyProfile(@Request() req: any): Promise<any> {
+    const orgId = await this.getOrgId(req);
+    const userId = req.user?.id || req.user?._id;
+    const email = req.user?.email;
+    const data = await this.employeesService.getMyEmployeeProfile(userId, orgId, email);
+    return ResultEntity.ok(data);
+  }
+
+  private hasPerm(user: any, perm: string): boolean {
+    if (!user) return false;
+    if (user.roles?.includes(UserRole.SUPER_ADMIN) || user.roles?.includes('SUPER_ADMIN')) return true;
+    if (user.permissions?.includes('*')) return true;
+    return Boolean(user.permissions?.includes(perm));
+  }
+
+  @Get(':id')
   async getEmployeeById(@Request() req: any, @Param('id') id: string): Promise<any> {
     const orgId = await this.getOrgId(req);
+    const hasRead = this.hasPerm(req.user, PERMISSIONS.EMPLOYEE_READ);
+    const isSelf = await this.employeesService.isSelfServiceUser(id, orgId, req.user);
+    if (!hasRead && !isSelf) {
+      throw new ForbiddenException('Insufficient permissions to perform this action');
+    }
     const data = await this.employeesService.getEmployeeById(id, orgId, req.user);
     return ResultEntity.ok(data);
   }
 
   @Post(':id/avatar')
-  @RequirePermissions(PERMISSIONS.EMPLOYEE_UPDATE)
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 5 * 1024 * 1024 },
@@ -120,11 +152,16 @@ export class EmployeesController {
   ) {
     if (!file) throw new BadRequestException('No image file was uploaded.');
     const orgId = await this.getOrgId(req);
+    const hasUpdate = this.hasPerm(req.user, PERMISSIONS.EMPLOYEE_UPDATE);
+    const isSelf = await this.employeesService.isSelfServiceUser(id, orgId, req.user);
+    if (!hasUpdate && !isSelf) {
+      throw new ForbiddenException('Insufficient permissions to perform this action');
+    }
     const data = await this.employeesService.uploadAvatar(
       id,
       orgId,
       file,
-      req.user.userId,
+      req.user.userId || req.user.id,
       req.user,
     );
     return ResultEntity.ok(data, 'Profile picture updated successfully');
@@ -134,19 +171,23 @@ export class EmployeesController {
   @RequirePermissions(PERMISSIONS.EMPLOYEE_CREATE)
   async createEmployee(@Request() req: any, @Body() dto: CreateEmployeeDto) {
     const orgId = await this.getOrgId(req);
-    const data = await this.employeesService.createEmployee(dto, orgId, req.user.userId);
+    const data = await this.employeesService.createEmployee(dto, orgId, req.user.userId || req.user.id);
     return ResultEntity.created(data, 'Employee created successfully');
   }
 
   @Patch(':id')
-  @RequirePermissions(PERMISSIONS.EMPLOYEE_UPDATE)
   async updateEmployee(
     @Request() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateEmployeeDto,
   ) {
     const orgId = await this.getOrgId(req);
-    const data = await this.employeesService.updateEmployee(id, dto, orgId, req.user.userId, req.user);
+    const hasUpdate = this.hasPerm(req.user, PERMISSIONS.EMPLOYEE_UPDATE);
+    const isSelf = await this.employeesService.isSelfServiceUser(id, orgId, req.user);
+    if (!hasUpdate && !isSelf) {
+      throw new ForbiddenException('Insufficient permissions to perform this action');
+    }
+    const data = await this.employeesService.updateEmployee(id, dto, orgId, req.user.userId || req.user.id, req.user);
     return ResultEntity.ok(data, 'Employee updated successfully');
   }
 

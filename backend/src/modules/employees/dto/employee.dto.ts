@@ -41,6 +41,71 @@ export const EMPLOYMENT_STATUSES = [
 
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
 
+export const WORK_TYPES = ['ON_SITE', 'REMOTE', 'HYBRID'] as const;
+export type WorkType = (typeof WORK_TYPES)[number];
+
+export const SHIFTS = ['GENERAL', 'MORNING', 'EVENING', 'NIGHT', 'FLEXIBLE'] as const;
+export type Shift = (typeof SHIFTS)[number];
+
+export class IdentificationDto {
+  @ApiPropertyOptional({ default: 'PASSPORT' })
+  @IsOptional()
+  @IsString()
+  idType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  idNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  issueDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  expiryDate?: string;
+}
+
+export class PayrollInfoDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bankName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  accountNumber?: string;
+
+  @ApiPropertyOptional({ default: 'DIRECT_DEPOSIT' })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  routingNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  swiftCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  ifscCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  accountHolderName?: string;
+}
+
 export class EmergencyContactDto {
   @ApiProperty()
   @IsString()
@@ -195,10 +260,44 @@ export class DocumentItemDto {
   @IsString()
   category?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  documentType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  documentName?: string;
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
   fileUrl: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  fileSize?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  issueDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  expiryDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  remarks?: string;
 
   @ApiPropertyOptional({ enum: ['VERIFIED', 'PENDING', 'REJECTED'] })
   @IsOptional()
@@ -349,6 +448,28 @@ export class CreateEmployeeDto {
   @ApiProperty({ enum: EMPLOYMENT_TYPES, default: 'FULL_TIME' })
   @IsEnum(EMPLOYMENT_TYPES)
   employmentType: EmploymentType;
+
+  @ApiPropertyOptional({ enum: WORK_TYPES, default: 'ON_SITE' })
+  @IsOptional()
+  @IsEnum(WORK_TYPES)
+  workType?: WorkType;
+
+  @ApiPropertyOptional({ enum: SHIFTS, default: 'GENERAL' })
+  @IsOptional()
+  @IsEnum(SHIFTS)
+  shift?: Shift;
+
+  @ApiPropertyOptional({ type: IdentificationDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => IdentificationDto)
+  identification?: IdentificationDto;
+
+  @ApiPropertyOptional({ type: PayrollInfoDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PayrollInfoDto)
+  payrollInfo?: PayrollInfoDto;
 
   @ApiPropertyOptional({
     enum: EMPLOYMENT_STATUSES,

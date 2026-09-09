@@ -18,7 +18,7 @@ export interface CredentialsModalProps {
 export const CredentialsModal: React.FC<CredentialsModalProps> = ({
   isOpen,
   onClose,
-  title = 'Employee Corporate Login Credentials',
+  title = 'Official Offer & Welcome Letter Credentials',
   employeeName,
   employeeCode,
   workEmail,
@@ -31,9 +31,10 @@ export const CredentialsModal: React.FC<CredentialsModalProps> = ({
   if (!isOpen) return null;
 
   const handleCopy = () => {
-    const shareText = `Hi ${employeeName},\n\nWelcome to the team! Here are your corporate login credentials for PeopleOS:\n\nPortal URL: ${window.location.origin}/auth/login\nUsername: ${workEmail}\nTemporary Password: ${initialPassword || 'PplOS#2026!HR'}\n\nPlease change your password upon your first login.`;
+    const loginAccount = personalEmail || workEmail;
+    const shareText = `Official Offer of Employment & Welcome to PeopleOS\n\nDear ${employeeName},\n\nWelcome to the organization! Below are your login credentials to access the self-service employee portal:\n\nPortal URL: ${window.location.origin}/auth/login\nEmployee ID: ${employeeCode}\nSign-In Email (Gmail): ${loginAccount}\nTemporary Password: ${initialPassword || 'PplOS#2026!HR'}\n\nPlease change your temporary password upon your first sign-in.`;
     navigator.clipboard.writeText(shareText);
-    toast.success('Credentials copied to clipboard. Ready to paste and email.', 'Copied');
+    toast.success('Offer & welcome credentials copied to clipboard.', 'Copied');
   };
 
   return (
@@ -53,34 +54,34 @@ export const CredentialsModal: React.FC<CredentialsModalProps> = ({
           </div>
         </div>
 
-        <p className="text-xs text-slate-600 dark:text-slate-300">
-          Copy these login credentials to securely share with the employee using their personal email address.
-        </p>
+        {personalEmail && (
+          <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300">
+            <strong>✓ Welcome Letter Dispatched:</strong> The official offer and welcome letter containing the portal login password has been delivered to <strong>{personalEmail}</strong>.
+          </div>
+        )}
 
         {/* Credentials Card */}
         <div className="space-y-3 rounded-md bg-slate-50 p-4 border border-slate-200 text-xs dark:bg-slate-950 dark:border-slate-800 font-mono">
           <div>
             <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-sans">
-              Corporate Login Email
+              Sign-In Email (Gmail / Account ID)
             </span>
-            <span className="font-semibold text-slate-900 dark:text-slate-100">{workEmail}</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">{personalEmail || workEmail}</span>
           </div>
           <div>
             <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-sans">
-              Initial Password
+              Temporary Portal Password
             </span>
             <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm">
               {initialPassword || 'PplOS#2026!HR'}
             </span>
           </div>
-          {personalEmail && (
-            <div>
-              <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-sans">
-                Employee Personal Email (For Delivery)
-              </span>
-              <span className="text-slate-700 dark:text-slate-300">{personalEmail}</span>
-            </div>
-          )}
+          <div>
+            <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-sans">
+              Employee ID / Code
+            </span>
+            <span className="text-slate-700 dark:text-slate-300">{employeeCode}</span>
+          </div>
         </div>
 
         {/* Actions */}

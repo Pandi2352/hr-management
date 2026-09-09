@@ -403,6 +403,74 @@ export function EmployeeDetailPage() {
                   <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Joining Date</span>
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.joiningDate || '—'}</p>
                 </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Work Arrangement</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.workType ? employee.workType.replace('_', ' ') : 'ON SITE'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Assigned Shift</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{employee.shift || 'GENERAL'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Identification & Tax Compliance */}
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Identification &amp; Statutory Compliance</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">ID Document Type</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.identification?.idType || 'National ID / Tax Card'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Identification Number</span>
+                  <p className="text-sm font-mono font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.identification?.idNumber || employee.nationalId || '—'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Document Expiry Date</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.identification?.expiryDate || 'No Expiry / Non-expiring'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payroll & Banking Details */}
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Payroll &amp; Payment Details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Bank Name</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.payrollInfo?.bankName || '—'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Account Number</span>
+                  <p className="text-sm font-mono font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.payrollInfo?.accountNumber
+                      ? `•••• •••• ${employee.payrollInfo.accountNumber.slice(-4)}`
+                      : '—'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Account Holder</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.payrollInfo?.accountHolderName || employee.displayName || `${employee.firstName} ${employee.lastName}`}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium tracking-wide uppercase text-slate-400">Payment Method</span>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {employee.payrollInfo?.paymentMethod ? employee.payrollInfo.paymentMethod.replace('_', ' ') : 'DIRECT DEPOSIT'}
+                  </p>
+                </div>
               </div>
             </div>
 

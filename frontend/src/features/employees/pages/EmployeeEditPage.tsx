@@ -37,6 +37,7 @@ export function EmployeeEditPage() {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState<boolean>(false);
+  const [isGeneratingEmail, setIsGeneratingEmail] = useState<boolean>(false);
 
   // Editable Form State
   const [formData, setFormData] = useState<{
@@ -76,6 +77,23 @@ export function EmployeeEditPage() {
     employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY' | 'CONSULTANT';
     status: 'ACTIVE' | 'PROBATION' | 'ON_NOTICE' | 'NOTICE_PERIOD' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE' | 'ON_LEAVE' | 'JOINING';
     joiningDate: string;
+    workType: 'ON_SITE' | 'REMOTE' | 'HYBRID';
+    shift: 'GENERAL' | 'MORNING' | 'EVENING' | 'NIGHT' | 'FLEXIBLE';
+    identification: {
+      idType?: string;
+      idNumber?: string;
+      issueDate?: string;
+      expiryDate?: string;
+    };
+    payrollInfo: {
+      bankName?: string;
+      accountNumber?: string;
+      accountHolderName?: string;
+      paymentMethod?: string;
+      routingNumber?: string;
+      swiftCode?: string;
+      ifscCode?: string;
+    };
   }>({
     firstName: '',
     middleName: '',
@@ -123,6 +141,23 @@ export function EmployeeEditPage() {
     employmentType: 'FULL_TIME',
     status: 'ACTIVE',
     joiningDate: '',
+    workType: 'ON_SITE',
+    shift: 'GENERAL',
+    identification: {
+      idType: 'National ID',
+      idNumber: '',
+      issueDate: '',
+      expiryDate: '',
+    },
+    payrollInfo: {
+      bankName: '',
+      accountNumber: '',
+      accountHolderName: '',
+      paymentMethod: 'DIRECT_DEPOSIT',
+      routingNumber: '',
+      swiftCode: '',
+      ifscCode: '',
+    },
   });
 
   useEffect(() => {
@@ -193,6 +228,23 @@ export function EmployeeEditPage() {
           employmentType: emp.employmentType || 'FULL_TIME',
           status: emp.status || 'ACTIVE',
           joiningDate: emp.joiningDate || '',
+          workType: emp.workType || 'ON_SITE',
+          shift: emp.shift || 'GENERAL',
+          identification: {
+            idType: emp.identification?.idType || 'National ID',
+            idNumber: emp.identification?.idNumber || emp.nationalId || '',
+            issueDate: emp.identification?.issueDate || '',
+            expiryDate: emp.identification?.expiryDate || '',
+          },
+          payrollInfo: {
+            bankName: emp.payrollInfo?.bankName || '',
+            accountNumber: emp.payrollInfo?.accountNumber || '',
+            accountHolderName: emp.payrollInfo?.accountHolderName || '',
+            paymentMethod: emp.payrollInfo?.paymentMethod || 'DIRECT_DEPOSIT',
+            routingNumber: emp.payrollInfo?.routingNumber || '',
+            swiftCode: emp.payrollInfo?.swiftCode || '',
+            ifscCode: emp.payrollInfo?.ifscCode || '',
+          },
         });
       } catch {
         toast.error('Could not load employee for editing.', 'Load Failed');
@@ -215,6 +267,26 @@ export function EmployeeEditPage() {
     }
   };
 
+  const handleGenerateEmail = async () => {
+    if (!formData.firstName.trim()) {
+      toast.error('First name is required to generate organization email.', 'Name Required');
+      return;
+    }
+    setIsGeneratingEmail(true);
+    try {
+      const res = await employeesApi.generateWorkEmail({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+      });
+      handleChange('workEmail', res.workEmail);
+      toast.success(`Generated: ${res.workEmail}`, 'Organization Email Ready');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to generate organization email');
+    } finally {
+      setIsGeneratingEmail(false);
+    }
+  };
+
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleChange = (field: string, value: any) => {
@@ -232,6 +304,20 @@ export function EmployeeEditPage() {
     setFormData((prev) => ({
       ...prev,
       currentAddress: { ...prev.currentAddress, [field]: value },
+    }));
+  };
+
+  const handleIdentificationChange = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      identification: { ...prev.identification, [field]: value },
+    }));
+  };
+
+  const handlePayrollChange = (field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      payrollInfo: { ...prev.payrollInfo, [field]: value },
     }));
   };
 
@@ -834,15 +920,39 @@ export function EmployeeEditPage() {
 
             {/* Work Email */}
             {isHrOrAdmin ? (
-              <Input
-                label="Work Email"
-                required
-                type="email"
-                value={formData.workEmail}
-                onChange={(e) => handleChange('workEmail', e.target.value)}
-                placeholder="e.g. marcus.chen@company.com"
-                error={fieldErrors.workEmail}
-              />
+              <div>
+                <label className="block text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1">
+                  Work Email
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    required
+                    type="email"
+                    value={formData.workEmail}
+                    onChange={(e) => handleChange('workEmail', e.target.value)}
+                    placeholder="e.g. marcus.chen@company.com"
+                    error={fieldErrors.workEmail}
+                    className="lowercase font-mono flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateEmail}
+                    disabled={isGeneratingEmail}
+                    className="shrink-0 h-9 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-slate-300 dark:border-slate-700"
+                    title="Generate organization email based on employee name with duplicate check"
+                  >
+                    {isGeneratingEmail ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5 text-[var(--primary)]" />
+                    )}
+                    <span>Generate</span>
+                  </Button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Official corporate email managed by IT/HR.</p>
+              </div>
             ) : (
               <div>
                 <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1 block">
@@ -988,6 +1098,36 @@ export function EmployeeEditPage() {
                 label: t.label,
               }))}
             />
+
+            {/* Work Type */}
+            <SelectField
+              label="Work Arrangement / Type"
+              value={formData.workType}
+              onChange={(e) => handleChange('workType', e.target.value)}
+              disabled={!isHrOrAdmin}
+              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
+              options={[
+                { value: 'ON_SITE', label: 'On-site' },
+                { value: 'REMOTE', label: 'Remote' },
+                { value: 'HYBRID', label: 'Hybrid' },
+              ]}
+            />
+
+            {/* Shift Schedule */}
+            <SelectField
+              label="Assigned Shift Schedule"
+              value={formData.shift}
+              onChange={(e) => handleChange('shift', e.target.value)}
+              disabled={!isHrOrAdmin}
+              helperText={!isHrOrAdmin ? 'Managed by HR Administrator' : undefined}
+              options={[
+                { value: 'GENERAL', label: 'General (9:00 AM - 6:00 PM)' },
+                { value: 'MORNING', label: 'Morning (6:00 AM - 2:00 PM)' },
+                { value: 'EVENING', label: 'Evening (2:00 PM - 10:00 PM)' },
+                { value: 'NIGHT', label: 'Night (10:00 PM - 6:00 AM)' },
+                { value: 'FLEXIBLE', label: 'Flexible Hours' },
+              ]}
+            />
           </div>
         </div>
 
@@ -1015,6 +1155,171 @@ export function EmployeeEditPage() {
               onChange={(e) => handleChange('phone', e.target.value)}
               placeholder="e.g. +1 (555) 019-2834"
             />
+          </div>
+        </div>
+
+        {/* Section 5: Identification & Statutory Compliance (HR Controlled) */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Identification &amp; Statutory Compliance
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Government-issued identification credentials and expiration dates
+              </p>
+            </div>
+            {!isHrOrAdmin && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                <Lock className="h-3 w-3" />
+                HR Managed
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {isHrOrAdmin ? (
+              <>
+                <SelectField
+                  label="ID Document Type"
+                  value={formData.identification.idType || 'National ID'}
+                  onChange={(e) => handleIdentificationChange('idType', e.target.value)}
+                  options={[
+                    { value: 'National ID', label: 'National ID / Tax ID' },
+                    { value: 'Passport', label: 'Passport' },
+                    { value: 'Driving License', label: 'Driving License' },
+                    { value: 'SSN', label: 'Social Security Number (SSN)' },
+                    { value: 'Aadhaar / PAN', label: 'Aadhaar / PAN Card' },
+                    { value: 'Work Permit', label: 'Work Permit / Visa' },
+                  ]}
+                />
+                <Input
+                  label="ID Document Number"
+                  value={formData.identification.idNumber || ''}
+                  onChange={(e) => handleIdentificationChange('idNumber', e.target.value)}
+                  placeholder="e.g. A12345678"
+                  className="font-mono"
+                />
+                <Input
+                  label="Document Expiry Date"
+                  type="date"
+                  value={formData.identification.expiryDate || ''}
+                  onChange={(e) => handleIdentificationChange('expiryDate', e.target.value)}
+                />
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 block mb-1">ID Document Type</span>
+                  <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {formData.identification.idType || 'National ID'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 block mb-1">ID Number</span>
+                  <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {formData.identification.idNumber ? `•••• ${formData.identification.idNumber.slice(-4)}` : '—'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 block mb-1">Expiry Date</span>
+                  <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {formData.identification.expiryDate || 'No Expiry'}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Section 6: Payroll & Payment Information (HR Controlled) */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Payroll &amp; Payment Information
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Direct salary disbursement accounts and institutional routing codes
+              </p>
+            </div>
+            {!isHrOrAdmin && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                <Lock className="h-3 w-3" />
+                HR Managed
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {isHrOrAdmin ? (
+              <>
+                <Input
+                  label="Bank Name"
+                  value={formData.payrollInfo.bankName || ''}
+                  onChange={(e) => handlePayrollChange('bankName', e.target.value)}
+                  placeholder="e.g. JPMorgan Chase / HDFC"
+                />
+                <Input
+                  label="Account Number"
+                  value={formData.payrollInfo.accountNumber || ''}
+                  onChange={(e) => handlePayrollChange('accountNumber', e.target.value)}
+                  placeholder="e.g. 1234567890"
+                  className="font-mono"
+                />
+                <Input
+                  label="Account Holder Name"
+                  value={formData.payrollInfo.accountHolderName || ''}
+                  onChange={(e) => handlePayrollChange('accountHolderName', e.target.value)}
+                  placeholder="e.g. Marcus Chen"
+                />
+                <SelectField
+                  label="Payment Method"
+                  value={formData.payrollInfo.paymentMethod || 'DIRECT_DEPOSIT'}
+                  onChange={(e) => handlePayrollChange('paymentMethod', e.target.value)}
+                  options={[
+                    { value: 'DIRECT_DEPOSIT', label: 'Direct Deposit / Bank Transfer' },
+                    { value: 'WIRE_TRANSFER', label: 'Wire Transfer' },
+                    { value: 'CHECK', label: 'Paper Check' },
+                    { value: 'CASH', label: 'Cash' },
+                  ]}
+                />
+                <Input
+                  label="IFSC / Routing / Swift Code"
+                  value={formData.payrollInfo.ifscCode || formData.payrollInfo.routingNumber || ''}
+                  onChange={(e) => handlePayrollChange('ifscCode', e.target.value)}
+                  placeholder="e.g. CHASUS33 / HDFC0001234"
+                  className="font-mono uppercase"
+                />
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 block mb-1">Bank Name</span>
+                  <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {formData.payrollInfo.bankName || 'Not configured'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 block mb-1">Account Number</span>
+                  <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {formData.payrollInfo.accountNumber ? `•••• •••• ${formData.payrollInfo.accountNumber.slice(-4)}` : '—'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 block mb-1">Account Holder</span>
+                  <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {formData.payrollInfo.accountHolderName || formData.displayName || `${formData.firstName} ${formData.lastName}`}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 block mb-1">Payment Method</span>
+                  <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {formData.payrollInfo.paymentMethod ? formData.payrollInfo.paymentMethod.replace('_', ' ') : 'DIRECT DEPOSIT'}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

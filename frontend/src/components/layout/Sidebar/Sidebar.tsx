@@ -7,6 +7,7 @@ import {
   IdentificationCard,
   ChatTeardropDots,
   TreeStructure,
+  SlidersHorizontal,
   GearSix,
   SidebarSimple,
   SquaresFour,
@@ -163,6 +164,7 @@ export function Sidebar({
     { id: "id-card", icon: IdentificationCard, label: "Employee Directory", href: "/employees", tint: "violet" },
     { id: "chat", icon: ChatTeardropDots, label: "Approvals & Requests", href: "/approvals", tint: "rose" },
     { id: "tree", icon: TreeStructure, label: "Organization Structure", href: "/organization/departments", tint: "cyan" },
+    { id: "business-settings", icon: SlidersHorizontal, label: "Business Settings & Gateway", href: "/settings/business", tint: "amber" },
   ];
 
   /*
@@ -182,6 +184,7 @@ export function Sidebar({
   ];
 
   const governanceItems = [
+    { title: "Business Settings", icon: SlidersHorizontal, href: "/settings/business", tint: "amber" },
     { title: "Users Roster", icon: UserGear, href: "/security/users", tint: "violet" },
     { title: "Roles & Permissions", icon: ShieldCheck, href: "/security/roles", tint: "indigo" },
     { title: "Security Policies", icon: LockKey, href: "/security/settings", tint: "rose" },

@@ -5,15 +5,24 @@ import {
   ArrowRight,
   Check,
   User,
-  Building2,
   Mail,
-  GraduationCap,
-  FileCheck2,
+  PhoneCall,
+  Building2,
+  Briefcase,
+  ShieldCheck,
+  CreditCard,
+  KeyRound,
+  FileText,
+  CheckCircle2,
   Camera,
   X,
   Loader2,
   Info,
   Sparkles,
+  Plus,
+  Trash2,
+  Upload,
+  AlertCircle,
 } from 'lucide-react';
 import { Button, Input, SelectField, Avatar } from '../../../components/ui';
 import { CredentialsModal } from '../components/CredentialsModal';
@@ -25,74 +34,63 @@ import type { Employee } from '../types/employees.types';
 import {
   EMPLOYMENT_TYPE_OPTIONS,
   EMPLOYMENT_STATUS_OPTIONS,
-  getEmploymentTypeLabel,
-  getEmploymentStatusLabel,
-  getEmploymentStatusBadgeClass,
 } from '../constants/employment.constants';
 
 const WIZARD_STEPS = [
-  { id: 1, title: 'Identity & Photo', icon: User, desc: 'Personal Info & Photo' },
-  { id: 2, title: 'Employment', icon: Building2, desc: 'Department & Role' },
-  { id: 3, title: 'Contact Details', icon: Mail, desc: 'Email & Address' },
-  { id: 4, title: 'Skills & History', icon: GraduationCap, desc: 'Education & Career' },
-  { id: 5, title: 'Review & Confirm', icon: FileCheck2, desc: 'Final Verification' },
+  { id: 1, title: 'Personal Info', icon: User, desc: 'Name, Photo & Identity' },
+  { id: 2, title: 'Contact', icon: Mail, desc: 'Email, Mobile & Address' },
+  { id: 3, title: 'Emergency', icon: PhoneCall, desc: 'Emergency Contacts' },
+  { id: 4, title: 'Employment', icon: Building2, desc: 'Dept, Role & Manager' },
+  { id: 5, title: 'Work Info', icon: Briefcase, desc: 'Work Type, Cost & Shift' },
+  { id: 6, title: 'Identification', icon: ShieldCheck, desc: 'ID Type, Number & Expiry' },
+  { id: 7, title: 'Payroll', icon: CreditCard, desc: 'Bank & Payment Details' },
+  { id: 8, title: 'Account', icon: KeyRound, desc: 'ID & Org Email [AUTO]' },
+  { id: 9, title: 'Documents', icon: FileText, desc: 'Optional Uploads' },
+  { id: 10, title: 'Review & Create', icon: CheckCircle2, desc: 'Verification & Submit' },
 ];
 
 export function EmployeeCreatePage() {
   const navigate = useNavigate();
   const toast = useToast();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const docInputRef = useRef<HTMLInputElement | null>(null);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState<boolean>(false);
+  const [isGeneratingEmail, setIsGeneratingEmail] = useState<boolean>(false);
   const [createdCredentials, setCreatedCredentials] = useState<{
     employeeId: string;
     displayName: string;
     employeeCode: string;
     workEmail: string;
-    personalEmail?: string;
     initialPassword?: string;
+    personalEmail?: string;
   } | null>(null);
 
-  // References
+  // Reference Master Data
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [potentialManagers, setPotentialManagers] = useState<Employee[]>([]);
 
-  // Form State
+  // Form State Structured per the 10 Steps
   const [formData, setFormData] = useState({
-    // Step 1: Identity & Avatar
+    // Step 1: Personal Information
     firstName: '',
     middleName: '',
     lastName: '',
     displayName: '',
-    gender: 'Male',
-    dateOfBirth: '',
-    maritalStatus: 'Single',
-    bloodGroup: '',
-    nationality: '',
-    countryOfBirth: '',
-    stateOfBirth: '',
-    nationalId: '',
     avatarUrl: '',
+    dateOfBirth: '',
+    gender: 'Male',
+    maritalStatus: 'Single',
+    nationality: 'Indian',
+    bloodGroup: '',
 
-    // Step 2: Employment
-    employeeCode: '',
-    departmentId: '',
-    designationId: '',
-    locationId: '',
-    costCenterId: '',
-    managerId: '',
-    employmentType: 'FULL_TIME' as const,
-    status: 'ACTIVE' as const,
-    joiningDate: new Date().toISOString().split('T')[0],
-
-    // Step 3: Contact & Emergency
-    workEmail: '',
+    // Step 2: Contact Information
     personalEmail: '',
     phone: '',
     alternatePhone: '',
@@ -102,9 +100,11 @@ export function EmployeeCreatePage() {
       addressLine2: '',
       city: '',
       state: '',
-      country: '',
+      country: 'India',
       postalCode: '',
     },
+
+    // Step 3: Emergency Contact
     emergencyContacts: [
       {
         name: '',
@@ -117,13 +117,57 @@ export function EmployeeCreatePage() {
       },
     ],
 
-    // Step 4: Skills & Education
-    primarySkill: '',
-    degree: '',
-    institution: '',
-    previousCompany: '',
-    previousRole: '',
+    // Step 4: Employment
+    departmentId: '',
+    designationId: '',
+    managerId: '',
+    locationId: '',
+    employmentType: 'FULL_TIME' as const,
+    joiningDate: new Date().toISOString().split('T')[0],
+    status: 'ACTIVE' as const,
+
+    // Step 5: Work Information
+    workType: 'ON_SITE' as 'ON_SITE' | 'REMOTE' | 'HYBRID',
+    costCenterId: '',
+    shift: 'GENERAL' as 'GENERAL' | 'MORNING' | 'EVENING' | 'NIGHT' | 'FLEXIBLE',
+
+    // Step 6: Identification
+    idType: 'PASSPORT',
+    idNumber: '',
+    idIssueDate: '',
+    idExpiryDate: '',
+
+    // Step 7: Payroll / Payment
+    bankName: '',
+    accountNumber: '',
+    paymentMethod: 'DIRECT_DEPOSIT',
+    routingNumber: '',
+    ifscCode: '',
+    accountHolderName: '',
+
+    // Step 8: Account
+    employeeCode: '',
+    workEmail: '',
+    role: 'Employee',
+
+    // Step 9: Documents
+    documents: [] as Array<{
+      id: string;
+      title: string;
+      category: string;
+      fileUrl: string;
+      fileName: string;
+      issueDate?: string;
+      expiryDate?: string;
+      remarks?: string;
+    }>,
   });
+
+  // State for pending document upload in Step 9
+  const [newDocType, setNewDocType] = useState<string>('IDENTITY');
+  const [newDocTitle, setNewDocTitle] = useState<string>('');
+  const [newDocIssue, setNewDocIssue] = useState<string>('');
+  const [newDocExpiry, setNewDocExpiry] = useState<string>('');
 
   useEffect(() => {
     async function loadRefs() {
@@ -141,7 +185,7 @@ export function EmployeeCreatePage() {
         setCostCenters(costs || []);
         setPotentialManagers(emps.data || []);
 
-        // Pre-select first options if available
+        // Pre-select defaults if available
         if (depts && depts.length > 0) setFormData((prev) => ({ ...prev, departmentId: depts[0]._id }));
         if (desigs && desigs.length > 0) setFormData((prev) => ({ ...prev, designationId: desigs[0]._id }));
         if (locs && locs.length > 0) setFormData((prev) => ({ ...prev, locationId: locs[0]._id }));
@@ -158,9 +202,9 @@ export function EmployeeCreatePage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (fieldErrors[field]) {
       setFieldErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[field];
-        return copy;
+        const updated = { ...prev };
+        delete updated[field];
+        return updated;
       });
     }
   };
@@ -168,33 +212,22 @@ export function EmployeeCreatePage() {
   const handleAddressChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
-      currentAddress: { ...prev.currentAddress, [field]: value },
+      currentAddress: {
+        ...prev.currentAddress,
+        [field]: value,
+      },
     }));
   };
 
-  const handleEmergencyContactChange = (index: number, field: string, value: any) => {
+  const handleEmergencyChange = (index: number, field: string, value: any) => {
     setFormData((prev) => {
-      const list = [...prev.emergencyContacts];
-      list[index] = { ...list[index], [field]: value };
-      return { ...prev, emergencyContacts: list };
+      const updated = [...prev.emergencyContacts];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, emergencyContacts: updated };
     });
   };
 
-  const handleSetPrimaryEmergencyContact = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      emergencyContacts: prev.emergencyContacts.map((c, i) => ({
-        ...c,
-        isPrimary: i === index,
-      })),
-    }));
-  };
-
   const handleAddEmergencyContact = () => {
-    if (formData.emergencyContacts.length >= 3) {
-      toast.error('A maximum of 3 emergency contacts can be configured.', 'Limit Reached');
-      return;
-    }
     setFormData((prev) => ({
       ...prev,
       emergencyContacts: [
@@ -206,7 +239,7 @@ export function EmployeeCreatePage() {
           alternatePhone: '',
           email: '',
           address: '',
-          isPrimary: prev.emergencyContacts.length === 0,
+          isPrimary: false,
         },
       ],
     }));
@@ -214,51 +247,54 @@ export function EmployeeCreatePage() {
 
   const handleRemoveEmergencyContact = (index: number) => {
     setFormData((prev) => {
-      const list = prev.emergencyContacts.filter((_, i) => i !== index);
-      if (list.length > 0 && !list.some((c) => c.isPrimary)) {
-        list[0].isPrimary = true;
+      if (prev.emergencyContacts.length <= 1) return prev;
+      const updated = prev.emergencyContacts.filter((_, idx) => idx !== index);
+      // Ensure at least one is primary
+      if (!updated.some((c) => c.isPrimary) && updated.length > 0) {
+        updated[0].isPrimary = true;
       }
-      return { ...prev, emergencyContacts: list };
+      return { ...prev, emergencyContacts: updated };
     });
   };
 
-  // Avatar Upload Handlers
+  const handleSetPrimaryEmergency = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      emergencyContacts: prev.emergencyContacts.map((c, idx) => ({
+        ...c,
+        isPrimary: idx === index,
+      })),
+    }));
+  };
+
+  // Avatar handler
   const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select a valid image file (PNG, JPG, WebP).', 'Invalid File');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Avatar file size cannot exceed 5MB.', 'File Too Large');
-      return;
-    }
-
     setIsUploadingAvatar(true);
     try {
-      const res = await employeesApi.uploadPreHireAvatar(file);
-      setFormData((prev) => ({ ...prev, avatarUrl: res.avatarUrl }));
-      toast.success('Profile picture attached to employee record.', 'Photo Ready');
+      const { avatarUrl } = await employeesApi.uploadPreHireAvatar(file);
+      handleChange('avatarUrl', avatarUrl);
+      toast.success('Square profile picture uploaded successfully.');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to upload photo.', 'Upload Failed');
+      toast.error(err?.response?.data?.message || 'Failed to upload picture. Please use JPG, PNG or WebP under 5MB.');
     } finally {
       setIsUploadingAvatar(false);
-      if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
   };
 
   const handleRemoveAvatar = () => {
-    setFormData((prev) => ({ ...prev, avatarUrl: '' }));
+    handleChange('avatarUrl', '');
   };
 
+  // Step 8: Auto-Generate Handlers
   const handleGenerateCode = async () => {
     setIsGeneratingCode(true);
     try {
       const res = await employeesApi.generateEmployeeCode();
       handleChange('employeeCode', res.employeeCode);
-      toast.success(`Generated ID: ${res.employeeCode}`, 'ID Assigned');
+      toast.success(`Generated Employee ID: ${res.employeeCode}`, 'ID Assigned');
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to generate employee ID');
     } finally {
@@ -266,34 +302,96 @@ export function EmployeeCreatePage() {
     }
   };
 
-  const handleNext = () => {
+  const handleGenerateEmail = async () => {
+    if (!formData.firstName.trim()) {
+      toast.error('Please enter First Name in Step 1 first.', 'Name Required');
+      return;
+    }
+    setIsGeneratingEmail(true);
+    try {
+      const res = await employeesApi.generateWorkEmail({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+      });
+      handleChange('workEmail', res.workEmail);
+      toast.success(`Generated: ${res.workEmail}`, 'Organization Email Ready');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to generate organization email');
+    } finally {
+      setIsGeneratingEmail(false);
+    }
+  };
+
+  // Step 9: Add document upload
+  const handleAddDocument = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const newDoc = {
+      id: `doc-${Date.now()}`,
+      title: newDocTitle.trim() || file.name,
+      category: newDocType,
+      fileName: file.name,
+      fileUrl: URL.createObjectURL(file),
+      issueDate: newDocIssue || undefined,
+      expiryDate: newDocExpiry || undefined,
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      documents: [...prev.documents, newDoc],
+    }));
+
+    setNewDocTitle('');
+    setNewDocIssue('');
+    setNewDocExpiry('');
+    toast.success(`Added document: ${file.name}`);
+    if (docInputRef.current) docInputRef.current.value = '';
+  };
+
+  const handleRemoveDocument = (docId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      documents: prev.documents.filter((d) => d.id !== docId),
+    }));
+  };
+
+  // Step navigation & validation
+  const handleNext = async () => {
     const errors: Record<string, string> = {};
 
     if (currentStep === 1) {
-      if (!formData.firstName.trim()) {
-        errors.firstName = 'First name is required';
-      }
-      if (!formData.lastName.trim()) {
-        errors.lastName = 'Last name is required';
-      }
+      if (!formData.firstName.trim()) errors.firstName = 'First name is required';
+      if (!formData.lastName.trim()) errors.lastName = 'Last name is required';
+      if (!formData.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
     } else if (currentStep === 2) {
-      if (!formData.departmentId) {
-        errors.departmentId = 'Department assignment is required';
-      }
-      if (!formData.designationId) {
-        errors.designationId = 'Designation is required';
-      }
-      if (!formData.locationId) {
-        errors.locationId = 'Office location is required';
-      }
-      if (!formData.joiningDate) {
-        errors.joiningDate = 'Date of joining is required';
-      }
-    } else if (currentStep === 3) {
       if (!formData.personalEmail.trim()) {
-        errors.personalEmail = 'Personal email is required for onboarding dispatch';
+        errors.personalEmail = 'Personal Email (Gmail) is required';
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.personalEmail.trim())) {
         errors.personalEmail = 'Please enter a valid email address';
+      }
+      if (!formData.phone.trim()) errors.phone = 'Mobile number is required';
+      if (!formData.currentAddress.addressLine1.trim()) errors.addressLine1 = 'Address line 1 is required';
+      if (!formData.currentAddress.city.trim()) errors.city = 'City is required';
+    } else if (currentStep === 3) {
+      const hasValid = formData.emergencyContacts.some((c) => c.name.trim() && c.phone.trim());
+      if (!hasValid) {
+        errors.emergency = 'At least one primary emergency contact name & phone is required';
+      }
+    } else if (currentStep === 4) {
+      if (!formData.departmentId) errors.departmentId = 'Department is required';
+      if (!formData.designationId) errors.designationId = 'Designation is required';
+      if (!formData.locationId) errors.locationId = 'Office location is required';
+      if (!formData.joiningDate) errors.joiningDate = 'Date of joining is required';
+    } else if (currentStep === 8) {
+      // Auto-populate employee code if empty
+      if (!formData.employeeCode.trim()) {
+        try {
+          const res = await employeesApi.generateEmployeeCode();
+          handleChange('employeeCode', res.employeeCode);
+        } catch {
+          // ignore
+        }
       }
     }
 
@@ -303,94 +401,112 @@ export function EmployeeCreatePage() {
     }
 
     setFieldErrors({});
-    setCurrentStep((prev) => Math.min(prev + 1, 5));
+
+    // When advancing from Step 7 to Step 8, proactively generate ID and Org Email if blank
+    if (currentStep === 7) {
+      if (!formData.employeeCode.trim()) {
+        employeesApi.generateEmployeeCode().then((res) => {
+          setFormData((prev) => prev.employeeCode ? prev : { ...prev, employeeCode: res.employeeCode });
+        }).catch(() => {});
+      }
+      if (!formData.workEmail.trim() && formData.firstName.trim()) {
+        employeesApi.generateWorkEmail({ firstName: formData.firstName, lastName: formData.lastName }).then((res) => {
+          setFormData((prev) => prev.workEmail ? prev : { ...prev, workEmail: res.workEmail });
+        }).catch(() => {});
+      }
+    }
+
+    setCurrentStep((prev) => Math.min(prev + 1, 10));
   };
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
+  // Submit Handler in Step 10
   const handleSubmit = async () => {
-    const errors: Record<string, string> = {};
-
-    if (!formData.firstName.trim()) errors.firstName = 'First name is required';
-    if (!formData.lastName.trim()) errors.lastName = 'Last name is required';
-    if (!formData.departmentId) errors.departmentId = 'Department assignment is required';
-    if (!formData.designationId) errors.designationId = 'Designation is required';
-    if (!formData.locationId) errors.locationId = 'Office location is required';
-    if (!formData.joiningDate) errors.joiningDate = 'Date of joining is required';
-    if (!formData.personalEmail.trim()) {
-      errors.personalEmail = 'Personal email is required for onboarding dispatch';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.personalEmail.trim())) {
-      errors.personalEmail = 'Please enter a valid email address';
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      if (errors.firstName || errors.lastName) {
-        setCurrentStep(1);
-      } else if (errors.departmentId || errors.designationId || errors.locationId || errors.joiningDate) {
-        setCurrentStep(2);
-      } else if (errors.personalEmail) {
-        setCurrentStep(3);
-      }
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const payload: any = {
-        firstName: formData.firstName,
-        middleName: formData.middleName || undefined,
-        lastName: formData.lastName,
-        displayName: formData.displayName || `${formData.firstName} ${formData.lastName}`.trim(),
+        firstName: formData.firstName.trim(),
+        middleName: formData.middleName?.trim() || undefined,
+        lastName: formData.lastName.trim(),
+        displayName: formData.displayName?.trim() || `${formData.firstName} ${formData.lastName}`.trim(),
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth || undefined,
         maritalStatus: formData.maritalStatus,
-        bloodGroup: formData.bloodGroup || undefined,
         nationality: formData.nationality || undefined,
-        countryOfBirth: formData.countryOfBirth || undefined,
-        stateOfBirth: formData.stateOfBirth || undefined,
-        nationalId: formData.nationalId || undefined,
+        bloodGroup: formData.bloodGroup || undefined,
         avatarUrl: formData.avatarUrl || undefined,
 
-        employeeCode: formData.employeeCode || undefined,
-        departmentId: formData.departmentId || undefined,
-        designationId: formData.designationId || undefined,
-        locationId: formData.locationId || undefined,
-        costCenterId: formData.costCenterId || undefined,
-        managerId: formData.managerId || undefined,
-        employmentType: formData.employmentType,
-        status: formData.status,
-        joiningDate: formData.joiningDate,
-
-        workEmail: formData.workEmail.trim() || undefined,
-        personalEmail: formData.personalEmail.trim() || undefined,
+        // Contact
+        personalEmail: formData.personalEmail.trim(),
         phone: formData.phone.trim() || undefined,
         alternatePhone: formData.alternatePhone.trim() || undefined,
         secondaryEmail: formData.secondaryEmail.trim() || undefined,
         currentAddress: formData.currentAddress,
+
+        // Emergency
         emergencyContacts: formData.emergencyContacts
           .filter((c) => c.name.trim())
           .map((c, idx, arr) => ({
             ...c,
-            // Ensure at least one primary if contacts exist
             isPrimary: arr.some((item) => item.isPrimary) ? c.isPrimary : idx === 0,
           })),
 
-        education: formData.degree
-          ? [{ institution: formData.institution || 'University', degree: formData.degree, startDate: '2016', endDate: '2020' }]
-          : [],
-        experience: formData.previousCompany
-          ? [{ company: formData.previousCompany, role: formData.previousRole || 'Specialist', startDate: '2020', endDate: '2023' }]
-          : [],
-        skills: formData.primarySkill
-          ? [{ name: formData.primarySkill, proficiency: 'EXPERT' as const }]
-          : [],
+        // Employment
+        departmentId: formData.departmentId || undefined,
+        designationId: formData.designationId || undefined,
+        managerId: formData.managerId || undefined,
+        locationId: formData.locationId || undefined,
+        employmentType: formData.employmentType,
+        joiningDate: formData.joiningDate,
+        status: formData.status,
+
+        // Work Info
+        workType: formData.workType,
+        costCenterId: formData.costCenterId || undefined,
+        shift: formData.shift,
+
+        // Identification
+        nationalId: formData.idNumber || undefined,
+        identification: formData.idNumber ? {
+          idType: formData.idType,
+          idNumber: formData.idNumber,
+          issueDate: formData.idIssueDate || undefined,
+          expiryDate: formData.idExpiryDate || undefined,
+        } : undefined,
+
+        // Payroll
+        payrollInfo: formData.bankName ? {
+          bankName: formData.bankName,
+          accountNumber: formData.accountNumber,
+          paymentMethod: formData.paymentMethod,
+          routingNumber: formData.routingNumber || undefined,
+          ifscCode: formData.ifscCode || undefined,
+          accountHolderName: formData.accountHolderName || undefined,
+        } : undefined,
+
+        // Account
+        employeeCode: formData.employeeCode.trim() || undefined,
+        workEmail: formData.workEmail.trim() || formData.personalEmail.trim(),
+
+        // Documents (Initial descriptors)
+        documents: formData.documents.map((d) => ({
+          title: d.title,
+          category: d.category,
+          documentType: d.category,
+          documentName: d.title,
+          fileUrl: d.fileUrl,
+          fileName: d.fileName,
+          issueDate: d.issueDate,
+          expiryDate: d.expiryDate,
+          verificationStatus: 'PENDING' as const,
+        })),
       };
 
       const created = await employeesApi.createEmployee(payload);
-      toast.success(`${created.displayName || created.firstName} has been created with code ${created.employeeCode}.`, 'Employee Onboarded');
+      toast.success(`${created.displayName || created.firstName} has been onboarded successfully!`, 'Employee Created');
       setCreatedCredentials({
         employeeId: created._id,
         displayName: created.displayName || `${created.firstName} ${created.lastName}`,
@@ -406,9 +522,15 @@ export function EmployeeCreatePage() {
     }
   };
 
+  const selectedDept = departments.find((d) => d._id === formData.departmentId);
+  const selectedDesig = designations.find((d) => d._id === formData.designationId);
+  const selectedLoc = locations.find((l) => l._id === formData.locationId);
+  const selectedCost = costCenters.find((c) => c._id === formData.costCenterId);
+  const selectedMgr = potentialManagers.find((m) => (m._id === formData.managerId || (m as any).id === formData.managerId));
+
   return (
-    <div className="space-y-6 w-full">
-      {/* 1. TOP TITLE HEADER CARD - PROFESSIONAL ENTERPRISE LOOK */}
+    <div className="space-y-6 w-full max-w-6xl mx-auto pb-12">
+      {/* 1. TOP TITLE HEADER CARD */}
       <div className="rounded-md border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
@@ -421,39 +543,39 @@ export function EmployeeCreatePage() {
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                Add New Employee
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                  Add New Employee
+                </h1>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800">
+                  10-Step Wizard
+                </span>
+              </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Register organizational profile, upload profile photo, assign role, and dispatch credentials.
+                Complete workforce onboarding, access configuration, and portal login provisioning.
               </p>
             </div>
           </div>
-
-          <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
-            <div className="text-right">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-                Completion Progress
-              </span>
-              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                Step {currentStep} of 5 ({Math.round((currentStep / 5) * 100)}%)
-              </span>
-            </div>
-            <div className="w-24 sm:w-28 h-2 bg-slate-100 dark:bg-slate-800 rounded-md overflow-hidden border border-slate-200 dark:border-slate-800">
-              <div
-                className="h-full bg-[var(--primary)] transition-all duration-300 rounded-md"
-                style={{ width: `${(currentStep / 5) * 100}%` }}
-              />
-            </div>
+          <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/employees')}
+              className="text-xs border-slate-300 dark:border-slate-700"
+            >
+              Cancel
+            </Button>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md dark:bg-slate-900 dark:text-slate-300 border border-slate-200 dark:border-slate-800">
+              Step {currentStep} of 10
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 2. STEPPER TIMELINE NAVIGATION - UNIFIED PROFESSIONAL THEME */}
-      <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
-        <div className="grid grid-cols-5 gap-2">
+      {/* 2. STEPPER TIMELINE NAVIGATION (10 Steps) */}
+      <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 overflow-x-auto">
+        <div className="flex items-center gap-1.5 min-w-[760px]">
           {WIZARD_STEPS.map((step) => {
-            const Icon = step.icon;
             const isCompleted = currentStep > step.id;
             const isCurrent = currentStep === step.id;
 
@@ -465,27 +587,27 @@ export function EmployeeCreatePage() {
                   if (step.id < currentStep) setCurrentStep(step.id);
                 }}
                 disabled={step.id > currentStep}
-                className={`flex flex-col items-center text-center p-2.5 rounded-md transition-colors border text-left ${
+                className={`flex-1 flex flex-col items-center text-center p-2 rounded-md transition-all border text-left cursor-pointer ${
                   isCurrent
                     ? 'border-[var(--primary)] bg-[var(--primary-light)]'
                     : isCompleted
-                    ? 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/40 cursor-pointer'
-                    : 'border-transparent bg-transparent opacity-50 cursor-not-allowed'
+                    ? 'border-slate-200 bg-slate-50/70 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/40'
+                    : 'border-transparent bg-transparent opacity-40 cursor-not-allowed'
                 }`}
               >
                 <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold transition-all ${
+                  className={`flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold transition-all ${
                     isCompleted
                       ? 'bg-emerald-600 text-white'
                       : isCurrent
-                      ? 'bg-[var(--primary)] text-white'
+                      ? 'bg-[var(--primary)] text-white shadow-xs'
                       : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
                   }`}
                 >
-                  {isCompleted ? <Check className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                  {isCompleted ? <Check className="h-3 w-3" /> : step.id}
                 </div>
                 <span
-                  className={`mt-1.5 text-xs font-semibold ${
+                  className={`mt-1 text-[11px] font-semibold truncate max-w-full ${
                     isCurrent
                       ? 'text-[var(--primary)] font-bold'
                       : isCompleted
@@ -495,18 +617,16 @@ export function EmployeeCreatePage() {
                 >
                   {step.title}
                 </span>
-                <span className="text-[10px] text-slate-400 hidden md:inline truncate max-w-full">
-                  {step.desc}
-                </span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* 3. STEP FORM CONTAINER - CONSISTENT ENTERPRISE STYLING */}
-      <div className="rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 overflow-hidden">
-        {/* STEP 1: IDENTITY & PHOTO */}
+      {/* 3. STEP FORM CONTAINER */}
+      <div className="rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 overflow-hidden shadow-xs">
+        
+        {/* STEP 1: PERSONAL INFORMATION */}
         {currentStep === 1 && (
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
@@ -516,16 +636,14 @@ export function EmployeeCreatePage() {
                 </div>
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                    Personal Identity &amp; Profile Picture
+                    Step 1: Personal Information
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Enter basic employee credentials and upload square profile photo
+                    Employee legal identity, photo upload, birth date, gender, and nationality
                   </p>
                 </div>
               </div>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                Step 1 of 5
-              </span>
+              <span className="text-[10px] font-semibold text-slate-500">1 of 10</span>
             </div>
 
             <div className="p-6 space-y-6">
@@ -594,7 +712,7 @@ export function EmployeeCreatePage() {
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Supports JPG, PNG, WebP up to 5MB. Photo is formatted in square with rounded corners. Employee or HR can also change photo at any time from their profile.
+                      Square format up to 5MB (JPG, PNG, WebP).
                     </p>
                   </div>
                 </div>
@@ -625,16 +743,18 @@ export function EmployeeCreatePage() {
                   error={fieldErrors.lastName}
                 />
                 <Input
-                  label="Preferred Name"
+                  label="Preferred / Display Name"
                   value={formData.displayName}
                   onChange={(e) => handleChange('displayName', e.target.value)}
                   placeholder="e.g. Mark Chen"
                 />
                 <Input
                   label="Date of Birth"
+                  required
                   type="date"
                   value={formData.dateOfBirth}
                   onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                  error={fieldErrors.dateOfBirth}
                 />
                 <SelectField
                   label="Gender"
@@ -646,6 +766,12 @@ export function EmployeeCreatePage() {
                     { value: 'Non-Binary', label: 'Non-Binary' },
                     { value: 'Other', label: 'Prefer not to say' },
                   ]}
+                />
+                <Input
+                  label="Nationality"
+                  value={formData.nationality}
+                  onChange={(e) => handleChange('nationality', e.target.value)}
+                  placeholder="e.g. Indian, American, Canadian"
                 />
                 <SelectField
                   label="Marital Status"
@@ -673,189 +799,15 @@ export function EmployeeCreatePage() {
                     { value: 'AB-', label: 'AB-' },
                     { value: 'O+', label: 'O+' },
                     { value: 'O-', label: 'O-' },
-                    { value: 'Unknown', label: 'Unknown / Not Provided' },
                   ]}
-                />
-                <Input
-                  label="National ID / SSN / Tax ID"
-                  value={formData.nationalId}
-                  onChange={(e) => handleChange('nationalId', e.target.value)}
-                  placeholder="e.g. SSN-XXX-XX-1234 or National ID"
-                />
-                <Input
-                  label="Nationality"
-                  value={formData.nationality}
-                  onChange={(e) => handleChange('nationality', e.target.value)}
-                  placeholder="e.g. Canadian"
-                />
-                <Input
-                  label="Country of Birth"
-                  value={formData.countryOfBirth}
-                  onChange={(e) => handleChange('countryOfBirth', e.target.value)}
-                  placeholder="e.g. Canada"
-                />
-                <Input
-                  label="State / Province of Birth"
-                  value={formData.stateOfBirth}
-                  onChange={(e) => handleChange('stateOfBirth', e.target.value)}
-                  placeholder="e.g. Ontario / California"
                 />
               </div>
             </div>
           </div>
         )}
 
-        {/* STEP 2: EMPLOYMENT & POSITION */}
+        {/* STEP 2: CONTACT INFORMATION */}
         {currentStep === 2 && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
-                  <Building2 className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                    Department &amp; Position Assignment
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Organizational structure, job title grading, location and direct report manager
-                  </p>
-                </div>
-              </div>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                Step 2 of 5
-              </span>
-            </div>
-
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-[11px] font-medium tracking-wide uppercase text-slate-500 mb-1">
-                    Employee ID / Code
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={formData.employeeCode}
-                      onChange={(e) => handleChange('employeeCode', e.target.value)}
-                      placeholder="e.g. EMP-00001"
-                      className="uppercase font-mono flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGenerateCode}
-                      disabled={isGeneratingCode}
-                      className="shrink-0 h-9 px-3 flex items-center gap-1.5 text-xs cursor-pointer border-slate-300 dark:border-slate-700"
-                      title="Generate next sequential Employee ID based on organization prefix"
-                    >
-                      {isGeneratingCode ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5 text-[var(--primary)]" />
-                      )}
-                      <span>Generate</span>
-                    </Button>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Follows next sequential order formatted with Organization Prefix.
-                  </p>
-                </div>
-                <SelectField
-                  label="Department Assignment"
-                  required
-                  value={formData.departmentId}
-                  onChange={(e) => handleChange('departmentId', e.target.value)}
-                  placeholder="Select Department..."
-                  options={departments.map((d) => ({
-                    value: d._id,
-                    label: `${d.name} (${d.code})`,
-                  }))}
-                  error={fieldErrors.departmentId}
-                />
-                <SelectField
-                  label="Job Designation & Seniority Grade"
-                  required
-                  value={formData.designationId}
-                  onChange={(e) => handleChange('designationId', e.target.value)}
-                  placeholder="Select Designation..."
-                  options={designations.map((d) => ({
-                    value: d._id,
-                    label: `${d.title} (Grade ${d.grade})`,
-                  }))}
-                  error={fieldErrors.designationId}
-                />
-                <SelectField
-                  label="Office Location"
-                  required
-                  value={formData.locationId}
-                  onChange={(e) => handleChange('locationId', e.target.value)}
-                  placeholder="Select Location..."
-                  options={locations.map((l) => ({
-                    value: l._id,
-                    label: `${l.name} — ${l.city}`,
-                  }))}
-                  error={fieldErrors.locationId}
-                />
-                <SelectField
-                  label="Cost Center"
-                  value={formData.costCenterId}
-                  onChange={(e) => handleChange('costCenterId', e.target.value)}
-                  placeholder="Select Cost Center (Optional)..."
-                  options={[
-                    { value: '', label: 'None / Corporate Overhead' },
-                    ...costCenters.map((c) => ({
-                      value: c._id,
-                      label: `${c.name} (${c.code})`,
-                    })),
-                  ]}
-                />
-                <SelectField
-                  label="Direct Reporting Manager"
-                  value={formData.managerId}
-                  onChange={(e) => handleChange('managerId', e.target.value)}
-                  placeholder="None (Reports to Executive / Board)"
-                  options={[
-                    { value: '', label: 'None (Reports to Executive / Board)' },
-                    ...potentialManagers.map((m) => ({
-                      value: m._id,
-                      label: `${m.displayName || `${m.firstName} ${m.lastName}`} (${m.employeeCode})`,
-                    })),
-                  ]}
-                />
-                <SelectField
-                  label="Employment Type"
-                  value={formData.employmentType}
-                  onChange={(e) => handleChange('employmentType', e.target.value)}
-                  options={EMPLOYMENT_TYPE_OPTIONS.map((t) => ({
-                    value: t.value,
-                    label: t.label,
-                  }))}
-                />
-                <SelectField
-                  label="Employment Status"
-                  value={formData.status}
-                  onChange={(e) => handleChange('status', e.target.value)}
-                  options={EMPLOYMENT_STATUS_OPTIONS.map((s) => ({
-                    value: s.value,
-                    label: s.label,
-                  }))}
-                />
-                <Input
-                  label="Joining Date"
-                  required
-                  type="date"
-                  value={formData.joiningDate}
-                  onChange={(e) => handleChange('joiningDate', e.target.value)}
-                  error={fieldErrors.joiningDate}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3: CONTACT & DISPATCH */}
-        {currentStep === 3 && (
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
@@ -864,100 +816,87 @@ export function EmployeeCreatePage() {
                 </div>
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                    Communication &amp; Residential Address
+                    Step 2: Contact Information
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Personal onboarding destination, corporate email domain, residential address and emergency contact
+                    Personal communication details, mobile phone, and permanent residential address
                   </p>
                 </div>
               </div>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                Step 3 of 5
-              </span>
+              <span className="text-[10px] font-semibold text-slate-500">2 of 10</span>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Neutral Callout Box */}
-              <div className="p-3.5 rounded-md bg-slate-50 border border-slate-200 dark:bg-slate-900/50 dark:border-slate-800 flex items-start gap-2.5">
-                <Info className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  <strong>Notice:</strong> Initial system temporary password and portal invitation will be emailed to the personal address. Corporate work email will be auto-generated if left blank.
+              <div className="p-3 rounded-md bg-sky-50 border border-sky-200 dark:bg-sky-950/40 dark:border-sky-800 flex items-start gap-2.5">
+                <Info className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-sky-900 dark:text-sky-200">
+                  <strong>Portal Login Email:</strong> The Personal Email entered below will be the employee&apos;s sign-in identifier for the PeopleOS portal. The initial welcome letter and password will be delivered here.
                 </p>
               </div>
 
-              {/* Sub-section 1: Email & Telephone */}
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
-                  Personal Contact
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  <Input
-                    label="Personal Email (Onboarding Delivery)"
-                    required
-                    type="email"
-                    value={formData.personalEmail}
-                    onChange={(e) => handleChange('personalEmail', e.target.value)}
-                    placeholder="e.g. marcus.chen@gmail.com"
-                    helperText="Onboarding credentials & portal login URL will be dispatched here."
-                    error={fieldErrors.personalEmail}
-                  />
-                  <Input
-                    label="Personal Mobile Number"
-                    value={formData.phone}
-                    onChange={(e) => handleChange('phone', e.target.value)}
-                    placeholder="e.g. +91 98765 43210"
-                  />
-                  <Input
-                    label="Alternate Phone Number"
-                    value={formData.alternatePhone}
-                    onChange={(e) => handleChange('alternatePhone', e.target.value)}
-                    placeholder="e.g. +91 98765 00000"
-                  />
-                  <Input
-                    label="Secondary Email"
-                    type="email"
-                    value={formData.secondaryEmail}
-                    onChange={(e) => handleChange('secondaryEmail', e.target.value)}
-                    placeholder="e.g. m.chen.backup@gmail.com"
-                  />
-                  <Input
-                    label="Corporate Work Email (Auto-Generated if Blank)"
-                    type="email"
-                    value={formData.workEmail}
-                    onChange={(e) => handleChange('workEmail', e.target.value)}
-                    placeholder={
-                      formData.firstName && formData.lastName
-                        ? `e.g. ${formData.firstName.toLowerCase()}.${formData.lastName.toLowerCase()}@peopleos.internal`
-                        : 'e.g. firstname.lastname@company.com'
-                    }
-                    helperText="Leave blank to auto-generate from employee name."
-                  />
-                </div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Personal Contact
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <Input
+                  label="Personal Email (Gmail / Sign-In Account)"
+                  required
+                  type="email"
+                  value={formData.personalEmail}
+                  onChange={(e) => handleChange('personalEmail', e.target.value)}
+                  placeholder="e.g. employee.name@gmail.com"
+                  helperText="Portal password & welcome letter delivered to this address."
+                  error={fieldErrors.personalEmail}
+                />
+                <Input
+                  label="Personal Mobile Number"
+                  required
+                  value={formData.phone}
+                  onChange={(e) => handleChange('phone', e.target.value)}
+                  placeholder="e.g. +91 98765 43210"
+                  error={fieldErrors.phone}
+                />
+                <Input
+                  label="Alternate Phone Number"
+                  value={formData.alternatePhone}
+                  onChange={(e) => handleChange('alternatePhone', e.target.value)}
+                  placeholder="e.g. +91 98765 00000"
+                />
+                <Input
+                  label="Secondary Email"
+                  type="email"
+                  value={formData.secondaryEmail}
+                  onChange={(e) => handleChange('secondaryEmail', e.target.value)}
+                  placeholder="e.g. backup.email@gmail.com"
+                />
               </div>
 
-              {/* Sub-section 2: Residential Address */}
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3">
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   Residential Address
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   <Input
                     label="Address Line 1"
+                    required
                     value={formData.currentAddress.addressLine1}
                     onChange={(e) => handleAddressChange('addressLine1', e.target.value)}
-                    placeholder="e.g. 100 Market Street, Flat 4B"
+                    placeholder="e.g. Flat 402, Sunshine Residency"
+                    error={fieldErrors.addressLine1}
                   />
                   <Input
                     label="Address Line 2"
                     value={formData.currentAddress.addressLine2}
                     onChange={(e) => handleAddressChange('addressLine2', e.target.value)}
-                    placeholder="e.g. Near Tech Park, Landmark"
+                    placeholder="e.g. Near Tech Park, Main Road"
                   />
                   <Input
                     label="City"
+                    required
                     value={formData.currentAddress.city}
                     onChange={(e) => handleAddressChange('city', e.target.value)}
                     placeholder="e.g. Bengaluru"
+                    error={fieldErrors.city}
                   />
                   <Input
                     label="State / Province"
@@ -975,487 +914,977 @@ export function EmployeeCreatePage() {
                     label="Postal / ZIP Code"
                     value={formData.currentAddress.postalCode}
                     onChange={(e) => handleAddressChange('postalCode', e.target.value)}
-                    placeholder="e.g. 560045"
+                    placeholder="e.g. 560001"
                   />
-                </div>
-              </div>
-
-              {/* Sub-section 3: Emergency Contacts (Master Data) */}
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                      Emergency Contacts
-                    </h4>
-                    <p className="text-[11px] text-slate-400">
-                      One primary contact required. Configure up to 3 emergency contacts for employee master data.
-                    </p>
-                  </div>
-                  {formData.emergencyContacts.length < 3 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddEmergencyContact}
-                      className="text-xs cursor-pointer h-8"
-                    >
-                      + Add Emergency Contact
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  {formData.emergencyContacts.map((contact, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-4 rounded-md border transition-colors ${
-                        contact.isPrimary
-                          ? 'border-[var(--primary)] bg-violet-50/20 dark:bg-violet-950/10'
-                          : 'border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-900/30'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                            Contact #{idx + 1}
-                          </span>
-                          {contact.isPrimary ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--primary)] text-white">
-                              ★ Primary Contact
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleSetPrimaryEmergencyContact(idx)}
-                              className="text-[10px] text-[var(--primary)] font-semibold hover:underline cursor-pointer"
-                            >
-                              Set as Primary
-                            </button>
-                          )}
-                        </div>
-                        {formData.emergencyContacts.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveEmergencyContact(idx)}
-                            className="text-xs text-rose-500 hover:text-rose-700 font-medium cursor-pointer"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <Input
-                          label="Full Name"
-                          value={contact.name}
-                          onChange={(e) => handleEmergencyContactChange(idx, 'name', e.target.value)}
-                          placeholder="e.g. Jane Smith"
-                        />
-                        <SelectField
-                          label="Relationship"
-                          value={contact.relationship}
-                          onChange={(e) => handleEmergencyContactChange(idx, 'relationship', e.target.value)}
-                          options={[
-                            { value: 'Spouse', label: 'Spouse' },
-                            { value: 'Parent', label: 'Parent' },
-                            { value: 'Sibling', label: 'Sibling' },
-                            { value: 'Child', label: 'Child' },
-                            { value: 'Relative', label: 'Relative' },
-                            { value: 'Friend', label: 'Friend' },
-                            { value: 'Colleague', label: 'Colleague' },
-                            { value: 'Other', label: 'Other' },
-                          ]}
-                        />
-                        <Input
-                          label="Primary Phone"
-                          value={contact.phone}
-                          onChange={(e) => handleEmergencyContactChange(idx, 'phone', e.target.value)}
-                          placeholder="e.g. +91 98765 43210"
-                        />
-                        <Input
-                          label="Alternate Phone"
-                          value={contact.alternatePhone}
-                          onChange={(e) => handleEmergencyContactChange(idx, 'alternatePhone', e.target.value)}
-                          placeholder="e.g. +91 98765 11111"
-                        />
-                        <Input
-                          label="Email Address"
-                          type="email"
-                          value={contact.email}
-                          onChange={(e) => handleEmergencyContactChange(idx, 'email', e.target.value)}
-                          placeholder="e.g. jane.smith@example.com"
-                        />
-                        <Input
-                          label="Residential Address"
-                          value={contact.address}
-                          onChange={(e) => handleEmergencyContactChange(idx, 'address', e.target.value)}
-                          placeholder="e.g. 42 Park Avenue, Bengaluru"
-                        />
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* STEP 4: SKILLS & HISTORY */}
+        {/* STEP 3: EMERGENCY CONTACT */}
+        {currentStep === 3 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
+                  <PhoneCall className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                    Step 3: Emergency Contact
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Primary and secondary emergency contacts for crisis response and employee safety
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold text-slate-500">3 of 10</span>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {fieldErrors.emergency && (
+                <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{fieldErrors.emergency}</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {formData.emergencyContacts.map((contact, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/40 space-y-4"
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                          Contact #{idx + 1}
+                        </span>
+                        {contact.isPrimary ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            Primary Contact
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSetPrimaryEmergency(idx)}
+                            className="text-[11px] text-[var(--primary)] hover:underline font-medium cursor-pointer"
+                          >
+                            Set as Primary
+                          </button>
+                        )}
+                      </div>
+                      {formData.emergencyContacts.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEmergencyContact(idx)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Remove contact"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <Input
+                        label="Full Name"
+                        required
+                        value={contact.name}
+                        onChange={(e) => handleEmergencyChange(idx, 'name', e.target.value)}
+                        placeholder="e.g. Jane Smith"
+                      />
+                      <SelectField
+                        label="Relationship"
+                        value={contact.relationship}
+                        onChange={(e) => handleEmergencyChange(idx, 'relationship', e.target.value)}
+                        options={[
+                          { value: 'Spouse', label: 'Spouse' },
+                          { value: 'Parent', label: 'Parent' },
+                          { value: 'Sibling', label: 'Sibling' },
+                          { value: 'Child', label: 'Child' },
+                          { value: 'Friend', label: 'Friend' },
+                          { value: 'Guardian', label: 'Guardian' },
+                          { value: 'Other', label: 'Other' },
+                        ]}
+                      />
+                      <Input
+                        label="Primary Phone"
+                        required
+                        value={contact.phone}
+                        onChange={(e) => handleEmergencyChange(idx, 'phone', e.target.value)}
+                        placeholder="e.g. +91 98765 00001"
+                      />
+                      <Input
+                        label="Alternate Phone"
+                        value={contact.alternatePhone}
+                        onChange={(e) => handleEmergencyChange(idx, 'alternatePhone', e.target.value)}
+                        placeholder="e.g. +91 98765 00002"
+                      />
+                      <Input
+                        label="Email Address"
+                        type="email"
+                        value={contact.email}
+                        onChange={(e) => handleEmergencyChange(idx, 'email', e.target.value)}
+                        placeholder="e.g. jane.smith@example.com"
+                      />
+                      <div className="sm:col-span-2 lg:col-span-3">
+                        <Input
+                          label="Address"
+                          value={contact.address}
+                          onChange={(e) => handleEmergencyChange(idx, 'address', e.target.value)}
+                          placeholder="e.g. Same as residential address"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddEmergencyContact}
+                className="flex items-center gap-1.5 text-xs cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Another Contact</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: EMPLOYMENT */}
         {currentStep === 4 && (
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
-                  <GraduationCap className="h-4 w-4" />
+                  <Building2 className="h-4 w-4" />
                 </div>
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                    Qualifications &amp; Competencies
+                    Step 4: Employment Information
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Academic pedigree, previous employer history, and primary skill set
+                    Organization structure, department assignment, job designation, reporting line, and joining date
                   </p>
                 </div>
               </div>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                Step 4 of 5
-              </span>
+              <span className="text-[10px] font-semibold text-slate-500">4 of 10</span>
             </div>
 
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Primary Core Competency / Skill
-                  </label>
-                  <Input
-                    value={formData.primarySkill}
-                    onChange={(e) => handleChange('primarySkill', e.target.value)}
-                    placeholder="e.g. React & TypeScript"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Highest Degree
-                  </label>
-                  <Input
-                    value={formData.degree}
-                    onChange={(e) => handleChange('degree', e.target.value)}
-                    placeholder="e.g. B.S. in Computer Science"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Academic Institution
-                  </label>
-                  <Input
-                    value={formData.institution}
-                    onChange={(e) => handleChange('institution', e.target.value)}
-                    placeholder="e.g. University of Waterloo"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium tracking-wide uppercase text-slate-500">
-                    Previous Employer / Company
-                  </label>
-                  <Input
-                    value={formData.previousCompany}
-                    onChange={(e) => handleChange('previousCompany', e.target.value)}
-                    placeholder="e.g. Shopify Inc."
-                    className="mt-1"
-                  />
-                </div>
+                <SelectField
+                  label="Department Assignment"
+                  required
+                  value={formData.departmentId}
+                  onChange={(e) => handleChange('departmentId', e.target.value)}
+                  placeholder="Select Department..."
+                  options={departments.map((d) => ({
+                    value: d._id,
+                    label: `${d.name} (${d.code})`,
+                  }))}
+                  error={fieldErrors.departmentId}
+                />
+                <SelectField
+                  label="Job Designation & Grade"
+                  required
+                  value={formData.designationId}
+                  onChange={(e) => handleChange('designationId', e.target.value)}
+                  placeholder="Select Designation..."
+                  options={designations.map((d) => ({
+                    value: d._id,
+                    label: `${d.title} (Grade ${d.grade})`,
+                  }))}
+                  error={fieldErrors.designationId}
+                />
+                <SelectField
+                  label="Direct Reporting Manager"
+                  value={formData.managerId}
+                  onChange={(e) => handleChange('managerId', e.target.value)}
+                  placeholder="Select Reporting Manager..."
+                  options={[
+                    { value: '', label: 'None / Top Level Executive' },
+                    ...potentialManagers.map((m) => ({
+                      value: m._id || (m as any).id,
+                      label: `${m.displayName || `${m.firstName} ${m.lastName}`} (${m.employeeCode})`,
+                    })),
+                  ]}
+                  helperText="Primary manager who approves leaves, transitions, and reviews."
+                />
+                <SelectField
+                  label="Office Location"
+                  required
+                  value={formData.locationId}
+                  onChange={(e) => handleChange('locationId', e.target.value)}
+                  placeholder="Select Location..."
+                  options={locations.map((l) => ({
+                    value: l._id,
+                    label: `${l.name} (${l.city}, ${l.country})`,
+                  }))}
+                  error={fieldErrors.locationId}
+                />
+                <SelectField
+                  label="Employment Type"
+                  required
+                  value={formData.employmentType}
+                  onChange={(e) => handleChange('employmentType', e.target.value)}
+                  options={EMPLOYMENT_TYPE_OPTIONS.map((t) => ({
+                    value: t.value,
+                    label: t.label,
+                  }))}
+                />
+                <Input
+                  label="Official Date of Joining"
+                  required
+                  type="date"
+                  value={formData.joiningDate}
+                  onChange={(e) => handleChange('joiningDate', e.target.value)}
+                  error={fieldErrors.joiningDate}
+                />
+                <SelectField
+                  label="Employment Status"
+                  required
+                  value={formData.status}
+                  onChange={(e) => handleChange('status', e.target.value)}
+                  options={EMPLOYMENT_STATUS_OPTIONS.map((s) => ({
+                    value: s.value,
+                    label: s.label,
+                  }))}
+                />
               </div>
             </div>
           </div>
         )}
 
-        {/* STEP 5: REVIEW & CONFIRM */}
+        {/* STEP 5: WORK INFORMATION */}
         {currentStep === 5 && (
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
-                  <FileCheck2 className="h-4 w-4" />
+                  <Briefcase className="h-4 w-4" />
                 </div>
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                    Review New Hire Information
+                    Step 5: Work Information
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Please review candidate profile details before dispatching credentials
+                    Workplace modality, cost center accounting, and operational shift schedule
                   </p>
                 </div>
               </div>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                Step 5 of 5
-              </span>
+              <span className="text-[10px] font-semibold text-slate-500">5 of 10</span>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Candidate Overview Card with Photo */}
-              <div className="p-4 rounded-md border border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <Avatar
-                    src={formData.avatarUrl || null}
-                    name={formData.displayName || `${formData.firstName} ${formData.lastName}`}
-                    size="xl"
-                    className="rounded-md border border-slate-300 dark:border-slate-700 shrink-0"
-                  />
-                  <div>
-                    <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                      {formData.firstName} {formData.lastName}
-                      {formData.displayName && (
-                        <span className="text-xs font-normal text-slate-500 ml-1.5">
-                          (&quot;{formData.displayName}&quot;)
-                        </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <SelectField
+                  label="Work Type / Modality"
+                  required
+                  value={formData.workType}
+                  onChange={(e) => handleChange('workType', e.target.value)}
+                  options={[
+                    { value: 'ON_SITE', label: 'On-site / In-Office' },
+                    { value: 'REMOTE', label: 'Remote / Work From Home' },
+                    { value: 'HYBRID', label: 'Hybrid (Office + Remote)' },
+                  ]}
+                  helperText="Primary location model for employee day-to-day operations."
+                />
+                <SelectField
+                  label="Cost Center"
+                  value={formData.costCenterId}
+                  onChange={(e) => handleChange('costCenterId', e.target.value)}
+                  placeholder="Select Cost Center..."
+                  options={[
+                    { value: '', label: 'Unassigned / Default' },
+                    ...costCenters.map((c) => ({
+                      value: c._id,
+                      label: `${c.name} (${c.code})`,
+                    })),
+                  ]}
+                  helperText="Financial ledger unit for salary and operational expenses."
+                />
+                <SelectField
+                  label="Work Shift Schedule"
+                  required
+                  value={formData.shift}
+                  onChange={(e) => handleChange('shift', e.target.value)}
+                  options={[
+                    { value: 'GENERAL', label: 'General Day Shift (9:00 AM - 6:00 PM)' },
+                    { value: 'MORNING', label: 'Morning Shift (6:00 AM - 2:30 PM)' },
+                    { value: 'EVENING', label: 'Evening Shift (2:00 PM - 10:30 PM)' },
+                    { value: 'NIGHT', label: 'Night Shift (10:00 PM - 6:30 AM)' },
+                    { value: 'FLEXIBLE', label: 'Flexible / Staggered Hours' },
+                  ]}
+                  helperText="Standard shift timing for attendance tracking and payroll."
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 6: IDENTIFICATION */}
+        {currentStep === 6 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                    Step 6: Identification
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Government ID documents, verification numbers, and expiry dates
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold text-slate-500">6 of 10</span>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <SelectField
+                  label="ID Document Type"
+                  value={formData.idType}
+                  onChange={(e) => handleChange('idType', e.target.value)}
+                  options={[
+                    { value: 'PASSPORT', label: 'Passport' },
+                    { value: 'NATIONAL_ID', label: 'National ID / Aadhaar / SSN' },
+                    { value: 'DRIVING_LICENSE', label: 'Driver’s License' },
+                    { value: 'TAX_ID', label: 'Tax ID / PAN / EIN' },
+                    { value: 'VOTER_ID', label: 'Voter Registration ID' },
+                    { value: 'OTHER', label: 'Other Government ID' },
+                  ]}
+                />
+                <Input
+                  label="ID / Document Number"
+                  value={formData.idNumber}
+                  onChange={(e) => handleChange('idNumber', e.target.value)}
+                  placeholder="e.g. Z1234567 or 1234-5678-9012"
+                />
+                <Input
+                  label="Date of Issue"
+                  type="date"
+                  value={formData.idIssueDate}
+                  onChange={(e) => handleChange('idIssueDate', e.target.value)}
+                />
+                <Input
+                  label="Date of Expiry"
+                  type="date"
+                  value={formData.idExpiryDate}
+                  onChange={(e) => handleChange('idExpiryDate', e.target.value)}
+                  helperText="Optional if ID has lifetime validity."
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 7: PAYROLL / PAYMENT */}
+        {currentStep === 7 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
+                  <CreditCard className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                    Step 7: Payroll / Payment Information
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Bank account details, disbursement routing, and payment method
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold text-slate-500">7 of 10</span>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <Input
+                  label="Bank Name"
+                  value={formData.bankName}
+                  onChange={(e) => handleChange('bankName', e.target.value)}
+                  placeholder="e.g. HDFC Bank, Chase, HSBC"
+                />
+                <Input
+                  label="Account Number / IBAN"
+                  value={formData.accountNumber}
+                  onChange={(e) => handleChange('accountNumber', e.target.value)}
+                  placeholder="e.g. 50100123456789"
+                />
+                <Input
+                  label="Account Holder Name"
+                  value={formData.accountHolderName}
+                  onChange={(e) => handleChange('accountHolderName', e.target.value)}
+                  placeholder="e.g. Marcus Chen (as in bank passbook)"
+                />
+                <SelectField
+                  label="Payment Method"
+                  value={formData.paymentMethod}
+                  onChange={(e) => handleChange('paymentMethod', e.target.value)}
+                  options={[
+                    { value: 'DIRECT_DEPOSIT', label: 'Direct Deposit / Electronic Transfer' },
+                    { value: 'BANK_TRANSFER', label: 'Wire Transfer / RTGS / NEFT' },
+                    { value: 'CHEQUE', label: 'Cheque' },
+                  ]}
+                />
+                <Input
+                  label="Routing Number / IFSC Code"
+                  value={formData.ifscCode}
+                  onChange={(e) => handleChange('ifscCode', e.target.value)}
+                  placeholder="e.g. HDFC0001234 or ABA-021000021"
+                />
+                <Input
+                  label="SWIFT / BIC Code (Optional)"
+                  value={formData.routingNumber}
+                  onChange={(e) => handleChange('routingNumber', e.target.value)}
+                  placeholder="e.g. HDFCINBB"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 8: ACCOUNT & IDENTITY GENERATION */}
+        {currentStep === 8 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                    Step 8: Account Configuration [AUTO]
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    System credentials, unique employee code, and corporate email generation
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold text-slate-500">8 of 10</span>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Employee ID [AUTO] */}
+                <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Employee ID [AUTO]
+                    </label>
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded">
+                      Sequential
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={formData.employeeCode}
+                      onChange={(e) => handleChange('employeeCode', e.target.value)}
+                      placeholder="e.g. NEX-00001"
+                      className="uppercase font-mono flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateCode}
+                      disabled={isGeneratingCode}
+                      className="shrink-0 flex items-center gap-1.5 text-xs cursor-pointer"
+                      title="Auto-generate next sequential code"
+                    >
+                      {isGeneratingCode ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 text-[var(--primary)]" />
                       )}
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {designations.find((d) => d._id === formData.designationId)?.title || 'Designation'} •{' '}
-                      {departments.find((d) => d._id === formData.departmentId)?.name || 'Department'}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                        {getEmploymentTypeLabel(formData.employmentType)}
+                      <span>Generate</span>
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Formatted with configured Organization Prefix (e.g. NEX-00001).
+                  </p>
+                </div>
+
+                {/* Organization Email [AUTO] */}
+                <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Organization Email [AUTO]
+                    </label>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded">
+                      Duplicate Check
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={formData.workEmail}
+                      onChange={(e) => handleChange('workEmail', e.target.value)}
+                      placeholder={formData.personalEmail || "e.g. marcus.chen@organization.com"}
+                      className="lowercase font-mono flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateEmail}
+                      disabled={isGeneratingEmail}
+                      className="shrink-0 flex items-center gap-1.5 text-xs cursor-pointer"
+                      title="Auto-generate organization email with collision check"
+                    >
+                      {isGeneratingEmail ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 text-[var(--primary)]" />
+                      )}
+                      <span>Generate</span>
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Auto-generated from employee name. Defaults to personal Gmail if omitted.
+                  </p>
+                </div>
+
+                {/* Role [Employee] */}
+                <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 space-y-3">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
+                    Access Role [Default]
+                  </label>
+                  <div className="p-2.5 rounded-md bg-white border border-slate-200 dark:bg-slate-950 dark:border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                      <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        Employee (Workforce Member)
                       </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${getEmploymentStatusBadgeClass(formData.status)}`}>
-                        {getEmploymentStatusLabel(formData.status)}
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      Standard
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Grants access to Employee Self-Service, Attendance, Leaves, and Profile.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 9: DOCUMENTS (OPTIONAL INITIAL UPLOADS) */}
+        {currentStep === 9 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-md bg-[var(--primary)] text-white">
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                    Step 9: Employee Documents (Optional Initial Uploads)
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Upload initial verification files or request them from the employee post-creation
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold text-slate-500">9 of 10</span>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="p-3.5 rounded-md bg-slate-50 border border-slate-200 dark:bg-slate-900/50 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
+                <strong>Optional at Creation:</strong> HR is not forced to upload every document right now. You can upload available files now or request them from the employee through their Self-Service portal.
+              </div>
+
+              {/* Upload Input Bar */}
+              <div className="p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Attach Initial Document
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <SelectField
+                    label="Document Type"
+                    value={newDocType}
+                    onChange={(e) => setNewDocType(e.target.value)}
+                    options={[
+                      { value: 'IDENTITY', label: 'Government ID / Passport' },
+                      { value: 'EMPLOYMENT', label: 'Offer Letter / Contract' },
+                      { value: 'ACADEMIC', label: 'Degree / Certificate' },
+                      { value: 'FINANCIAL', label: 'Void Cheque / Bank Letter' },
+                      { value: 'GENERAL', label: 'Other Document' },
+                    ]}
+                  />
+                  <Input
+                    label="Document Name / Title"
+                    value={newDocTitle}
+                    onChange={(e) => setNewDocTitle(e.target.value)}
+                    placeholder="e.g. Passport Copy (Page 1)"
+                  />
+                  <Input
+                    label="Issue Date (Optional)"
+                    type="date"
+                    value={newDocIssue}
+                    onChange={(e) => setNewDocIssue(e.target.value)}
+                  />
+                  <Input
+                    label="Expiry Date (Optional)"
+                    type="date"
+                    value={newDocExpiry}
+                    onChange={(e) => setNewDocExpiry(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="file"
+                    ref={docInputRef}
+                    onChange={handleAddDocument}
+                    accept=".pdf,.png,.jpg,.jpeg,.webp"
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => docInputRef.current?.click()}
+                    className="flex items-center gap-1.5 text-xs cursor-pointer border-slate-300 dark:border-slate-700"
+                  >
+                    <Upload className="h-3.5 w-3.5 text-[var(--primary)]" />
+                    <span>Select &amp; Attach File (PDF, PNG, JPG)</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Uploaded Documents List */}
+              {formData.documents.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Attached Documents ({formData.documents.length})
+                  </h4>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+                    {formData.documents.map((doc) => (
+                      <div key={doc.id} className="p-3 flex items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <FileText className="h-4 w-4 text-[var(--primary)] shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                              {doc.title}
+                            </p>
+                            <p className="text-[11px] text-slate-400 truncate">
+                              {doc.category} • {doc.fileName}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDocument(doc.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer shrink-0"
+                          title="Remove attached document"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 10: REVIEW & CREATE */}
+        {currentStep === 10 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-md bg-emerald-600 text-white">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                    Step 10: Review &amp; Create Employee Profile
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Final verification of employee credentials before dispatching welcome letter and creating account
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded">
+                Final Review
+              </span>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Summary Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* 1. Personal Identity */}
+                <div className="p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      1. Personal Information
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="text-xs text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Avatar
+                      src={formData.avatarUrl || null}
+                      name={`${formData.firstName} ${formData.lastName}`}
+                      size="md"
+                    />
+                    <div>
+                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                        {formData.firstName} {formData.middleName} {formData.lastName}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        DOB: {formData.dateOfBirth || '—'} • {formData.gender} • {formData.nationality}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Contact & Residential Address */}
+                <div className="p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      2. Contact &amp; Address
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(2)}
+                      className="text-xs text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    <p><strong className="text-slate-900 dark:text-slate-100">Email:</strong> {formData.personalEmail || '—'}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Mobile:</strong> {formData.phone || '—'}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Address:</strong> {formData.currentAddress.addressLine1 ? `${formData.currentAddress.addressLine1}, ${formData.currentAddress.city} (${formData.currentAddress.country})` : '—'}</p>
+                  </div>
+                </div>
+
+                {/* 3. Emergency Contact */}
+                <div className="p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      3. Emergency Contact
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(3)}
+                      className="text-xs text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    {formData.emergencyContacts[0]?.name ? (
+                      <>
+                        <p><strong className="text-slate-900 dark:text-slate-100">Name:</strong> {formData.emergencyContacts[0].name} ({formData.emergencyContacts[0].relationship})</p>
+                        <p><strong className="text-slate-900 dark:text-slate-100">Phone:</strong> {formData.emergencyContacts[0].phone}</p>
+                        {formData.emergencyContacts[0].email && <p><strong className="text-slate-900 dark:text-slate-100">Email:</strong> {formData.emergencyContacts[0].email}</p>}
+                      </>
+                    ) : (
+                      <p className="text-slate-400 italic">No emergency contact provided</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Employment */}
+                <div className="p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      4. Employment Details
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(4)}
+                      className="text-xs text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    <p><strong className="text-slate-900 dark:text-slate-100">Department:</strong> {selectedDept?.name || '—'}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Role:</strong> {selectedDesig?.title || '—'}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Manager:</strong> {selectedMgr?.displayName || (selectedMgr ? `${selectedMgr.firstName} ${selectedMgr.lastName}` : 'None')}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Location:</strong> {selectedLoc?.name || '—'}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Joining:</strong> {formData.joiningDate}</p>
+                  </div>
+                </div>
+
+                {/* 5. Work Information */}
+                <div className="p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      5. Work Information
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(5)}
+                      className="text-xs text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    <p><strong className="text-slate-900 dark:text-slate-100">Work Type:</strong> {formData.workType}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Cost Center:</strong> {selectedCost ? `${selectedCost.name} (${selectedCost.code})` : 'Default'}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Shift:</strong> {formData.shift}</p>
+                  </div>
+                </div>
+
+                {/* 6. Identification & 7. Payroll */}
+                <div className="p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      6. ID &amp; 7. Payroll
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(6)}
+                      className="text-xs text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    <p><strong className="text-slate-900 dark:text-slate-100">ID Document:</strong> {formData.idNumber ? `${formData.idType}: ${formData.idNumber}` : 'Pending upload'}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Bank:</strong> {formData.bankName ? `${formData.bankName} (A/C: ${formData.accountNumber})` : 'Pending bank details'}</p>
+                    <p><strong className="text-slate-900 dark:text-slate-100">Payment:</strong> {formData.paymentMethod}</p>
+                  </div>
+                </div>
+
+                {/* 8. Account & 9. Documents */}
+                <div className="p-4 rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 space-y-3 md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      8. Account &amp; 9. Initial Documents
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(8)}
+                      className="text-xs text-[var(--primary)] font-medium hover:underline cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="text-slate-400 block font-sans">Employee Code</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {formData.employeeCode || 'Will auto-generate on submit'}
                       </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                        Joining: {formData.joiningDate}
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-sans">Work Email</span>
+                      <span className="font-mono text-slate-900 dark:text-slate-100">
+                        {formData.workEmail || formData.personalEmail || 'Will auto-generate'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-sans">Initial Documents</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
+                        {formData.documents.length} document(s) attached
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setCurrentStep(1)}
-                  className="text-xs cursor-pointer"
-                >
-                  Edit Identity
-                </Button>
               </div>
 
-              {/* Data Summary Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
-                    Onboarding Email
-                  </span>
-                  <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {formData.personalEmail}
+              {/* Ready to Onboard Callout */}
+              <div className="p-4 rounded-md bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
+                  <p className="font-bold">Ready to dispatch Official Offer &amp; Welcome Letter</p>
+                  <p>
+                    Submitting this form will establish the employee record, create their portal login credentials, and dispatch the welcome note directly to <strong>{formData.personalEmail}</strong>.
                   </p>
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Credentials will be emailed here
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
-                    Work Email Address
-                  </span>
-                  <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 font-mono">
-                    {formData.workEmail || 'Auto-generated upon creation'}
-                  </p>
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Internal organization account
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
-                    Office Location
-                  </span>
-                  <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {locations.find((l) => l._id === formData.locationId)?.name || 'Assigned Office'}
-                  </p>
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    {locations.find((l) => l._id === formData.locationId)?.city || 'Primary campus'}
-                  </span>
                 </div>
               </div>
-
-              {/* Personal Information Review */}
-              <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Personal Information Details
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(1)}
-                    className="text-[11px] text-[var(--primary)] font-medium hover:underline cursor-pointer"
-                  >
-                    Edit Personal Info
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">First Name</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.firstName || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Middle Name</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.middleName || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Last Name</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.lastName || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Preferred Name</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.displayName || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Date of Birth</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.dateOfBirth || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Gender</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.gender || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Marital Status</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.maritalStatus || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Blood Group</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.bloodGroup || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">National ID / Tax ID</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.nationalId || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Nationality</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.nationality || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Country of Birth</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.countryOfBirth || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">State / Province of Birth</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formData.stateOfBirth || '—'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Residential & Contact Summary Review */}
-              <div className="p-4 rounded-md border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Residential &amp; Emergency Contact
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(3)}
-                    className="text-[11px] text-[var(--primary)] font-medium hover:underline cursor-pointer"
-                  >
-                    Edit Contact &amp; Address
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Residential Address</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
-                      {[
-                        formData.currentAddress.addressLine1,
-                        formData.currentAddress.addressLine2,
-                        formData.currentAddress.city,
-                        formData.currentAddress.state,
-                        formData.currentAddress.country,
-                        formData.currentAddress.postalCode,
-                      ].filter(Boolean).join(', ') || 'Not specified'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Personal Phone</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
-                      {formData.phone || '—'} {formData.alternatePhone ? `(Alt: ${formData.alternatePhone})` : ''}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Emergency Contact</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
-                      {formData.emergencyContacts.filter((c) => c.name.trim()).length > 0
-                        ? formData.emergencyContacts
-                            .filter((c) => c.name.trim())
-                            .map((c) => `${c.name} (${c.relationship}${c.isPrimary ? ' - Primary' : ''}): ${c.phone}`)
-                            .join('; ')
-                        : '—'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Upon clicking <strong>&quot;Complete Onboarding&quot;</strong>, the employee record will be provisioned, temporary login credentials created, and the profile activated in the directory.
-              </p>
             </div>
           </div>
         )}
 
-        {/* 4. FOOTER NAVIGATION CONTROLS */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        {/* FOOTER ACTION BUTTONS */}
+        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/70 border-t border-slate-200 dark:border-slate-800">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={currentStep === 1 ? () => navigate('/employees') : handleBack}
-            disabled={isSubmitting}
-            className="flex items-center gap-1.5 cursor-pointer text-xs"
+            className="flex items-center gap-1.5 text-xs cursor-pointer border-slate-300 dark:border-slate-700"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>{currentStep === 1 ? 'Cancel' : 'Previous Step'}</span>
           </Button>
 
-          {currentStep < 5 ? (
+          {currentStep < 10 ? (
             <Button
               type="button"
-              variant="primary"
               size="sm"
               onClick={handleNext}
-              className="flex items-center gap-1.5 cursor-pointer text-xs"
+              className="flex items-center gap-1.5 text-xs cursor-pointer bg-[var(--primary)] hover:opacity-90 text-white"
             >
-              <span>Next Step</span>
+              <span>Continue to Step {currentStep + 1}</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           ) : (
             <Button
               type="button"
-              variant="primary"
               size="sm"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex items-center gap-1.5 cursor-pointer text-xs"
+              className="flex items-center gap-1.5 text-xs cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5"
             >
-              <Check className="h-3.5 w-3.5" />
-              <span>{isSubmitting ? 'Onboarding...' : 'Complete Onboarding'}</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Creating Employee Profile...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  <span>Complete &amp; Onboard Employee</span>
+                </>
+              )}
             </Button>
           )}
         </div>
       </div>
 
-      {/* 5. CREDENTIALS MODAL */}
+      {/* CREDENTIALS SUCCESS MODAL */}
       {createdCredentials && (
         <CredentialsModal
-          isOpen={!!createdCredentials}
-          onClose={() => navigate(`/employees/${createdCredentials.employeeId}`)}
-          title="Employee Onboarded &amp; Credentials Generated"
+          isOpen={true}
+          onClose={() => {
+            setCreatedCredentials(null);
+            navigate(`/employees/${createdCredentials.employeeId}`);
+          }}
           employeeName={createdCredentials.displayName}
           employeeCode={createdCredentials.employeeCode}
           workEmail={createdCredentials.workEmail}
-          initialPassword={createdCredentials.initialPassword}
           personalEmail={createdCredentials.personalEmail}
-          onNavigateProfile={() => navigate(`/employees/${createdCredentials.employeeId}`)}
+          initialPassword={createdCredentials.initialPassword}
+          onNavigateProfile={() => {
+            navigate(`/employees/${createdCredentials.employeeId}`);
+          }}
         />
       )}
     </div>

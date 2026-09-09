@@ -36,9 +36,22 @@ export const employeesApi = {
     return response.data.data;
   },
 
+  getMyProfile: async (): Promise<Employee> => {
+    const response = await apiClient.get<{ success: boolean; data: Employee }>('/employees/me');
+    return response.data.data;
+  },
+
   generateEmployeeCode: async (): Promise<{ employeeCode: string }> => {
     const response = await apiClient.get<{ success: boolean; data: { employeeCode: string } }>(
       '/employees/generate-code'
+    );
+    return response.data.data;
+  },
+
+  generateWorkEmail: async (params?: { firstName?: string; lastName?: string }): Promise<{ workEmail: string }> => {
+    const response = await apiClient.get<{ success: boolean; data: { workEmail: string } }>(
+      '/employees/generate-email',
+      { params }
     );
     return response.data.data;
   },

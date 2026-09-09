@@ -53,6 +53,8 @@ export interface DocumentItem {
   id?: string;
   title: string;
   category?: DocumentCategory | string;
+  documentType?: string;
+  documentName?: string;
   /** Server-issued download route. `storageKey` is never sent to the client. */
   fileUrl: string;
   fileName?: string;
@@ -60,10 +62,49 @@ export interface DocumentItem {
   sizeBytes?: number;
   uploadedAt?: string;
   uploadedBy?: string;
+  issueDate?: string;
+  expiryDate?: string;
   verificationStatus?: DocumentVerificationStatus;
   reviewNote?: string;
+  remarks?: string;
   reviewedBy?: string;
   reviewedAt?: string | null;
+}
+
+export type WorkType = 'ON_SITE' | 'REMOTE' | 'HYBRID';
+export type Shift = 'GENERAL' | 'MORNING' | 'EVENING' | 'NIGHT' | 'FLEXIBLE';
+
+export interface IdentificationInfo {
+  idType?: string;
+  idNumber?: string;
+  issueDate?: string;
+  expiryDate?: string;
+}
+
+export interface PayrollInfo {
+  bankName?: string;
+  accountNumber?: string;
+  paymentMethod?: 'DIRECT_DEPOSIT' | 'BANK_TRANSFER' | 'CHEQUE' | string;
+  routingNumber?: string;
+  swiftCode?: string;
+  ifscCode?: string;
+  accountHolderName?: string;
+}
+
+export interface ProfileCompletion {
+  percentage: number;
+  isComplete: boolean;
+  missingFields: string[];
+  sections: {
+    personal: boolean;
+    contact: boolean;
+    emergency: boolean;
+    employment: boolean;
+    workInfo: boolean;
+    identification: boolean;
+    payroll: boolean;
+    documents: boolean;
+  };
 }
 
 export const DOCUMENT_CATEGORY_LABELS: Record<string, string> = {
@@ -122,8 +163,14 @@ export interface Employee {
     displayName?: string;
     employeeCode: string;
     avatarUrl?: string;
+    workEmail?: string;
   } | null;
   employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'TEMPORARY' | 'CONSULTANT';
+  workType?: WorkType;
+  shift?: Shift;
+  identification?: IdentificationInfo;
+  payrollInfo?: PayrollInfo;
+  profileCompletion?: ProfileCompletion;
   status: 'ACTIVE' | 'PROBATION' | 'ON_NOTICE' | 'NOTICE_PERIOD' | 'SUSPENDED' | 'RESIGNED' | 'TERMINATED' | 'INACTIVE' | 'ON_LEAVE' | 'JOINING';
   joiningDate: string;
   confirmationDate?: string;
