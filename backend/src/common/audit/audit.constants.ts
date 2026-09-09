@@ -80,6 +80,8 @@ export enum AuditResource {
   HOLIDAY = 'HOLIDAY',
   LEAVE_TYPE = 'LEAVE_TYPE',
   LEAVE_BALANCE = 'LEAVE_BALANCE',
+  LEAVE_REQUEST = 'LEAVE_REQUEST',
+  ATTENDANCE = 'ATTENDANCE',
 
   // Compliance
   AUDIT_LOG = 'AUDIT_LOG',
@@ -153,5 +155,7 @@ export const AUDIT_RESOURCE_LABELS: Record<string, string> = {
   [AuditResource.HOLIDAY]: 'Holiday',
   [AuditResource.LEAVE_TYPE]: 'Leave Type',
   [AuditResource.LEAVE_BALANCE]: 'Leave Balance',
+  [AuditResource.LEAVE_REQUEST]: 'Leave Request',
+  [AuditResource.ATTENDANCE]: 'Attendance',
   [AuditResource.AUDIT_LOG]: 'Audit Log',
 };

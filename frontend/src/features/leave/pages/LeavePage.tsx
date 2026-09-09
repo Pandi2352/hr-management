@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -9,10 +9,12 @@ import { useAuth } from '../../auth/context/AuthContext';
 import { leaveApi } from '../api/leave.api';
 import type { MyLeaveSummary } from '../types/leave-balance.types';
 import { MyLeaveBalances } from '../components/MyLeaveBalances';
+import { MyLeaveRequests } from '../components/MyLeaveRequests';
+import { ApprovalsInbox } from '../components/ApprovalsInbox';
 import { TeamLeaveBalances } from '../components/TeamLeaveBalances';
 import { LeaveTypesManager } from '../components/LeaveTypesManager';
 
-type LeaveTab = 'mine' | 'team' | 'types';
+type LeaveTab = 'mine' | 'requests' | 'approvals' | 'team' | 'types';
 
 function isHr(userRoles?: string[]) {
   return Boolean(
@@ -20,42 +22,52 @@ function isHr(userRoles?: string[]) {
   );
 }
 
+function canApprove(userRoles?: string[]) {
+  return Boolean(
+    userRoles?.some((r) => ['SUPER_ADMIN', 'HR_ADMIN', 'MANAGER'].includes(r.toUpperCase())),
+  );
+}
+
 export function LeavePage() {
   const toast = useToast();
   const { user } = useAuth();
   const hr = isHr(user?.roles);
+  const approver = canApprove(user?.roles);
   const [tab, setTab] = useState<LeaveTab>('mine');
   const [myYear, setMyYear] = useState(() => new Date().getFullYear());
   const [teamYear, setTeamYear] = useState(() => new Date().getFullYear());
   const [summary, setSummary] = useState<MyLeaveSummary | null>(null);
   const [isLoadingMine, setIsLoadingMine] = useState(true);
 
+  const loadMine = useCallback(async () => {
+    setIsLoadingMine(true);
+    try {
+      setSummary(await leaveApi.getMyBalances(myYear));
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        toast.error(err?.response?.data?.message || 'Could not load your leave balances.');
+      }
+      setSummary(null);
+    } finally {
+      setIsLoadingMine(false);
+    }
+  }, [myYear, toast]);
+
   useEffect(() => {
     let active = true;
-    setIsLoadingMine(true);
-    leaveApi
-      .getMyBalances(myYear)
-      .then((data) => {
-        if (active) setSummary(data);
-      })
-      .catch((err: any) => {
-        if (active) {
-          if (err?.response?.status !== 404) {
-            toast.error(err?.response?.data?.message || 'Could not load your leave balances.');
-          }
-          setSummary(null);
-        }
-      })
-      .finally(() => {
-        if (active) setIsLoadingMine(false);
-      });
+    (async () => {
+      await loadMine();
+      if (!active) return;
+    })();
     return () => {
       active = false;
     };
-  }, [myYear, toast]);
+  }, [loadMine]);
 
   const tabs: { id: LeaveTab; label: string; visible: boolean }[] = [
     { id: 'mine', label: 'My Balances', visible: true },
+    { id: 'requests', label: 'My Requests', visible: true },
+    { id: 'approvals', label: 'Approvals', visible: approver },
     { id: 'team', label: 'Team Balances', visible: hr },
     { id: 'types', label: 'Leave Types', visible: hr },
   ];
@@ -99,6 +111,10 @@ export function LeavePage() {
             </p>
           </div>
         ))}
+
+      {tab === 'requests' && <MyLeaveRequests summary={summary} onChanged={loadMine} />}
+
+      {tab === 'approvals' && approver && <ApprovalsInbox onChanged={loadMine} />}
 
       {tab === 'team' && hr && <TeamLeaveBalances year={teamYear} onYearChange={setTeamYear} />}
 

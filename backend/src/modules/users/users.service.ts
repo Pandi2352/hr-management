@@ -72,6 +72,8 @@ const DEFAULT_SYSTEM_ROLES = [
       PERMISSIONS.HOLIDAY_MANAGE,
       PERMISSIONS.LEAVE_READ,
       PERMISSIONS.LEAVE_MANAGE,
+      PERMISSIONS.ATTENDANCE_READ,
+      PERMISSIONS.ATTENDANCE_MANAGE,
     ],
   },
   {
@@ -84,6 +86,7 @@ const DEFAULT_SYSTEM_ROLES = [
       PERMISSIONS.ORG_PROFILE_READ,
       PERMISSIONS.HOLIDAY_READ,
       PERMISSIONS.LEAVE_READ,
+      PERMISSIONS.ATTENDANCE_READ,
     ],
   },
   {
@@ -91,7 +94,12 @@ const DEFAULT_SYSTEM_ROLES = [
     code: UserRole.EMPLOYEE.toLowerCase(),
     description: 'Self-service profile access, credentials management, and personal records.',
     isSystem: true,
-    permissions: [PERMISSIONS.EMPLOYEE_READ, PERMISSIONS.HOLIDAY_READ, PERMISSIONS.LEAVE_READ],
+    permissions: [
+      PERMISSIONS.EMPLOYEE_READ,
+      PERMISSIONS.HOLIDAY_READ,
+      PERMISSIONS.LEAVE_READ,
+      PERMISSIONS.ATTENDANCE_READ,
+    ],
   },
 ];
 
@@ -269,6 +277,7 @@ export class UsersService implements OnModuleInit {
       PERMISSIONS.ORG_PROFILE_READ,
       PERMISSIONS.HOLIDAY_READ,
       PERMISSIONS.LEAVE_READ,
+      PERMISSIONS.ATTENDANCE_READ,
     ];
     const candidates = await this.userModel
       .find({ isDeleted: { $ne: true } })

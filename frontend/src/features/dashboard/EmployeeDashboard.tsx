@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { employeesApi } from '../employees/api/employees.api';
 import { profileApi } from '../profile/api/profile.api';
 import { leaveApi } from '../leave/api/leave.api';
+import { attendanceApi } from '../attendance/api/attendance.api';
+import type { AttendanceRecord } from '../attendance/types/attendance.types';
 import type { MyLeaveSummary } from '../leave/types/leave-balance.types';
+import { useToast } from '../../components/ui/toast';
 import type { Employee } from '../employees/types/employees.types';
 import { useAuth } from '../auth/context/AuthContext';
 import defaultAvatarImg from '../../assets/default_avatar.jpg';
@@ -110,6 +113,7 @@ function ProfileCompletionMini({ pct }: { pct: number }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export function EmployeeDashboard() {
   const { user } = useAuth();
+  const toast = useToast();
 
   // Live employee record (null = no linked employee file yet)
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -127,12 +131,9 @@ export function EmployeeDashboard() {
     return () => clearInterval(t);
   }, []);
 
-  // Attendance check-in (browser-side session)
-  const [checkedIn, setCheckedIn] = useState(() => localStorage.getItem('emp_checked_in') === 'true');
-  const [checkInTime, setCheckInTime] = useState<Date | null>(() => {
-    const s = localStorage.getItem('emp_check_in_time');
-    return s ? new Date(s) : null;
-  });
+  // Attendance punch (server record for today)
+  const [punch, setPunch] = useState<AttendanceRecord | null>(null);
+  const [isPunching, setIsPunching] = useState(false);
 
   // AI Assist
   const [aiQuery, setAiQuery] = useState('');
@@ -146,7 +147,8 @@ export function EmployeeDashboard() {
       profileApi.getMyProfile(),
       leaveApi.getMyBalances(new Date().getFullYear()),
       employeesApi.getMyTeam(),
-    ]).then(([empRes, profRes, leaveRes, teamRes]) => {
+      attendanceApi.today(),
+    ]).then(([empRes, profRes, leaveRes, teamRes, punchRes]) => {
       if (!active) return;
       if (empRes.status === 'fulfilled' && empRes.value) {
         setEmployee(empRes.value);
@@ -169,25 +171,50 @@ export function EmployeeDashboard() {
       if (teamRes.status === 'fulfilled' && teamRes.value) {
         setTeam(teamRes.value);
       }
+      if (punchRes.status === 'fulfilled' && punchRes.value) {
+        setPunch(punchRes.value.record);
+      }
       setLoading(false);
     });
     return () => { active = false; };
   }, []);
 
-  const handleCheckIn = () => {
-    const t = new Date();
-    setCheckedIn(true);
-    setCheckInTime(t);
-    localStorage.setItem('emp_checked_in', 'true');
-    localStorage.setItem('emp_check_in_time', t.toISOString());
+  const handleCheckIn = async () => {
+    if (isPunching) return;
+    setIsPunching(true);
+    try {
+      const updated = await attendanceApi.checkIn({});
+      setPunch(updated);
+      toast.success(`Checked in at ${updated.checkIn}.`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Could not check in.');
+    } finally {
+      setIsPunching(false);
+    }
   };
 
-  const handleCheckOut = () => {
-    setCheckedIn(false);
-    setCheckInTime(null);
-    localStorage.removeItem('emp_checked_in');
-    localStorage.removeItem('emp_check_in_time');
+  const handleCheckOut = async () => {
+    if (isPunching) return;
+    setIsPunching(true);
+    try {
+      const updated = await attendanceApi.checkOut({});
+      setPunch(updated);
+      toast.success('Checked out. See you tomorrow!');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Could not check out.');
+    } finally {
+      setIsPunching(false);
+    }
   };
+
+  const checkedIn = Boolean(punch?.checkIn) && !punch?.checkOut;
+  const checkInTime = (() => {
+    if (!punch?.checkIn) return null;
+    const [h, m] = punch.checkIn.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d;
+  })();
 
   const elapsedMs = checkedIn && checkInTime ? now.getTime() - checkInTime.getTime() : 0;
   const elapsedH = Math.floor(elapsedMs / 3600000);
@@ -373,9 +400,11 @@ export function EmployeeDashboard() {
               </div>
             </div>
             <p className="text-slate-400 text-[12px] mt-1">
-              {checkedIn && checkInTime
-                ? `Clocked in at ${checkInTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
-                : 'Not clocked in yet'}
+              {punch?.checkOut
+                ? `Checked out at ${punch.checkOut} · ${punch.workMinutes ? `${Math.floor(punch.workMinutes / 60)}h ${String(punch.workMinutes % 60).padStart(2, '0')}m worked` : ''}`
+                : checkedIn && checkInTime
+                  ? `Clocked in at ${checkInTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
+                  : 'Not clocked in yet'}
             </p>
           </div>
 
@@ -396,7 +425,8 @@ export function EmployeeDashboard() {
           {/* Check in / out */}
           <button
             onClick={checkedIn ? handleCheckOut : handleCheckIn}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold transition-all ${
+            disabled={isPunching || Boolean(punch?.checkOut)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
               checkedIn
                 ? 'bg-rose-500/15 text-rose-300 border border-rose-500/25 hover:bg-rose-500/25'
                 : 'bg-white text-slate-900 hover:bg-slate-100'
@@ -408,7 +438,7 @@ export function EmployeeDashboard() {
                 : <path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5Zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14Z"/>
               }
             </svg>
-            {checkedIn ? 'Check Out' : 'Check In'}
+            {punch?.checkOut ? 'Done for Today' : checkedIn ? 'Check Out' : 'Check In'}
           </button>
         </div>
       </div>

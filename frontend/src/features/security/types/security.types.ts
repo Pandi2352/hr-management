@@ -139,6 +139,14 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    category: 'Attendance',
+    description: 'Daily check in / out records and team attendance visibility',
+    permissions: [
+      { key: 'attendance:read', label: 'Punch & View Attendance', description: 'Check in/out and see own attendance history.' },
+      { key: 'attendance:manage', label: 'Manage Team Attendance', description: 'Inspect attendance records across the organisation.' },
+    ],
+  },
+  {
     category: 'Audit & Compliance',
     description: 'Forensic visibility into administrative actions and authentication records',
     permissions: [

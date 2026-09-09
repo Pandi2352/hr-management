@@ -40,6 +40,10 @@ export const PERMISSIONS = {
   HOLIDAY_MANAGE: 'holiday:manage',
   LEAVE_READ: 'leave:read',
   LEAVE_MANAGE: 'leave:manage',
+
+  // Attendance
+  ATTENDANCE_READ: 'attendance:read',
+  ATTENDANCE_MANAGE: 'attendance:manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

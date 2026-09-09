@@ -11,6 +11,7 @@ import { OnboardingModule } from './modules/lifecycle/onboarding/onboarding.modu
 import { ProbationModule } from './modules/lifecycle/probation/probation.module';
 import { TransitionsModule } from './modules/lifecycle/transitions/transitions.module';
 import { LeaveModule } from './modules/leave/leave.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { S3Module } from './common/s3/s3.module';
 import { AuditModule } from './common/audit/audit.module';
@@ -36,6 +37,7 @@ import { RequestContextMiddleware } from './common/audit/request-context';
     ProbationModule,
     TransitionsModule,
     LeaveModule,
+    AttendanceModule,
     SettingsModule,
     S3Module,
   ],

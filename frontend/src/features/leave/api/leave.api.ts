@@ -5,6 +5,7 @@ import type {
   MyLeaveSummary,
   SeedYearResult,
 } from '../types/leave-balance.types';
+import type { LeaveRequest } from '../types/leave-request.types';
 
 export const leaveApi = {
   getMyBalances: async (year: number): Promise<MyLeaveSummary> => {
@@ -43,6 +44,49 @@ export const leaveApi = {
   applyDefaultsToAll: async (year: number, overwrite = false): Promise<SeedYearResult> => {
     const res = await apiClient.post('/leave/balances/apply-defaults', { year, overwrite });
     return res.data.data as SeedYearResult;
+  },
+
+  // --- Leave requests (manager → HR chain) ---
+
+  applyLeave: async (dto: {
+    leaveTypeId: string;
+    startDate: string;
+    endDate: string;
+    isHalfDay?: boolean;
+    reason?: string;
+  }): Promise<LeaveRequest> => {
+    const res = await apiClient.post('/leave/requests', dto);
+    return res.data.data as LeaveRequest;
+  },
+
+  myRequests: async (status?: string): Promise<LeaveRequest[]> => {
+    const res = await apiClient.get('/leave/requests/me', { params: { status } });
+    return res.data.data as LeaveRequest[];
+  },
+
+  approvalsInbox: async (status?: string): Promise<LeaveRequest[]> => {
+    const res = await apiClient.get('/leave/requests/inbox', { params: { status } });
+    return res.data.data as LeaveRequest[];
+  },
+
+  allRequests: async (params?: { status?: string; employeeId?: string }): Promise<LeaveRequest[]> => {
+    const res = await apiClient.get('/leave/requests', { params });
+    return res.data.data as LeaveRequest[];
+  },
+
+  managerDecide: async (id: string, approve: boolean, comments?: string): Promise<LeaveRequest> => {
+    const res = await apiClient.post(`/leave/requests/${id}/${approve ? 'manager-approve' : 'manager-reject'}`, { comments });
+    return res.data.data as LeaveRequest;
+  },
+
+  hrDecide: async (id: string, approve: boolean, comments?: string): Promise<LeaveRequest> => {
+    const res = await apiClient.post(`/leave/requests/${id}/${approve ? 'hr-approve' : 'hr-reject'}`, { comments });
+    return res.data.data as LeaveRequest;
+  },
+
+  cancelRequest: async (id: string): Promise<LeaveRequest> => {
+    const res = await apiClient.post(`/leave/requests/${id}/cancel`);
+    return res.data.data as LeaveRequest;
   },
 
   getLeaveTypes: async (status?: string): Promise<LeaveType[]> => {

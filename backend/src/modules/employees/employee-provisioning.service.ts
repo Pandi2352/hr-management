@@ -218,6 +218,7 @@ export class EmployeeProvisioningService {
       PERMISSIONS.ORG_PROFILE_READ,
       PERMISSIONS.HOLIDAY_READ,
       PERMISSIONS.LEAVE_READ,
+      PERMISSIONS.ATTENDANCE_READ,
     ];
     const existing = await this.userModel.findOne({ email: params.email.toLowerCase().trim() });
     if (existing) {
