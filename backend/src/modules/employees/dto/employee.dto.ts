@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsArray,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
@@ -129,6 +130,7 @@ export class EmergencyContactDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((o) => typeof o.email === 'string' && o.email.trim().length > 0)
   @IsEmail()
   email?: string;
 
@@ -398,6 +400,7 @@ export class CreateEmployeeDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((o) => typeof o.secondaryEmail === 'string' && o.secondaryEmail.trim().length > 0)
   @IsEmail()
   secondaryEmail?: string;
 

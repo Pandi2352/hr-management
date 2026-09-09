@@ -89,21 +89,19 @@ export function Sidebar({
     () => localStorage.getItem("organization_name") || "Nexora Technologies"
   );
   const [userAvatar, setUserAvatar] = useState<string | null | undefined>(
-    () => user?.avatarUrl || localStorage.getItem("user_avatar")
+    () => user?.avatarUrl || null
   );
 
   useEffect(() => {
-    if (user?.avatarUrl) {
-      setUserAvatar(user.avatarUrl);
-    }
+    setUserAvatar(user?.avatarUrl || null);
     const handleUserUpdate = (e: any) => {
-      if (e.detail?.avatarUrl) {
-        setUserAvatar(e.detail.avatarUrl);
+      if (e.detail && 'avatarUrl' in e.detail) {
+        setUserAvatar(e.detail.avatarUrl || null);
       }
     };
     window.addEventListener("user_profile_updated", handleUserUpdate);
     return () => window.removeEventListener("user_profile_updated", handleUserUpdate);
-  }, [user?.avatarUrl]);
+  }, [user?.avatarUrl, user?.id]);
 
   useEffect(() => {
     // 1. Initial sync from server to ensure fresh profile data
@@ -144,8 +142,8 @@ export function Sidebar({
       if (e.key === "organization_name" && e.newValue) {
         setOrgName(e.newValue);
       }
-      if (e.key === "user_avatar" && e.newValue) {
-        setUserAvatar(e.newValue);
+      if (e.key === "user_avatar") {
+        setUserAvatar(e.newValue || null);
       }
     };
     window.addEventListener("storage", handleStorage);
@@ -156,8 +154,14 @@ export function Sidebar({
     };
   }, []);
 
+  const isSuperAdmin = user?.roles?.some((r) => r.toUpperCase() === "SUPER_ADMIN");
+  const isHrAdmin = user?.roles?.some((r) => r.toUpperCase() === "HR_ADMIN");
+  const isManager = user?.roles?.some((r) => r.toUpperCase() === "MANAGER");
+  const isAdminOrHr = isSuperAdmin || isHrAdmin || isManager;
+  const isEmployeeOnly = !isAdminOrHr;
+
   // Far-left rail: quick jumps with modern cohesive icons
-  const railItems = [
+  const adminRailItems = [
     { id: "search", icon: MagnifyingGlass, label: "Search Directory", href: "/employees", tint: "blue" },
     { id: "contacts", icon: AddressBook, label: "Contacts Directory", href: "/contacts", tint: "sky" },
     { id: "calendar", icon: CalendarCheck, label: "Attendance Calendar", href: "/attendance", tint: "teal" },
@@ -166,6 +170,17 @@ export function Sidebar({
     { id: "tree", icon: TreeStructure, label: "Organization Chart", href: "/organization/chart", tint: "teal" },
     { id: "business-settings", icon: SlidersHorizontal, label: "Business Settings & Gateway", href: "/settings/business", tint: "amber" },
   ];
+
+  const employeeRailItems = [
+    { id: "dashboard", icon: SquaresFour, label: "My Dashboard", href: "/", tint: "indigo" },
+    { id: "attendance", icon: ClockUser, label: "My Attendance", href: "/attendance", tint: "teal" },
+    { id: "leave", icon: AirplaneTilt, label: "Leaves & Time Off", href: "/leave", tint: "amber" },
+    { id: "tree", icon: TreeStructure, label: "Organization Chart", href: "/organization/chart", tint: "teal" },
+    { id: "contacts", icon: AddressBook, label: "Colleague Directory", href: "/contacts", tint: "sky" },
+    { id: "profile", icon: IdentificationCard, label: "My Profile", href: "/profile", tint: "violet" },
+  ];
+
+  const railItems = isEmployeeOnly ? employeeRailItems : adminRailItems;
 
   /*
    * Each destination carries its own hue. The colour is a wayfinding aid, not
@@ -203,6 +218,22 @@ export function Sidebar({
     { title: "Payroll", icon: Receipt, href: "/payroll", tint: "emerald" },
     { title: "Leaves", icon: AirplaneTilt, href: "/leave", tint: "amber" },
     { title: "Approvals", icon: SealCheck, href: "/approvals", soon: true, tint: "rose" },
+  ];
+
+  const employeeWorkspaceItems = [
+    { title: "Dashboard", icon: SquaresFour, href: "/", exact: true, tint: "indigo" },
+    { title: "My Attendance", icon: ClockUser, href: "/attendance", tint: "teal" },
+    { title: "My Leaves", icon: AirplaneTilt, href: "/leave", tint: "amber" },
+    { title: "My Profile", icon: IdentificationCard, href: "/profile", tint: "violet" },
+  ];
+
+  const employeeCompanyItems = [
+    { title: "Org Chart", icon: TreeStructure, href: "/organization/chart", tint: "teal" },
+    { title: "Colleague Directory", icon: AddressBook, href: "/contacts", tint: "sky" },
+  ];
+
+  const employeeRequestItems = [
+    { title: "Approvals & Requests", icon: SealCheck, href: "/approvals", soon: true, tint: "rose" },
   ];
 
   const isItemActive = (href: string, exact?: boolean) =>
@@ -375,20 +406,41 @@ export function Sidebar({
 
             {/* Scrollable nav */}
             <div className="no-scrollbar flex-1 space-y-4 overflow-y-auto px-2 py-3">
-              <div>
-                {sectionLabel("Workspace")}
-                <div className="space-y-px">{workspaceItems.map(renderNavItem)}</div>
-              </div>
+              {isEmployeeOnly ? (
+                <>
+                  <div>
+                    {sectionLabel("My Workspace")}
+                    <div className="space-y-px">{employeeWorkspaceItems.map(renderNavItem)}</div>
+                  </div>
 
-              <div>
-                {sectionLabel("Access Governance")}
-                <div className="space-y-px">{governanceItems.map(renderNavItem)}</div>
-              </div>
+                  <div>
+                    {sectionLabel("Organization")}
+                    <div className="space-y-px">{employeeCompanyItems.map(renderNavItem)}</div>
+                  </div>
 
-              <div>
-                {sectionLabel("Operations")}
-                <div className="space-y-px">{operationsItems.map(renderNavItem)}</div>
-              </div>
+                  <div>
+                    {sectionLabel("Requests")}
+                    <div className="space-y-px">{employeeRequestItems.map(renderNavItem)}</div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    {sectionLabel("Workspace")}
+                    <div className="space-y-px">{workspaceItems.map(renderNavItem)}</div>
+                  </div>
+
+                  <div>
+                    {sectionLabel("Access Governance")}
+                    <div className="space-y-px">{governanceItems.map(renderNavItem)}</div>
+                  </div>
+
+                  <div>
+                    {sectionLabel("Operations")}
+                    <div className="space-y-px">{operationsItems.map(renderNavItem)}</div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* User row */}

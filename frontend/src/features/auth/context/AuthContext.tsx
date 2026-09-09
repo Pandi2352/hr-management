@@ -24,14 +24,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const storedUser = localStorage.getItem("peopleos_user");
       const token = localStorage.getItem("peopleos_access_token");
-      const storedAvatar = localStorage.getItem("user_avatar");
 
       if (storedUser && token) {
         const parsed = JSON.parse(storedUser);
-        if (storedAvatar && !parsed.avatarUrl) {
-          parsed.avatarUrl = storedAvatar;
+        // Synchronize or clear user_avatar strictly based on active user
+        if (parsed.avatarUrl) {
+          localStorage.setItem("user_avatar", parsed.avatarUrl);
+        } else {
+          localStorage.removeItem("user_avatar");
         }
         setUser(parsed);
+      } else {
+        localStorage.removeItem("user_avatar");
       }
     } catch {
       // Ignored
@@ -48,6 +52,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!prev) return prev;
           const next = { ...prev, ...e.detail };
           localStorage.setItem("peopleos_user", JSON.stringify(next));
+          if (next.avatarUrl) {
+            localStorage.setItem("user_avatar", next.avatarUrl);
+          } else {
+            localStorage.removeItem("user_avatar");
+          }
           return next;
         });
       }
@@ -61,6 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("peopleos_access_token", data.accessToken);
     localStorage.setItem("peopleos_user", JSON.stringify(data.user));
 
+    if (data.user.avatarUrl) {
+      localStorage.setItem("user_avatar", data.user.avatarUrl);
+    } else {
+      localStorage.removeItem("user_avatar");
+    }
+
     if (payload.rememberMe) {
       storage.set("peopleos_remembered_email", payload.email.trim());
       storage.set("peopleos_remember_me", true);
@@ -70,13 +85,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setUser(data.user);
+    window.dispatchEvent(
+      new CustomEvent("user_profile_updated", {
+        detail: { avatarUrl: data.user.avatarUrl || null, name: data.user.name },
+      })
+    );
     return data.user;
   };
 
   const setSession = (nextUser: AuthUser, accessToken: string) => {
     localStorage.setItem("peopleos_access_token", accessToken);
     localStorage.setItem("peopleos_user", JSON.stringify(nextUser));
+    if (nextUser.avatarUrl) {
+      localStorage.setItem("user_avatar", nextUser.avatarUrl);
+    } else {
+      localStorage.removeItem("user_avatar");
+    }
     setUser(nextUser);
+    window.dispatchEvent(
+      new CustomEvent("user_profile_updated", {
+        detail: { avatarUrl: nextUser.avatarUrl || null, name: nextUser.name },
+      })
+    );
   };
 
   const logout = async () => {
@@ -87,7 +117,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       localStorage.removeItem("peopleos_access_token");
       localStorage.removeItem("peopleos_user");
+      localStorage.removeItem("user_avatar");
       setUser(null);
+      window.dispatchEvent(
+        new CustomEvent("user_profile_updated", {
+          detail: { avatarUrl: null, name: null },
+        })
+      );
     }
   };
 
@@ -96,8 +132,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!prev) return null;
       const updated = { ...prev, ...partialUser };
       localStorage.setItem("peopleos_user", JSON.stringify(updated));
-      if (partialUser.avatarUrl) {
-        localStorage.setItem("user_avatar", partialUser.avatarUrl);
+      if (updated.avatarUrl) {
+        localStorage.setItem("user_avatar", updated.avatarUrl);
+      } else {
+        localStorage.removeItem("user_avatar");
       }
       window.dispatchEvent(
         new CustomEvent("user_profile_updated", { detail: updated })

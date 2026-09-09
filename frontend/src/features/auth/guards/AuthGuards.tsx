@@ -41,3 +41,36 @@ export function PublicRoute({ children }: { children: ReactNode }) {
 
   return <>{children}</>;
 }
+
+export function RoleGuard({
+  children,
+  allowedRoles,
+}: {
+  children: ReactNode;
+  allowedRoles: string[];
+}) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader size="lg" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
+  }
+
+  const userRoles = (user?.roles || []).map((r) => r.toUpperCase());
+  const hasAccess = allowedRoles.some((role) => userRoles.includes(role.toUpperCase()));
+
+  if (!hasAccess) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+

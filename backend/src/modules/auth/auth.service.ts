@@ -10,6 +10,7 @@ import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { Employee, EmployeeDocument } from '../employees/schemas/employee.schema';
 import { SecurityPolicy, SecurityPolicyDocument } from '../users/schemas/security-policy.schema';
 import { Session, SessionDocument } from './schemas/session.schema';
 import { LoginAttempt, LoginAttemptDocument } from './schemas/login-attempt.schema';
@@ -59,6 +60,7 @@ export class AuthService {
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(Employee.name) private readonly employeeModel: Model<EmployeeDocument>,
     @InjectModel(Session.name) private readonly sessionModel: Model<SessionDocument>,
     @InjectModel(LoginAttempt.name) private readonly loginAttemptModel: Model<LoginAttemptDocument>,
     @InjectModel(PasswordResetOtp.name) private readonly otpModel: Model<OtpDocument>,
@@ -663,6 +665,22 @@ export class AuthService {
       rememberMe,
     });
 
+    let avatarUrl = user.avatarUrl || null;
+    if (!avatarUrl) {
+      try {
+        const linkedEmp = await this.employeeModel
+          .findOne({ $or: [{ userId: user._id }, { workEmail: user.email }] })
+          .select('avatarUrl')
+          .lean();
+        if (linkedEmp?.avatarUrl) {
+          avatarUrl = linkedEmp.avatarUrl;
+          await this.userModel.updateOne({ _id: user._id }, { $set: { avatarUrl } }).catch(() => {});
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+
     return {
       user: {
         id: user._id,
@@ -673,7 +691,7 @@ export class AuthService {
         roles: user.roles,
         permissions: user.permissions || [],
         organizationId: user.organizationId || null,
-        avatarUrl: user.avatarUrl || null,
+        avatarUrl: avatarUrl || null,
       },
       accessToken,
       refreshToken,

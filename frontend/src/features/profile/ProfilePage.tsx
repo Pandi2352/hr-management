@@ -49,6 +49,10 @@ export function ProfilePage() {
     user?.avatarUrl || defaultAvatarImg
   );
 
+  useEffect(() => {
+    setAvatarUrl(user?.avatarUrl || defaultAvatarImg);
+  }, [user?.avatarUrl, user?.id]);
+
   const [isFollowing, setIsFollowing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditingBasic, setIsEditingBasic] = useState(false);
@@ -125,12 +129,8 @@ export function ProfilePage() {
           if (data.avatarUrl) {
             setAvatarUrl(data.avatarUrl);
             updateUser({ avatarUrl: data.avatarUrl });
-            localStorage.setItem('user_avatar', data.avatarUrl);
-            window.dispatchEvent(
-              new CustomEvent('user_profile_updated', {
-                detail: { avatarUrl: data.avatarUrl, name: data.name },
-              })
-            );
+          } else {
+            setAvatarUrl(user?.avatarUrl || defaultAvatarImg);
           }
         }
       })

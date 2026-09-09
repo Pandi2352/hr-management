@@ -11,15 +11,35 @@ import type { AuditLog } from '../audit/types/audit.types';
 import { HeadcountByDepartment } from './components/HeadcountByDepartment';
 import { WorkforceStatusBar } from './components/WorkforceStatusBar';
 import { AdminActivityFeed } from './components/AdminActivityFeed';
+import { useAuth } from '../auth/context/AuthContext';
+import { EmployeeDashboard } from './EmployeeDashboard';
 
 /**
- * HR overview.
+ * Top-level dashboard router: employees see EmployeeDashboard,
+ * admins / HR / managers see the full HR overview.
+ */
+export function Dashboard() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.roles?.some((r) => r.toUpperCase() === 'SUPER_ADMIN');
+  const isHrAdmin = user?.roles?.some((r) => r.toUpperCase() === 'HR_ADMIN');
+  const isManager = user?.roles?.some((r) => r.toUpperCase() === 'MANAGER');
+  const isEmployeeOnly = !isSuperAdmin && !isHrAdmin && !isManager;
+
+  if (isEmployeeOnly) {
+    return <EmployeeDashboard />;
+  }
+
+  return <AdminDashboard />;
+}
+
+/**
+ * HR / Admin overview panel.
  *
  * Every figure here is fetched from the server. Metrics that would require the
  * Attendance or Leave modules (on-duty today, punctuality trends) are
  * deliberately absent rather than estimated — those modules don't exist yet.
  */
-export function Dashboard() {
+function AdminDashboard() {
   const [stats, setStats] = useState<EmployeeStats | null>(null);
   const [pendingInvites, setPendingInvites] = useState<number | null>(null);
   const [activity, setActivity] = useState<AuditLog[]>([]);

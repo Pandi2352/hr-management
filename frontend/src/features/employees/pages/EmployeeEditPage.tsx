@@ -424,7 +424,12 @@ export function EmployeeEditPage() {
         emergencyContacts: formData.emergencyContacts
           .filter((c) => c.name.trim())
           .map((c, idx, arr) => ({
-            ...c,
+            name: c.name.trim(),
+            relationship: c.relationship.trim(),
+            phone: c.phone.trim(),
+            alternatePhone: c.alternatePhone?.trim() || undefined,
+            email: c.email?.trim() || undefined,
+            address: c.address?.trim() || undefined,
             isPrimary: arr.some((item) => item.isPrimary) ? c.isPrimary : idx === 0,
           })),
       };

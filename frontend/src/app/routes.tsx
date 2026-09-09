@@ -42,7 +42,9 @@ import { PromotionsTransfersPage } from "../features/lifecycle/pages/PromotionsT
 import { EmployeeLifecycleTimelinePage } from "../features/lifecycle/pages/EmployeeLifecycleTimelinePage";
 import { UnauthorizedPage } from "../pages/UnauthorizedPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
-import { ProtectedRoute, PublicRoute } from "../features/auth/guards/AuthGuards";
+import { ProtectedRoute, PublicRoute, RoleGuard } from "../features/auth/guards/AuthGuards";
+
+const ADMIN_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "MANAGER"];
 
 export const router = createBrowserRouter([
   {
@@ -137,7 +139,11 @@ export const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <EmployeeDirectoryPage />,
+            element: (
+              <RoleGuard allowedRoles={ADMIN_ROLES}>
+                <EmployeeDirectoryPage />
+              </RoleGuard>
+            ),
           },
           {
             path: "chart",
@@ -145,19 +151,35 @@ export const router = createBrowserRouter([
           },
           {
             path: "new",
-            element: <EmployeeCreatePage />,
+            element: (
+              <RoleGuard allowedRoles={ADMIN_ROLES}>
+                <EmployeeCreatePage />
+              </RoleGuard>
+            ),
           },
           {
             path: ":id",
-            element: <EmployeeDetailPage />,
+            element: (
+              <RoleGuard allowedRoles={ADMIN_ROLES}>
+                <EmployeeDetailPage />
+              </RoleGuard>
+            ),
           },
           {
             path: ":id/edit",
-            element: <EmployeeEditPage />,
+            element: (
+              <RoleGuard allowedRoles={ADMIN_ROLES}>
+                <EmployeeEditPage />
+              </RoleGuard>
+            ),
           },
           {
             path: ":id/timeline",
-            element: <EmployeeLifecycleTimelinePage />,
+            element: (
+              <RoleGuard allowedRoles={ADMIN_ROLES}>
+                <EmployeeLifecycleTimelinePage />
+              </RoleGuard>
+            ),
           },
         ],
       },
@@ -209,7 +231,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "payroll",
-        element: <PayrollPage />,
+        element: (
+          <RoleGuard allowedRoles={ADMIN_ROLES}>
+            <PayrollPage />
+          </RoleGuard>
+        ),
       },
       {
         path: "approvals",
@@ -291,15 +317,27 @@ export const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <BusinessSettingsPage />,
+            element: (
+              <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                <BusinessSettingsPage />
+              </RoleGuard>
+            ),
           },
           {
             path: "business",
-            element: <BusinessSettingsPage />,
+            element: (
+              <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                <BusinessSettingsPage />
+              </RoleGuard>
+            ),
           },
           {
             path: "security",
-            element: <SecuritySettingsPage />,
+            element: (
+              <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                <SecuritySettingsPage />
+              </RoleGuard>
+            ),
           },
         ],
       },
@@ -308,15 +346,27 @@ export const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <AuditLogsPage />,
+            element: (
+              <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                <AuditLogsPage />
+              </RoleGuard>
+            ),
           },
           {
             path: "logs",
-            element: <AuditLogsPage />,
+            element: (
+              <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                <AuditLogsPage />
+              </RoleGuard>
+            ),
           },
           {
             path: "login-history",
-            element: <LoginHistoryPage />,
+            element: (
+              <RoleGuard allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                <LoginHistoryPage />
+              </RoleGuard>
+            ),
           },
         ],
       },

@@ -13,21 +13,19 @@ export function UserMenu() {
     useLogout();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(
-    user?.avatarUrl || localStorage.getItem("user_avatar")
+    user?.avatarUrl || null
   );
 
   useEffect(() => {
-    if (user?.avatarUrl) {
-      setAvatarUrl(user.avatarUrl);
-    }
+    setAvatarUrl(user?.avatarUrl || null);
     const handleProfileUpdate = (e: any) => {
-      if (e.detail?.avatarUrl) {
-        setAvatarUrl(e.detail.avatarUrl);
+      if (e.detail && 'avatarUrl' in e.detail) {
+        setAvatarUrl(e.detail.avatarUrl || null);
       }
     };
     window.addEventListener("user_profile_updated", handleProfileUpdate);
     return () => window.removeEventListener("user_profile_updated", handleProfileUpdate);
-  }, [user?.avatarUrl]);
+  }, [user?.avatarUrl, user?.id]);
 
   const displayName = user?.name || (user?.firstName ? `${user.firstName} ${user.lastName}` : "User");
   const displayEmail = user?.email || "user@peopleos.internal";

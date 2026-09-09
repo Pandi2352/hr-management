@@ -14,6 +14,8 @@ import { PasswordResetOtp, PasswordResetOtpSchema } from './schemas/password-res
 import { PasswordResetToken, PasswordResetTokenSchema } from './schemas/password-reset-token.schema';
 import { MailModule } from '../mail/mail.module';
 
+import { Employee, EmployeeSchema } from '../employees/schemas/employee.schema';
+
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -27,6 +29,7 @@ import { MailModule } from '../mail/mail.module';
     }),
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
+      { name: Employee.name, schema: EmployeeSchema },
       { name: SecurityPolicy.name, schema: SecurityPolicySchema },
       { name: Session.name, schema: SessionSchema },
       { name: LoginAttempt.name, schema: LoginAttemptSchema },
