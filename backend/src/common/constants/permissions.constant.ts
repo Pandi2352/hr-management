@@ -41,6 +41,10 @@ export const PERMISSIONS = {
   LEAVE_READ: 'leave:read',
   LEAVE_MANAGE: 'leave:manage',
 
+  // Atrium — the organization social layer. Deliberately separate from
+  // employee:read so widening one never widens the other.
+  ATRIUM_PARTICIPATE: 'atrium:participate',
+
   // Payroll
   PAYROLL_READ: 'payroll:read',
   PAYROLL_MANAGE: 'payroll:manage',

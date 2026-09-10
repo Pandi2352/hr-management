@@ -11,6 +11,7 @@ import { OnboardingModule } from './modules/lifecycle/onboarding/onboarding.modu
 import { ProbationModule } from './modules/lifecycle/probation/probation.module';
 import { TransitionsModule } from './modules/lifecycle/transitions/transitions.module';
 import { LeaveModule } from './modules/leave/leave.module';
+import { AtriumModule } from './modules/atrium/atrium.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AiModule } from './modules/ai/ai.module';
@@ -41,6 +42,7 @@ import { RequestContextMiddleware } from './common/audit/request-context';
     LeaveModule,
     AttendanceModule,
     PayrollModule,
+    AtriumModule,
     AiModule,
     SettingsModule,
     S3Module,

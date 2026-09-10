@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Mail, Lock, ArrowRight, KeyRound } from "lucide-react";
+import { Mail, Lock, ArrowRight, KeyRound, UserRound } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Alert } from "../../components/ui/Alert";
 import { Form, FormField, FormLabel } from "../../components/forms";
 import { useToast } from "../../components/ui/toast";
-import { Tooltip } from "../../components/ui/tooltip";
 import { useAuth } from "./context/AuthContext";
 import { validationRules, VALIDATION_MESSAGES } from "../../validation/rules";
 import { storage } from "../../utils/storage";
@@ -70,15 +69,40 @@ export function LoginPage() {
     }
   };
 
-  const handleQuickFillAdmin = () => {
-    setEmail("admin@peopleos.internal");
-    setPassword("Admin@12345");
-    setErrors({});
-  };
+  /*
+   * Seeded accounts, kept in step with backend/src/seed/seed.ts. Nothing
+   * enforces that at compile time, so changing a credential there means
+   * changing it here.
+   *
+   * Two are offered because they exercise different halves of the product: the
+   * super admin has no employee record and so cannot use anything keyed on one
+   * (Atrium, my attendance, my leave), while the employee is a real person in
+   * the roster and can.
+   */
+  const SEED_ACCOUNTS = [
+    {
+      id: "admin",
+      email: "systemuser@gmail.com",
+      password: "Test@123",
+      label: "Super Admin",
+      hint: "Every permission. No employee record, so no Atrium profile.",
+      action: "Fill Admin",
+      icon: KeyRound,
+    },
+    {
+      id: "employee",
+      email: "uttam.kumar@peopleos.com",
+      password: "Employee@12345",
+      label: "Standard Employee",
+      hint: "A real person in the roster. Use this for Atrium and self-service.",
+      action: "Fill User",
+      icon: UserRound,
+    },
+  ];
 
-  const handleQuickFillTestUser = () => {
-    setEmail("mvp.bose23@gmail.com");
-    setPassword("Test@123");
+  const handleQuickFill = (account: { email: string; password: string }) => {
+    setEmail(account.email);
+    setPassword(account.password);
     setErrors({});
   };
 
@@ -253,40 +277,41 @@ export function LoginPage() {
         </Button>
       </Form>
 
-      {/* Quick-Fill Demo Accounts Widget */}
-      <div className="mt-6 rounded-md border border-violet-100 bg-violet-50/60 p-3 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <Tooltip content="Seed User 1: Super Administrator" placement="top-start">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-900 cursor-help">
-              <KeyRound className="h-3.5 w-3.5 text-violet-600" />
-              <span>admin@peopleos.internal</span>
-            </div>
-          </Tooltip>
-
-          <button
-            type="button"
-            onClick={handleQuickFillAdmin}
-            className="rounded-md border border-violet-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-violet-700 hover:bg-violet-50 transition-colors cursor-pointer"
-          >
-            Fill Admin
-          </button>
+      {/* Quick-fill for the seeded accounts */}
+      <div className="mt-6 overflow-hidden rounded-md border border-violet-100 bg-violet-50/60">
+        <div className="border-b border-violet-100/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-violet-700/80">
+          Seeded accounts
         </div>
 
-        <div className="flex items-center justify-between border-t border-violet-100/70 pt-2">
-          <Tooltip content="Seed User 2: HR Admin & Manager (mvp.bose23@gmail.com)" placement="top-start">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-900 cursor-help">
-              <KeyRound className="h-3.5 w-3.5 text-violet-600" />
-              <span>mvp.bose23@gmail.com</span>
-            </div>
-          </Tooltip>
+        <div className="divide-y divide-violet-100/70">
+          {SEED_ACCOUNTS.map((account) => {
+            const Icon = account.icon;
+            return (
+              <div key={account.id} className="flex items-center gap-3 px-3 py-2">
+                <Icon className="h-4 w-4 shrink-0 text-violet-600" />
 
-          <button
-            type="button"
-            onClick={handleQuickFillTestUser}
-            className="rounded-md border border-violet-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-violet-700 hover:bg-violet-50 transition-colors cursor-pointer"
-          >
-            Fill User
-          </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-xs font-semibold text-violet-900">
+                      {account.email}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-white px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-violet-700">
+                      {account.label}
+                    </span>
+                  </div>
+                  <p className="truncate text-[10.5px] text-violet-700/70">{account.hint}</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickFill(account)}
+                  className="shrink-0 rounded-md border border-violet-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-50 cursor-pointer"
+                >
+                  {account.action}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 

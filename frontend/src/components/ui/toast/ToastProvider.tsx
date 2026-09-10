@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useRef, type ReactNode, type MutableRefObject } from "react";
 import { generateUuid } from "../../../utils/uuid";
 import { ToastContainer } from "./ToastContainer";
 import type { ToastItem, ToastOptions, ToastPosition } from "./toast.types";
@@ -114,22 +114,33 @@ export function ToastProvider({
     [toast],
   );
 
+  /*
+   * Memoised because this object is a dependency of callers' hooks.
+   *
+   * A fresh literal on every render gave every `useCallback(..., [toast])` a new
+   * identity each time a toast appeared or vanished, which re-fired the effects
+   * depending on it — page data refetching because an unrelated notification
+   * had just been shown. The individual handlers below are already stable.
+   */
+  const value = useMemo(
+    () => ({
+      toasts,
+      position,
+      setPosition,
+      toast,
+      success,
+      error,
+      warning,
+      info,
+      loading,
+      dismiss,
+      dismissAll,
+    }),
+    [toasts, position, toast, success, error, warning, info, loading, dismiss, dismissAll],
+  );
+
   return (
-    <ToastContext.Provider
-      value={{
-        toasts,
-        position,
-        setPosition,
-        toast,
-        success,
-        error,
-        warning,
-        info,
-        loading,
-        dismiss,
-        dismissAll,
-      }}
-    >
+    <ToastContext.Provider value={value}>
       {children}
       <ToastContainer toasts={toasts} position={position} onDismiss={dismiss} />
     </ToastContext.Provider>
@@ -142,4 +153,20 @@ export function useToast(): ToastContextValue {
     throw new Error("useToast must be used within a ToastProvider");
   }
   return context;
+}
+
+/**
+ * The toast API behind a ref whose identity never changes.
+ *
+ * For use inside `useCallback` and `useEffect`. Depending on `useToast()`
+ * directly makes a fetch callback change identity every time a notification
+ * appears or expires, which re-runs the effect and refetches the page — data
+ * reloading because an unrelated toast happened to pop. Reach through the ref
+ * instead and leave it out of the dependency array.
+ */
+export function useToastRef(): MutableRefObject<ToastContextValue> {
+  const toast = useToast();
+  const ref = useRef(toast);
+  ref.current = toast;
+  return ref;
 }

@@ -35,6 +35,7 @@ import {
   TrendUp,
   type IconWeight,
 } from "@phosphor-icons/react";
+import { AtriumGlyph } from "../../../features/atrium/icons/AtriumIcons";
 import { cn } from "../../../utils/cn";
 import { Tooltip } from "../../ui/tooltip";
 import { useAuth } from "../../../features/auth/context/AuthContext";
@@ -168,6 +169,7 @@ export function Sidebar({
   // Far-left rail: quick jumps with modern cohesive icons
   const adminRailItems = [
     { id: "search", icon: MagnifyingGlass, label: "Search Directory", href: "/employees", tint: "blue" },
+    { id: "atrium", icon: AtriumGlyph, label: "Atrium", href: "/atrium", tint: "fuchsia" },
     { id: "contacts", icon: AddressBook, label: "Contacts Directory", href: "/contacts", tint: "sky" },
     { id: "calendar", icon: CalendarCheck, label: "Attendance Calendar", href: "/attendance", tint: "teal" },
     { id: "id-card", icon: IdentificationCard, label: "Employee Directory", href: "/employees", tint: "violet" },
@@ -184,6 +186,7 @@ export function Sidebar({
     { id: "leave", icon: AirplaneTilt, label: "Leaves & Time Off", href: "/leave", tint: "amber" },
     { id: "holidays", icon: SunHorizon, label: "Holidays", href: "/holidays", tint: "orange" },
     { id: "tree", icon: TreeStructure, label: "Organization Chart", href: "/organization/chart", tint: "teal" },
+    { id: "atrium", icon: AtriumGlyph, label: "Atrium", href: "/atrium", tint: "fuchsia" },
     { id: "contacts", icon: AddressBook, label: "Colleague Directory", href: "/contacts", tint: "sky" },
     { id: "employee-file", icon: IdentificationCard, label: "My Employee File", href: "/my-employee", tint: "violet" },
     { id: "profile", icon: UserList, label: "My Profile", href: "/profile", tint: "blue" },
@@ -219,6 +222,7 @@ export function Sidebar({
   ];
 
   const operationsItems = [
+    { title: "Atrium", icon: AtriumGlyph, href: "/atrium", tint: "fuchsia" },
     { title: "Contacts", icon: AddressBook, href: "/contacts", tint: "sky" },
     { title: "Onboarding", icon: UserPlus, href: "/lifecycle/onboarding", tint: "violet" },
     { title: "Probation", icon: UserCheck, href: "/lifecycle/probation", tint: "amber" },
@@ -241,6 +245,7 @@ export function Sidebar({
   ];
 
   const employeeCompanyItems = [
+    { title: "Atrium", icon: AtriumGlyph, href: "/atrium", tint: "fuchsia" },
     { title: "Org Chart", icon: TreeStructure, href: "/organization/chart", tint: "teal" },
     { title: "Colleague Directory", icon: AddressBook, href: "/contacts", tint: "sky" },
   ];

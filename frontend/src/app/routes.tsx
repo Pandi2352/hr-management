@@ -33,6 +33,8 @@ import { HolidayCalendarPage } from "../features/holidays/pages/HolidayCalendarP
 import { HolidaysManagePage } from "../features/holidays/pages/HolidaysManagePage";
 import { RecruitmentPage } from "../features/recruitment/pages/RecruitmentPage";
 import { PayrollPage } from "../features/payroll/pages/PayrollPage";
+import { AtriumDirectoryPage } from "../features/atrium/pages/AtriumDirectoryPage";
+import { AtriumProfilePage } from "../features/atrium/pages/AtriumProfilePage";
 import { LeavePage } from "../features/leave/pages/LeavePage";
 import { ContactsPage } from "../features/contacts/pages/ContactsPage";
 import { PublicCareersLayout } from "../features/careers/layout/PublicCareersLayout";
@@ -258,6 +260,15 @@ export const router = createBrowserRouter([
               </RoleGuard>
             ),
           },
+        ],
+      },
+      {
+        // Atrium is open to everyone who can sign in — the permission check
+        // lives on the API, and gating it by role here would defeat the point.
+        path: "atrium",
+        children: [
+          { index: true, element: <AtriumDirectoryPage /> },
+          { path: ":employeeId", element: <AtriumProfilePage /> },
         ],
       },
       {
