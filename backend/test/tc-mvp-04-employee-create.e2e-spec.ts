@@ -64,7 +64,12 @@ describe('TC-MVP-04 — employee creation provisions a linked user account', () 
       .collection('users')
       .findOne({ _id: employee.userId as any });
     expect(user).toBeTruthy();
-    expect(user?.email).toBe('anika.raman@peopleos.test');
+
+    // The login is the personal address, not the work one. A new hire has no
+    // company mailbox on their first day, so the credentials have to reach an
+    // inbox they already read. This assertion used to expect the work email and
+    // had been failing since that decision was made.
+    expect(user?.email).toBe('anika.personal@example.com');
   });
 
   it('persists every submitted field without loss', async () => {

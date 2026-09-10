@@ -205,6 +205,14 @@ export class EmployeeProvisioningService {
    * for department/designation/location labels). Without them the employee
    * dashboard resolves but detail/edit and reference dropdowns 403.
    */
+  /**
+   * Creates or refreshes the login behind an employee.
+   *
+   * Reports whether the account was newly created, because the caller has to be
+   * able to undo it. Employee creation can still fail after this point, and a
+   * login left behind by a failed onboarding is one nobody owns and nobody
+   * knows about — while its password works.
+   */
   async provisionUserAccount(params: {
     orgId: string;
     email: string;
@@ -212,7 +220,7 @@ export class EmployeeProvisioningService {
     lastName: string;
     passwordHash: string;
     avatarUrl?: string;
-  }): Promise<string> {
+  }): Promise<{ userId: string; created: boolean }> {
     const selfServiceReads = [
       PERMISSIONS.EMPLOYEE_READ,
       PERMISSIONS.ORG_PROFILE_READ,
@@ -231,7 +239,7 @@ export class EmployeeProvisioningService {
         existing.roles = ['EMPLOYEE'];
       }
       await existing.save();
-      return existing._id;
+      return { userId: existing._id, created: false };
     }
 
     const newUser = await this.userModel.create({
@@ -249,7 +257,17 @@ export class EmployeeProvisioningService {
       isDeleted: false,
     });
 
-    return newUser._id;
+    return { userId: newUser._id, created: true };
+  }
+
+  /** Removes a login this service just created, after the work it was for failed. */
+  async discardProvisionedUser(userId: string): Promise<void> {
+    try {
+      await this.userModel.deleteOne({ _id: userId });
+    } catch {
+      // Reported by the caller's original error; swallowing here keeps the
+      // real failure as the one the client sees.
+    }
   }
 
   /**

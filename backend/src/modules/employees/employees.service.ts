@@ -807,20 +807,60 @@ export class EmployeesService {
 
     const workEmail = dto.workEmail?.trim()?.toLowerCase() || loginEmail;
 
-    // 3. Cryptographically Secure Temporary Password
+    /*
+     * 3. Reject duplicates before anything is written.
+     *
+     * `(organizationId, workEmail)` is a unique index, so a duplicate used to
+     * surface as a raw E11000 — a 500, telling the caller nothing, after a login
+     * had already been created and a welcome email already sent. Checking first
+     * turns that into a 409 that names the problem, and costs one indexed read.
+     */
+    const clashingEmployee = await this.empModel
+      .findOne({ organizationId: orgId, workEmail, isDeleted: false }, 'employeeCode displayName')
+      .lean();
+    if (clashingEmployee) {
+      throw new ConflictException(
+        `The work email ${workEmail} already belongs to employee ${clashingEmployee.employeeCode}.`,
+      );
+    }
+
+    /*
+     * An existing login that already belongs to somebody else is not ours to
+     * take. Provisioning would otherwise reset that person's password and widen
+     * their permissions as a side effect of onboarding a different hire.
+     */
+    const existingLogin = await this.userModel
+      .findOne({ email: loginEmail, isDeleted: { $ne: true } }, '_id')
+      .lean();
+    if (existingLogin) {
+      const ownedBy = await this.empModel
+        .findOne(
+          { organizationId: orgId, userId: existingLogin._id, isDeleted: false },
+          'employeeCode',
+        )
+        .lean();
+      if (ownedBy) {
+        throw new ConflictException(
+          `The login ${loginEmail} is already used by employee ${ownedBy.employeeCode}.`,
+        );
+      }
+    }
+
+    // 4. Cryptographically Secure Temporary Password
     const { plainText: temporaryPassword, hash: passwordHashPromise } =
       this.provisioningService.generateSecureTemporaryPassword();
     const passwordHash = await passwordHashPromise;
 
-    // 4. Provision Linked User Account using personal email (Gmail)
-    const linkedUserId = await this.provisioningService.provisionUserAccount({
-      orgId,
-      email: loginEmail,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      passwordHash,
-      avatarUrl: dto.avatarUrl,
-    });
+    // 5. Provision Linked User Account using personal email (Gmail)
+    const { userId: linkedUserId, created: userWasCreated } =
+      await this.provisioningService.provisionUserAccount({
+        orgId,
+        email: loginEmail,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        passwordHash,
+        avatarUrl: dto.avatarUrl,
+      });
 
     const displayName = dto.displayName || `${dto.firstName} ${dto.lastName}`.trim();
 
@@ -835,7 +875,53 @@ export class EmployeesService {
       if (dg) desigTitle = dg.title;
     }
 
-    // 5. Dispatch Onboarding Offer & Welcome Email with Login Password to Personal Gmail
+    /*
+     * 6. The employee record before the email.
+     *
+     * These used to run the other way round, which meant a failed save still
+     * sent someone a working password for an employee that does not exist.
+     * There is no transaction to lean on — the connection is a standalone
+     * mongod — so the order of operations is the guarantee, and a new login is
+     * undone by hand if the record it was for cannot be written.
+     */
+    let employee;
+    try {
+      employee = await this.empModel.create({
+        ...dto,
+        _id: generateUuid(),
+        organizationId: orgId,
+        userId: linkedUserId,
+        employeeCode: code,
+        displayName,
+        personalEmail: loginEmail,
+        workEmail,
+        initialPassword: temporaryPassword,
+        onboardingEmailStatus: 'PENDING',
+        onboardingEmailSentAt: null,
+        status: dto.status || 'ACTIVE',
+        isDeleted: false,
+      });
+    } catch (err: any) {
+      // Only a login this call created is removed. One that already existed
+      // belongs to somebody and is left exactly as it was found.
+      if (userWasCreated) {
+        await this.provisioningService.discardProvisionedUser(linkedUserId);
+      }
+
+      // The pre-flight check above closes the ordinary path; this catches two
+      // requests racing for the same address between check and write.
+      if (err?.code === 11000) {
+        const field = Object.keys(err.keyPattern || {}).find((k) => k !== 'organizationId');
+        throw new ConflictException(
+          field === 'employeeCode'
+            ? `Employee code ${code} was taken while this record was being created. Try again.`
+            : `The work email ${workEmail} already belongs to another employee.`,
+        );
+      }
+      throw err;
+    }
+
+    // 7. Dispatch Onboarding Offer & Welcome Email with Login Password
     const emailResult = await this.provisioningService.dispatchOnboardingEmail({
       personalEmail: loginEmail,
       loginEmail,
@@ -848,22 +934,11 @@ export class EmployeesService {
       joiningDate: dto.joiningDate,
     });
 
-    // 6. Create Employee Master Record
-    const employee = await this.empModel.create({
-      ...dto,
-      _id: generateUuid(),
-      organizationId: orgId,
-      userId: linkedUserId,
-      employeeCode: code,
-      displayName,
-      personalEmail: loginEmail,
-      workEmail,
-      initialPassword: temporaryPassword,
-      onboardingEmailStatus: emailResult.status,
-      onboardingEmailSentAt: emailResult.sentAt || null,
-      status: dto.status || 'ACTIVE',
-      isDeleted: false,
-    });
+    // The record exists either way; the email's outcome is recorded on it, and
+    // a failure to send is not a failure to onboard.
+    employee.onboardingEmailStatus = emailResult.status;
+    employee.onboardingEmailSentAt = emailResult.sentAt || null;
+    await employee.save();
 
     await this.audit(orgId, userId, AuditAction.CREATE, employee._id, null, employee, `Onboarded employee ${employee.employeeCode} (${employee.displayName || employee.firstName})`);
     return employee;
