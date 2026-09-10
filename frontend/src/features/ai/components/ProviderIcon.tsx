@@ -1,7 +1,7 @@
 import type { AiProviderId } from '../types/ai.types';
 import chatgptLogo from '../../../assets/ai-logos/chatgpt-logo_svgstack_com_36931789038400.png';
 import ollamaLogo from '../../../assets/ai-logos/Ollama Icon - Light - zonalogo.com.png';
-import groqLogo from '../../../assets/ai-logos/grok-ai-logo_svgstack_com_37221789039787.png';
+import groqLogo from '../../../assets/ai-logos/grok-ai-app-logo_svgstack_com_37211789040636.png';
 import claudeLogo from '../../../assets/ai-logos/claude-logo_svgstack_com_36971789040384.png';
 import geminiLogo from '../../../assets/ai-logos/gemini-logo_svgstack_com_37141789040360.png';
 

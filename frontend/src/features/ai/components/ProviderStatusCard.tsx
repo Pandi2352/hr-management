@@ -111,12 +111,16 @@ export function ProviderStatusCard({ provider, canStoreKeys, onChanged }: Props)
 
   // Re-seed when provider props change
   useEffect(() => {
-    setModel(provider.model);
+    if (provider.models.length > 0 && !provider.models.some((m) => m.id === provider.model)) {
+      setModel(provider.models[0].id);
+    } else {
+      setModel(provider.model);
+    }
     setHost(provider.host);
     setPlaygroundPrompt(info.samplePrompt);
     setTestResult(null);
     setPlaygroundResponse(null);
-  }, [provider.id, provider.model, provider.host, info.samplePrompt]);
+  }, [provider.id, provider.model, provider.host, provider.models, info.samplePrompt]);
 
   const dirty = apiKey.trim().length > 0 || model !== provider.model || host !== provider.host;
 
@@ -223,11 +227,11 @@ export function ProviderStatusCard({ provider, canStoreKeys, onChanged }: Props)
 
   return (
     <div className="space-y-4">
-      {/* Main Configuration Card - NO shadows, rounded-md everywhere */}
-      <div className="rounded-md border border-hairline bg-surface overflow-hidden relative z-10">
+      {/* Main Configuration Card - NO shadows, rounded-md everywhere, NO overflow-hidden so dropdowns float freely */}
+      <div className="rounded-md border border-hairline bg-surface relative z-10">
         {/* Generative AI Background Header Banner with Unique Provider Logo Showcase */}
         <div
-          className="relative bg-cover bg-center border-b border-hairline overflow-hidden"
+          className="relative bg-cover bg-center border-b border-hairline overflow-hidden rounded-t-md"
           style={{ backgroundImage: `url(${bgImage})` }}
         >
           {/* Frosted glass backdrop with gradient to highlight the provider logo and showcase the AI artwork */}
@@ -422,11 +426,8 @@ export function ProviderStatusCard({ provider, canStoreKeys, onChanged }: Props)
                   label="Active Model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  options={[
-                    ...modelOptions,
-                    { value: model, label: `Custom: ${model}` },
-                  ].filter((v, i, arr) => arr.findIndex((t) => t.value === v.value) === i)}
-                  placement="bottom"
+                  options={modelOptions}
+                  placement="auto"
                 />
               ) : (
                 <FormField label="Active Model">
@@ -511,26 +512,43 @@ export function ProviderStatusCard({ provider, canStoreKeys, onChanged }: Props)
           )}
         </div>
 
-        <div className="space-y-2">
-          <div className="relative">
+        <div className="space-y-3">
+          {/* Integrated Prompt Console */}
+          <div className="rounded-md border border-hairline bg-surface overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors">
             <textarea
               value={playgroundPrompt}
               onChange={(e) => setPlaygroundPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!playgroundLoading && playgroundPrompt.trim() && provider.configured) {
+                    executePlaygroundPrompt();
+                  }
+                }
+              }}
               rows={2}
               placeholder="Enter a test prompt to verify generation..."
-              className="w-full resize-none rounded-md border border-hairline bg-surface px-3 py-2 text-xs text-ink placeholder:text-ink-3/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full resize-none border-none bg-transparent p-3 text-xs text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-0"
             />
-            <div className="absolute right-2 bottom-2">
+            <div className="flex items-center justify-between border-t border-hairline bg-surface-2/50 px-3 py-2">
+              <span className="text-[11px] text-ink-3 flex items-center gap-1.5">
+                <span>Press</span>
+                <kbd className="rounded border border-hairline bg-surface px-1.5 py-0.5 font-mono text-[10px] text-ink-2 font-medium">
+                  Enter ↵
+                </kbd>
+                <span>to run test</span>
+              </span>
+
               <Button
                 size="sm"
                 onClick={executePlaygroundPrompt}
                 disabled={playgroundLoading || !playgroundPrompt.trim() || !provider.configured}
-                className="gap-1 rounded-md text-xs py-1"
+                className="gap-1.5 rounded-md text-xs px-3.5 py-1"
               >
                 {playgroundLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Send className="h-3 w-3" />
+                  <Send className="h-3.5 w-3.5" />
                 )}
                 <span>{playgroundLoading ? 'Running...' : 'Run Test'}</span>
               </Button>

@@ -32,10 +32,12 @@ export const PROVIDER_MODELS: Record<AiProviderId, ModelOption[]> = {
     { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B MoE', note: '32k context mixture of experts' },
   ],
   ollama: [
-    { id: 'qwen2.5:7b', label: 'Qwen 2.5 7B', note: 'Multilingual & reasoning on Ollama' },
-    { id: 'llama3.2:3b', label: 'Llama 3.2 3B', note: 'Lightweight local inference' },
-    { id: 'deepseek-r1:7b', label: 'DeepSeek-R1 7B', note: 'Reasoning model on local device' },
-    { id: 'mistral:7b', label: 'Mistral 7B', note: 'Strong general local model' },
+    { id: 'gemma4:31b', label: 'gemma4:31b', note: 'Strong all-rounder, good at structured outputs' },
+    { id: 'gpt-oss:120b', label: 'gpt-oss:120b', note: 'Largest general model, highest reasoning capability' },
+    { id: 'gpt-oss:20b', label: 'gpt-oss:20b', note: 'Fast & responsive general model' },
+    { id: 'nemotron-3-nano:30b', label: 'nemotron-3-nano:30b', note: 'Quickest high-speed model' },
+    { id: 'nemotron-3-super', label: 'nemotron-3-super', note: 'Balanced quality and speed' },
+    { id: 'nemotron-3-ultra', label: 'nemotron-3-ultra', note: 'Reasoning-heavy and complex tasks' },
   ],
   opencode: [
     { id: 'default', label: 'Default', note: 'Local OpenCode runtime engine' },
@@ -66,8 +68,8 @@ export const PROVIDER_DEFAULTS: Record<AiProviderId, { host: string; model: stri
   },
   ollama: {
     host: 'http://localhost:11434',
-    model: 'qwen2.5:7b',
-    hint: 'Ollama local server or remote instance. Connect without API key for local instances.',
+    model: 'gemma4:31b',
+    hint: 'Ollama local server or remote instance. Supports free cloud models and local execution.',
   },
   opencode: {
     host: 'http://localhost:4096',

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Spinner } from '../../../components/ui/Spinner';
-import { useToast } from '../../../components/ui/toast';
+import { useToastRef } from '../../../components/ui/toast';
 import { useTheme } from '../../../hooks/useTheme';
 import { aiApi } from '../api/ai.api';
 import { ProviderStatusCard } from '../components/ProviderStatusCard';
@@ -14,37 +14,40 @@ import { ProviderIcon } from '../components/ProviderIcon';
 import { cn } from '../../../utils/cn';
 
 export function AiProvidersPage() {
-  const toast = useToast();
+  const toastRef = useToastRef();
   const { theme } = useTheme();
   const [state, setState] = useState<AiProvidersState | null>(null);
   const [activeTab, setActiveTab] = useState<AiProviderId>('openai');
   const [isLoading, setIsLoading] = useState(true);
+  const hasInitializedTab = useRef(false);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  const load = useCallback(async (isInitial = false) => {
+    if (isInitial) setIsLoading(true);
     try {
       const data = await aiApi.providers();
       setState(data);
-      // Auto-select the default or first configured provider on load
-      const defaultProv = data.providers.find((p) => p.isDefault);
-      const configuredProv = data.providers.find((p) => p.configured);
-      if (defaultProv) {
-        setActiveTab(defaultProv.id);
-      } else if (configuredProv) {
-        setActiveTab(configuredProv.id);
-      } else if (data.providers.length > 0) {
-        setActiveTab(data.providers[0].id);
+      if (!hasInitializedTab.current) {
+        hasInitializedTab.current = true;
+        const defaultProv = data.providers.find((p) => p.isDefault);
+        const configuredProv = data.providers.find((p) => p.configured);
+        if (defaultProv) {
+          setActiveTab(defaultProv.id);
+        } else if (configuredProv) {
+          setActiveTab(configuredProv.id);
+        } else if (data.providers.length > 0) {
+          setActiveTab(data.providers[0].id);
+        }
       }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      toast.error(msg || 'Could not load AI providers.');
+      toastRef.current.error(msg || 'Could not load AI providers.');
     } finally {
-      setIsLoading(false);
+      if (isInitial) setIsLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
-    load();
+    load(true);
   }, [load]);
 
   const activeProvider = state?.providers.find((p) => p.id === activeTab) || state?.providers[0];

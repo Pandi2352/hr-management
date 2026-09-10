@@ -73,7 +73,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
 
-    // Minimum required comfortable space below (search box + padding + minimum 3 options ~ 250px)
+    // Minimum required comfortable space below (search box + padding + minimum 3 options ~ 260px)
     const minRequiredBelow = 260;
 
     let targetPlacement: 'top' | 'bottom' = 'bottom';
@@ -82,8 +82,14 @@ export const SelectField: React.FC<SelectFieldProps> = ({
     } else if (placement === 'bottom') {
       targetPlacement = 'bottom';
     } else {
-      // 'auto' placement: if space below is limited and space above is greater, open on TOP
-      targetPlacement = (spaceBelow < minRequiredBelow && spaceAbove > spaceBelow) ? 'top' : 'bottom';
+      // 'auto' placement: if not enough space below, appear above the field
+      if (spaceBelow < minRequiredBelow && spaceAbove >= 140) {
+        targetPlacement = 'top';
+      } else if (spaceAbove > spaceBelow && spaceBelow < 300) {
+        targetPlacement = 'top';
+      } else {
+        targetPlacement = 'bottom';
+      }
     }
     setEffectivePlacement(targetPlacement);
 
