@@ -1,5 +1,6 @@
 import { Robot, SealCheck, Sparkle, UserPlus } from '@phosphor-icons/react';
 import { AtriumGlyph } from '../../../features/atrium/icons/AtriumIcons';
+import { QuizArenaGlyph } from '../../../features/quiz/icons/QuizArenaGlyph';
 
 /**
  * What lives on the right-hand rail.
@@ -87,6 +88,14 @@ export const SPOTLIGHT_TINTS: Record<
 
 export const SPOTLIGHT_ITEMS: SpotlightItem[] = [
   {
+    id: 'quiz-arena',
+    label: 'Quiz Arena',
+    hint: 'Skill challenges, XP leaderboards & rewards',
+    href: '/quizzes',
+    icon: QuizArenaGlyph,
+    tint: 'amber',
+  },
+  {
     id: 'atrium',
     label: 'Atrium',
     hint: 'Colleagues, profiles and who you follow',
@@ -116,7 +125,7 @@ export const SPOTLIGHT_ITEMS: SpotlightItem[] = [
     hint: 'Everything waiting on you',
     href: '/approvals',
     icon: SealCheck,
-    tint: 'amber',
+    tint: 'emerald',
     soon: true,
   },
 ];

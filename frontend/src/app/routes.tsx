@@ -49,6 +49,10 @@ import { EmployeeLifecycleTimelinePage } from "../features/lifecycle/pages/Emplo
 import { UnauthorizedPage } from "../pages/UnauthorizedPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ProtectedRoute, PublicRoute, RoleGuard } from "../features/auth/guards/AuthGuards";
+import { AgentsHubPage } from "../features/agents/pages/AgentsHubPage";
+import { QuizAgentPage } from "../features/agents/pages/QuizAgentPage";
+import { QuizHubPage } from "../features/quiz/pages/QuizHubPage";
+import { QuizPlayPage } from "../features/quiz/pages/QuizPlayPage";
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "MANAGER"];
 
@@ -269,6 +273,22 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AtriumDirectoryPage /> },
           { path: ":employeeId", element: <AtriumProfilePage /> },
+        ],
+      },
+      {
+        // AI Agents Hub - accessible to all authorized employees
+        path: "agents",
+        children: [
+          { index: true, element: <AgentsHubPage /> },
+          { path: "quiz", element: <QuizAgentPage /> },
+        ],
+      },
+      {
+        // Quiz Arena & Gamification
+        path: "quizzes",
+        children: [
+          { index: true, element: <QuizHubPage /> },
+          { path: ":id/play", element: <QuizPlayPage /> },
         ],
       },
       {

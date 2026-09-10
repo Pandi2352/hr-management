@@ -36,6 +36,7 @@ import {
   type IconWeight,
 } from "@phosphor-icons/react";
 import { AtriumGlyph } from "../../../features/atrium/icons/AtriumIcons";
+import { QuizArenaGlyph } from "../../../features/quiz/icons/QuizArenaGlyph";
 import { cn } from "../../../utils/cn";
 import { Tooltip } from "../../ui/tooltip";
 import { useAuth } from "../../../features/auth/context/AuthContext";
@@ -168,6 +169,7 @@ export function Sidebar({
 
   // Far-left rail: quick jumps with modern cohesive icons
   const adminRailItems = [
+    { id: "quiz", icon: QuizArenaGlyph, label: "Quiz Arena", href: "/quizzes", tint: "amber" },
     { id: "search", icon: MagnifyingGlass, label: "Search Directory", href: "/employees", tint: "blue" },
     { id: "atrium", icon: AtriumGlyph, label: "Atrium", href: "/atrium", tint: "fuchsia" },
     { id: "contacts", icon: AddressBook, label: "Contacts Directory", href: "/contacts", tint: "sky" },
@@ -182,6 +184,7 @@ export function Sidebar({
 
   const employeeRailItems = [
     { id: "dashboard", icon: SquaresFour, label: "My Dashboard", href: "/", tint: "indigo" },
+    { id: "quiz", icon: QuizArenaGlyph, label: "Quiz Arena", href: "/quizzes", tint: "amber" },
     { id: "attendance", icon: ClockUser, label: "My Attendance", href: "/attendance", tint: "teal" },
     { id: "leave", icon: AirplaneTilt, label: "Leaves & Time Off", href: "/leave", tint: "amber" },
     { id: "holidays", icon: SunHorizon, label: "Holidays", href: "/holidays", tint: "orange" },
@@ -213,6 +216,7 @@ export function Sidebar({
 
   const governanceItems = [
     { title: "Business Settings", icon: SlidersHorizontal, href: "/settings/business", tint: "amber" },
+    { title: "AI Agents", icon: Robot, href: "/agents", tint: "fuchsia" },
     { title: "AI Providers", icon: Robot, href: "/settings/ai-providers", tint: "violet" },
     { title: "Users Roster", icon: UserGear, href: "/security/users", tint: "violet" },
     { title: "Roles & Permissions", icon: ShieldCheck, href: "/security/roles", tint: "indigo" },
@@ -222,6 +226,7 @@ export function Sidebar({
   ];
 
   const operationsItems = [
+    { title: "Quiz Arena", icon: QuizArenaGlyph, href: "/quizzes", tint: "amber" },
     { title: "Atrium", icon: AtriumGlyph, href: "/atrium", tint: "fuchsia" },
     { title: "Contacts", icon: AddressBook, href: "/contacts", tint: "sky" },
     { title: "Onboarding", icon: UserPlus, href: "/lifecycle/onboarding", tint: "violet" },
@@ -245,6 +250,7 @@ export function Sidebar({
   ];
 
   const employeeCompanyItems = [
+    { title: "Quiz Arena", icon: QuizArenaGlyph, href: "/quizzes", tint: "amber" },
     { title: "Atrium", icon: AtriumGlyph, href: "/atrium", tint: "fuchsia" },
     { title: "Org Chart", icon: TreeStructure, href: "/organization/chart", tint: "teal" },
     { title: "Colleague Directory", icon: AddressBook, href: "/contacts", tint: "sky" },
