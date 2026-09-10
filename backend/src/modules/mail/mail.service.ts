@@ -1,197 +1,65 @@
-import { Injectable, Optional, Inject } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import { LoggerHelper } from '../../common/logger';
-import { SettingsService } from '../settings/settings.service';
+import { Injectable } from '@nestjs/common';
 import {
-  renderPasswordResetOtpTemplate,
-  renderPasswordResetLinkTemplate,
-  renderInvitationTemplate,
-  renderAccountLockedTemplate,
-  renderOnboardingCredentialsTemplate,
-} from './templates';
+  AccountSecurityMailService,
+  InvitationMailService,
+  InvitationMailParams,
+  OnboardingMailService,
+  OnboardingCredentialsMailParams,
+  PasswordResetMailService,
+  PayslipMailService,
+  PayslipMailParams,
+} from './services';
 
+/**
+ * Facade over the per-concern mail services.
+ *
+ * Each kind of mail lives in its own file under `services/`, mirroring how the
+ * bodies are organised under `templates/`. This class stays as the injection
+ * point so the five modules that already depend on `MailService` are untouched,
+ * and so a caller does not have to know which service owns which message.
+ *
+ * New mail belongs in a new `services/*.mail.service.ts` plus a matching
+ * template — not appended here.
+ */
 @Injectable()
 export class MailService {
-  private readonly logger = LoggerHelper.Instance.child(MailService.name);
-  private transporter?: nodemailer.Transporter;
-
   constructor(
-    private readonly configService: ConfigService,
-    @Optional() @Inject(SettingsService) private readonly settingsService?: SettingsService,
-  ) {
-    const host = this.configService.get<string>('SMTP_HOST', '');
-    const port = Number(this.configService.get<number>('SMTP_PORT', 587));
-    const user = this.configService.get<string>('SMTP_USER', '');
-    const pass = this.configService.get<string>('SMTP_PASS', '');
+    private readonly passwordResetMail: PasswordResetMailService,
+    private readonly invitationMail: InvitationMailService,
+    private readonly accountSecurityMail: AccountSecurityMailService,
+    private readonly onboardingMail: OnboardingMailService,
+    private readonly payslipMail: PayslipMailService,
+  ) {}
 
-    if (host && user && pass) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: {
-          user,
-          pass,
-        },
-      });
-    }
+  /** Throws on failure: the user is waiting on this code. */
+  sendPasswordResetOtp(email: string, otp: string, recipientName = 'User'): Promise<void> {
+    return this.passwordResetMail.sendOtp(email, otp, recipientName);
   }
 
-  /**
-   * Resolves active nodemailer transporter and sender identity dynamically from Business Settings in DB.
-   */
-  private async getSenderClient(orgId?: string): Promise<{ transporter: nodemailer.Transporter; from: string }> {
-    try {
-      if (this.settingsService) {
-        const config = await this.settingsService.getActiveSmtpConfig(orgId);
-        if (config && config.isConfigured && config.user && config.pass) {
-          const dynamicTransporter = nodemailer.createTransport({
-            host: config.host,
-            port: config.port,
-            secure: config.secure,
-            auth: {
-              user: config.user,
-              pass: config.pass,
-            },
-          });
-          const from = config.fromName
-            ? `"${config.fromName}" <${config.fromEmail || config.user}>`
-            : (config.fromEmail || config.user);
-          return { transporter: dynamicTransporter, from };
-        }
-      }
-    } catch (err: any) {
-      this.logger.warn(null, 'Failed to resolve dynamic SMTP settings from database', err);
-    }
-
-    if (this.transporter) {
-      const defaultFrom = this.configService.get<string>('MAIL_FROM', '');
-      return { transporter: this.transporter, from: defaultFrom };
-    }
-
-    throw new Error('SMTP credentials are not configured. Please configure your SMTP settings in Business Settings UI.');
-  }
-
-  async sendPasswordResetOtp(email: string, otp: string, recipientName: string = 'User'): Promise<void> {
-    const { transporter, from } = await this.getSenderClient();
-    const html = renderPasswordResetOtpTemplate({ otp, recipientName });
-
-    try {
-      await transporter.sendMail({
-        from,
-        to: email,
-        subject: `[PeopleOS] ${otp} is your verification code`,
-        html,
-      });
-      this.logger.info(null, 'Password reset OTP email sent', { email });
-    } catch (err: any) {
-      this.logger.error(null, 'Password reset OTP email failed', err);
-      throw new Error(`Unable to send verification email: ${err.message}`);
-    }
-  }
-
-  async sendPasswordResetLink(
+  /** Throws on failure: the user is waiting on this link. */
+  sendPasswordResetLink(
     email: string,
     resetToken: string,
-    recipientName: string = 'User',
+    recipientName = 'User',
   ): Promise<void> {
-    const { transporter, from } = await this.getSenderClient();
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
-    const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
-    const html = renderPasswordResetLinkTemplate({ resetUrl, recipientName });
-
-    try {
-      await transporter.sendMail({
-        from,
-        to: email,
-        subject: `[PeopleOS] Reset your password link`,
-        html,
-      });
-      this.logger.info(null, 'Password reset link email sent', { email });
-    } catch (err: any) {
-      this.logger.error(null, 'Password reset link email failed', err);
-      throw new Error(`Unable to send verification email: ${err.message}`);
-    }
+    return this.passwordResetMail.sendResetLink(email, resetToken, recipientName);
   }
 
-  async sendInvitationEmail(params: {
-    toEmail: string;
-    inviterName: string;
-    roleLabel: string;
-    orgName: string;
-    acceptUrl: string;
-    expiresInHours: number;
-    orgId?: string;
-  }): Promise<boolean> {
-    const { transporter, from } = await this.getSenderClient(params.orgId);
-    const html = renderInvitationTemplate(params);
-
-    try {
-      await transporter.sendMail({
-        from,
-        to: params.toEmail,
-        subject: `[PeopleOS] ${params.inviterName} invited you to manage ${params.orgName}`,
-        html,
-      });
-      this.logger.info(null, 'Invitation email sent', { email: params.toEmail });
-      return true;
-    } catch (err: any) {
-      this.logger.warn(null, 'Invitation email delivery failed', err);
-      return false;
-    }
+  sendInvitationEmail(params: InvitationMailParams): Promise<boolean> {
+    return this.invitationMail.sendInvitation(params);
   }
 
-  async sendAccountLockedNotification(email: string, recipientName: string = 'User'): Promise<boolean> {
-    const { transporter, from } = await this.getSenderClient();
-    const html = renderAccountLockedTemplate({ recipientName });
-
-    try {
-      await transporter.sendMail({
-        from,
-        to: email,
-        subject: `[PeopleOS] Security Alert: Your account has been locked`,
-        html,
-      });
-      this.logger.info(null, 'Account locked notification sent', { email });
-      return true;
-    } catch (err: any) {
-      this.logger.warn(null, 'Account locked notification delivery failed', err);
-      return false;
-    }
+  sendAccountLockedNotification(email: string, recipientName = 'User'): Promise<boolean> {
+    return this.accountSecurityMail.sendAccountLocked(email, recipientName);
   }
 
-  async sendOnboardingCredentialsEmail(params: {
-    toEmail: string;
-    loginEmail?: string;
-    employeeName: string;
-    employeeCode: string;
-    workEmail?: string;
-    temporaryPassword: string;
-    department?: string;
-    designation?: string;
-    joiningDate?: string;
-    orgId?: string;
-  }): Promise<boolean> {
-    const { transporter, from } = await this.getSenderClient(params.orgId);
-    const loginUrl = this.configService.get<string>('PORTAL_LOGIN_URL', 'http://localhost:5173/login');
-    const html = renderOnboardingCredentialsTemplate({ ...params, loginUrl });
+  sendOnboardingCredentialsEmail(
+    params: OnboardingCredentialsMailParams,
+  ): Promise<boolean> {
+    return this.onboardingMail.sendCredentials(params);
+  }
 
-    try {
-      await transporter.sendMail({
-        from,
-        to: params.toEmail,
-        subject: `[PeopleOS] Official Offer & Welcome Letter — Account Credentials for ${params.employeeName}`,
-        html,
-      });
-      this.logger.info(null, 'Official offer & welcome email sent', {
-        email: params.toEmail,
-        employeeCode: params.employeeCode,
-      });
-      return true;
-    } catch (err: any) {
-      this.logger.warn(null, 'Offer & welcome email delivery failed', err);
-      return false;
-    }
+  sendPayslipEmail(params: PayslipMailParams): Promise<boolean> {
+    return this.payslipMail.sendPayslip(params);
   }
 }

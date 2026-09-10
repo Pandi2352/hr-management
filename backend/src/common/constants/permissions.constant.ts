@@ -41,6 +41,10 @@ export const PERMISSIONS = {
   LEAVE_READ: 'leave:read',
   LEAVE_MANAGE: 'leave:manage',
 
+  // Payroll
+  PAYROLL_READ: 'payroll:read',
+  PAYROLL_MANAGE: 'payroll:manage',
+
   // Attendance
   ATTENDANCE_READ: 'attendance:read',
   ATTENDANCE_MANAGE: 'attendance:manage',

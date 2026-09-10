@@ -48,6 +48,10 @@ export enum AuditAction {
   IMPORT = 'IMPORT',
   BULK_UPDATE = 'BULK_UPDATE',
 
+  // Payroll
+  PAYROLL_PROCESSED = 'PAYROLL_PROCESSED',
+  PAYSLIP_SENT = 'PAYSLIP_SENT',
+
   // Documents
   DOCUMENT_UPLOADED = 'DOCUMENT_UPLOADED',
   DOCUMENT_DELETED = 'DOCUMENT_DELETED',
@@ -75,6 +79,7 @@ export enum AuditResource {
   // Workforce
   EMPLOYEE = 'EMPLOYEE',
   EMPLOYEE_DOCUMENT = 'EMPLOYEE_DOCUMENT',
+  PAYROLL = 'PAYROLL',
 
   // Time off
   HOLIDAY = 'HOLIDAY',
@@ -136,6 +141,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   [AuditAction.EXPORT]: 'Exported',
   [AuditAction.IMPORT]: 'Imported',
   [AuditAction.BULK_UPDATE]: 'Bulk updated',
+  [AuditAction.PAYROLL_PROCESSED]: 'Payroll processed',
+  [AuditAction.PAYSLIP_SENT]: 'Payslip sent',
   [AuditAction.DOCUMENT_UPLOADED]: 'Document uploaded',
   [AuditAction.DOCUMENT_DELETED]: 'Document deleted',
   [AuditAction.DOCUMENT_VERIFIED]: 'Document verified',
@@ -157,6 +164,7 @@ export const AUDIT_RESOURCE_LABELS: Record<string, string> = {
   [AuditResource.COST_CENTER]: 'Cost Center',
   [AuditResource.EMPLOYEE]: 'Employee',
   [AuditResource.EMPLOYEE_DOCUMENT]: 'Employee Document',
+  [AuditResource.PAYROLL]: 'Payroll',
   [AuditResource.HOLIDAY]: 'Holiday',
   [AuditResource.LEAVE_TYPE]: 'Leave Type',
   [AuditResource.LEAVE_BALANCE]: 'Leave Balance',
