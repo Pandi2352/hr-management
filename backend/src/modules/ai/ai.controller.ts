@@ -1,25 +1,39 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/roles.decorator';
 import { PERMISSIONS } from '../../common/constants';
 import { AiService } from './ai.service';
-import { HrCopilotService } from './hr-copilot.service';
 import { OrganizationService } from '../organization/organization.service';
-import { ScoreCandidateDto, AskCopilotDto } from './dto/ai.dto';
+import { SaveProviderSettingsDto } from './dto/ai.dto';
+import type { AiProviderId } from './config/ai.config';
 import { ResultEntity } from '../../common/response';
 
-@ApiTags('AI Providers & Shortlisting')
+@ApiTags('AI Providers')
 @Controller('ai')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth('JWT-auth')
 export class AiController {
   constructor(
     private readonly aiService: AiService,
-    private readonly copilotService: HrCopilotService,
     private readonly orgService: OrganizationService,
   ) {}
+
+  /**
+   * The organization to read and write settings for.
+   *
+   * Settings are stored per organization, so a request without one has nowhere
+   * to put them. Refusing is better than falling back to a shared bucket that
+   * would let one tenant's key serve another's requests.
+   */
+  private async requireOrgId(req: any): Promise<string> {
+    const orgId = await this.getOrgId(req);
+    if (!orgId) {
+      throw new BadRequestException('No organization on this request, so AI settings cannot be resolved.');
+    }
+    return orgId;
+  }
 
   private async getOrgId(req: any): Promise<string | null> {
     if (req.user?.organizationId) return req.user.organizationId;
@@ -34,34 +48,59 @@ export class AiController {
   @Get('providers')
   @RequirePermissions(PERMISSIONS.RECRUITMENT_MANAGE)
   @ApiOperation({ summary: 'List AI providers with configuration status (no secrets)' })
-  async listProviders() {
-    const data = this.aiService.listProviders();
-    return ResultEntity.ok({ enabled: this.aiService.isEnabled(), providers: data });
+  async listProviders(@Request() req: any) {
+    const orgId = await this.requireOrgId(req);
+    const providers = await this.aiService.listProviders(orgId);
+    return ResultEntity.ok({
+      enabled: this.aiService.isEnabled(),
+      canStoreKeys: this.aiService.canStoreKeys(),
+      providers,
+    });
   }
 
   @Post('providers/:id/test')
   @RequirePermissions(PERMISSIONS.RECRUITMENT_MANAGE)
   @ApiOperation({ summary: 'Live connectivity test for one provider' })
-  async testProvider(@Param('id') id: 'openai' | 'opencode') {
-    const data = await this.aiService.testProvider(id);
+  async testProvider(@Request() req: any, @Param('id') id: AiProviderId) {
+    const orgId = await this.requireOrgId(req);
+    const data = await this.aiService.testProvider(id, orgId);
     return ResultEntity.ok(data, data.ok ? 'Connection test passed' : 'Connection test failed');
   }
 
-  @Post('applications/:id/score')
+  /**
+   * Saves credentials typed into the settings page.
+   *
+   * The key travels in the request body over the same channel as every other
+   * write and is encrypted before it touches the database. It is never sent
+   * back: subsequent reads return a masked form only.
+   */
+  @Put('providers/:id/settings')
   @RequirePermissions(PERMISSIONS.RECRUITMENT_MANAGE)
-  @ApiOperation({ summary: 'Score a candidate for HR shortlisting via the selected provider' })
-  async scoreCandidate(@Request() req: any, @Param('id') id: string, @Body() dto: ScoreCandidateDto) {
-    const orgId = await this.getOrgId(req);
+  @ApiOperation({ summary: 'Save API key, model and host for one provider' })
+  async saveProviderSettings(
+    @Request() req: any,
+    @Param('id') id: AiProviderId,
+    @Body() dto: SaveProviderSettingsDto,
+  ) {
+    const orgId = await this.requireOrgId(req);
     const actorId = req.user?.userId || req.user?.id;
-    const data = await this.aiService.scoreCandidate(id, dto.provider, orgId, actorId);
-    return ResultEntity.ok(data, 'Candidate scored — review before shortlisting');
+    const providers = await this.aiService.saveProviderSettings(orgId, id, dto, actorId);
+    return ResultEntity.ok(
+      { enabled: this.aiService.isEnabled(), canStoreKeys: this.aiService.canStoreKeys(), providers },
+      'Provider settings saved',
+    );
   }
 
-  @Post('ask')
-  @ApiOperation({ summary: 'AskHR Copilot: answer from your own live HR data' })
-  async ask(@Request() req: any, @Body() dto: AskCopilotDto) {
-    const orgId = await this.getOrgId(req);
-    const data = await this.copilotService.ask(dto.question, orgId || '', req.user);
-    return ResultEntity.ok(data);
+  @Delete('providers/:id/settings')
+  @RequirePermissions(PERMISSIONS.RECRUITMENT_MANAGE)
+  @ApiOperation({ summary: 'Remove saved settings, returning the provider to environment defaults' })
+  async clearProviderSettings(@Request() req: any, @Param('id') id: AiProviderId) {
+    const orgId = await this.requireOrgId(req);
+    const actorId = req.user?.userId || req.user?.id;
+    const providers = await this.aiService.clearProviderSettings(orgId, id, actorId);
+    return ResultEntity.ok(
+      { enabled: this.aiService.isEnabled(), canStoreKeys: this.aiService.canStoreKeys(), providers },
+      'Provider settings cleared',
+    );
   }
 }

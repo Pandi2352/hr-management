@@ -1,43 +1,21 @@
 import type { AiProviderId } from '../config/ai.config';
 
-export interface ShortlistInput {
-  jobTitle: string;
-  department: string;
-  location: string;
-  overview: string;
-  requirements: string[];
-  experienceLevel: string;
-  candidateName: string;
-  candidateEmail: string;
-  candidatePhone: string;
-  yearsExperience: string;
-  earliestStartDate: string;
-  coverLetter: string;
-}
-
-export type ShortlistRecommendation = 'SHORTLIST' | 'MAYBE' | 'REJECT';
-
-export interface ShortlistResult {
-  /** 0–100 fit score. */
-  score: number;
-  recommendation: ShortlistRecommendation;
-  strengths: string[];
-  gaps: string[];
-  summary: string;
-}
-
-export interface AiProvider {
-  readonly id: AiProviderId;
-  readonly displayName: string;
-  /** Credentials/endpoint present (no network call). */
-  isConfigured(): boolean;
-  /** Model label shown in UI (no secrets). */
-  modelLabel(): string;
-  shortlist(input: ShortlistInput): Promise<ShortlistResult>;
-  /** Live connectivity/model check for the in-menu Test button. */
-  test(): Promise<ProviderTestResult>;
-  /** Free-form chat for copilots (system + user turns, plain text out). */
-  chat(system: string, user: string): Promise<string>;
+/**
+ * Values entered in the settings UI, layered over the environment.
+ *
+ * Passed per call rather than held on the provider, because providers are
+ * singletons shared by every request: storing the current organization's key on
+ * the instance would let one tenant's call pick up another's credential.
+ *
+ * Every field is optional and any provider may ignore it — the two older
+ * providers still read only the environment, and a method that declares fewer
+ * parameters satisfies this interface unchanged.
+ */
+export interface ProviderOverride {
+  apiKey?: string;
+  model?: string;
+  host?: string;
+  enabled?: boolean;
 }
 
 export interface ProviderTestResult {
@@ -46,50 +24,23 @@ export interface ProviderTestResult {
   detail: string;
 }
 
-/** Clamps raw model JSON into a safe ShortlistResult. */
-export function normalizeShortlist(raw: unknown): ShortlistResult {
-  const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const num = Number(obj.score);
-  const score = Number.isFinite(num) ? Math.max(0, Math.min(100, Math.round(num))) : 0;
-  const rec = String(obj.recommendation || '').toUpperCase();
-  const recommendation: ShortlistRecommendation =
-    rec === 'SHORTLIST' || rec === 'MAYBE' || rec === 'REJECT' ? rec : score >= 70 ? 'SHORTLIST' : score >= 45 ? 'MAYBE' : 'REJECT';
-  const strList = (v: unknown): string[] =>
-    Array.isArray(v) ? v.map((s) => String(s).slice(0, 200)).filter(Boolean).slice(0, 6) : [];
-  return {
-    score,
-    recommendation,
-    strengths: strList(obj.strengths),
-    gaps: strList(obj.gaps),
-    summary: String(obj.summary || '').slice(0, 1000),
-  };
+/**
+ * What every AI provider must offer.
+ *
+ * Deliberately small. Candidate screening used to live here as a `shortlist`
+ * method, and it has been removed along with the rest of the AI features: a
+ * provider now only has to say whether it is configured, prove it, and hold a
+ * conversation. Features are built on top of that, not baked into it.
+ */
+export interface AiProvider {
+  readonly id: AiProviderId;
+  readonly displayName: string;
+  /** Credentials/endpoint present (no network call). */
+  isConfigured(override?: ProviderOverride): boolean;
+  /** Model label shown in the UI (no secrets). */
+  modelLabel(override?: ProviderOverride): string;
+  /** Live connectivity/credential check for the Test button. */
+  test(override?: ProviderOverride): Promise<ProviderTestResult>;
+  /** One prompt, one plain-text answer. The primitive everything else builds on. */
+  chat(system: string, user: string, override?: ProviderOverride): Promise<string>;
 }
-
-export function shortlistPrompt(input: ShortlistInput): string {
-  return [
-    'You are an HR screening assistant. Score this job candidate 0-100 and recommend SHORTLIST, MAYBE or REJECT.',
-    'Base the score only on the data below. Be strict and specific.',
-    '',
-    `JOB: ${input.jobTitle} (${input.department}, ${input.location})`,
-    `Level: ${input.experienceLevel}`,
-    `Overview: ${input.overview}`,
-    `Requirements: ${input.requirements.join(' | ') || '—'}`,
-    '',
-    `CANDIDATE: ${input.candidateName} <${input.candidateEmail}> ${input.candidatePhone}`,
-    `Experience: ${input.yearsExperience}`,
-    `Earliest start: ${input.earliestStartDate}`,
-    `Cover letter: ${input.coverLetter || '—'}`,
-  ].join('\n');
-}
-
-export const SHORTLIST_JSON_SCHEMA = {
-  type: 'object',
-  properties: {
-    score: { type: 'number', description: 'Fit score from 0 to 100' },
-    recommendation: { type: 'string', description: 'One of SHORTLIST, MAYBE, REJECT' },
-    strengths: { type: 'array', items: { type: 'string' }, description: 'Matching strengths' },
-    gaps: { type: 'array', items: { type: 'string' }, description: 'Gaps or risks' },
-    summary: { type: 'string', description: 'Two-sentence screening summary' },
-  },
-  required: ['score', 'recommendation', 'summary'],
-};

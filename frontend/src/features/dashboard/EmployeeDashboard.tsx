@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { employeesApi } from '../employees/api/employees.api';
 import { profileApi } from '../profile/api/profile.api';
@@ -12,7 +12,6 @@ import type { MyLeaveSummary } from '../leave/types/leave-balance.types';
 import { useToast } from '../../components/ui/toast';
 import type { Employee } from '../employees/types/employees.types';
 import { useAuth } from '../auth/context/AuthContext';
-import { aiApi } from '../ai/api/ai.api';
 import defaultAvatarImg from '../../assets/default_avatar.jpg';
 import dashboardHeroLightBg from '../../assets/dashboard_hero_light_bg.jpg';
 import dashboardClockLightBg from '../../assets/dashboard_clock_light_bg.jpg';
@@ -154,39 +153,6 @@ export function EmployeeDashboard() {
       // Balances stay as-is on failure
     }
   }, []);
-
-  // AI Assist (AskHR Copilot — live answers from your own HR data)
-  const [aiQuery, setAiQuery] = useState('');
-  const [aiReplies, setAiReplies] = useState<{ q: string; a: string; provider?: string }[]>([]);
-  const [isAsking, setIsAsking] = useState(false);
-  const aiScrollRef = useRef<HTMLDivElement>(null);
-
-  const handleAiSend = async () => {
-    const q = aiQuery.trim();
-    if (!q || isAsking) return;
-    setAiQuery('');
-    setIsAsking(true);
-    setAiReplies((prev) => [...prev, { q, a: '…' }]);
-    setTimeout(() => aiScrollRef.current?.scrollTo({ top: 9999, behavior: 'smooth' }), 80);
-    try {
-      const res = await aiApi.ask(q);
-      setAiReplies((prev) => {
-        const next = [...prev];
-        next[next.length - 1] = { q, a: res.answer, provider: res.provider };
-        return next;
-      });
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setAiReplies((prev) => {
-        const next = [...prev];
-        next[next.length - 1] = { q, a: msg || 'Assistant is unavailable right now. Try again later.' };
-        return next;
-      });
-    } finally {
-      setIsAsking(false);
-      setTimeout(() => aiScrollRef.current?.scrollTo({ top: 9999, behavior: 'smooth' }), 80);
-    }
-  };
 
   useEffect(() => {
     let active = true;
@@ -578,8 +544,8 @@ export function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* ── ROW 3: Leave Balance + Pending Requests + AI Assist ──────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* ── ROW 3: Leave Balance + Pending Requests ─────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
         {/* Leave Balance */}
         <div className="rounded-md border border-hairline bg-surface p-4">
@@ -636,56 +602,6 @@ export function EmployeeDashboard() {
           </div>
         </div>
 
-        {/* AI Assist */}
-        <div className="rounded-md border border-hairline bg-surface p-4 flex flex-col">
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-[12.5px] font-bold text-ink flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0" />
-              PeopleOS Assist
-            </h2>
-            <span className="text-[9px] bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300 px-1.5 py-0.5 rounded font-bold">Beta</span>
-          </div>
-          <p className="text-[11px] text-ink-3 mb-3">Ask me anything about your leaves, policies, or HR processes.</p>
-
-          {/* Reply area */}
-          <div ref={aiScrollRef} className="flex-1 min-h-[50px] max-h-[80px] overflow-y-auto space-y-1 mb-2">
-            {aiReplies.map((r, i) => (
-              <div key={i} className="text-[10.5px] bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 rounded-md px-2.5 py-1.5 border border-violet-100 dark:border-violet-800/40">
-                {r.a}
-              </div>
-            ))}
-          </div>
-
-          {/* Input */}
-          <div className="flex gap-1.5 mb-2">
-            <input
-              value={aiQuery}
-              onChange={e => setAiQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAiSend()}
-              placeholder="What can I help you with?"
-              className="flex-1 text-[11.5px] bg-surface-2 border border-hairline rounded-md px-2.5 py-1.5 text-ink placeholder:text-ink-3 focus:outline-none focus:border-violet-400 transition-colors"
-            />
-            <button
-              onClick={handleAiSend}
-              className="w-7 h-7 flex items-center justify-center rounded-md bg-violet-500 hover:bg-violet-600 text-white transition-colors flex-shrink-0"
-            >
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2 .01 7Z"/></svg>
-            </button>
-          </div>
-
-          {/* Quick chips */}
-          <div className="space-y-1.5">
-            {['How many leave days do I have?', "What's my next payday?", 'Holiday calendar for 2025'].map(q => (
-              <button key={q}
-                onClick={() => { setAiQuery(q); }}
-                className="text-left text-[10.5px] text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1.5 group w-full"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0 group-hover:scale-125 transition-transform" />
-                {q}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ── ROW 4: My Info — identity, manager & HR, always visible ──── */}

@@ -2,11 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { openAiConfig, type OpenAiProviderConfig } from '../config/openai.config';
 import {
-  normalizeShortlist,
-  shortlistPrompt,
   type AiProvider,
-  type ShortlistInput,
-  type ShortlistResult,
 } from './ai-provider.interface';
 import { LoggerHelper } from '../../../common/logger';
 
@@ -111,23 +107,6 @@ export class OpenAiProvider implements AiProvider {
       };
     } finally {
       clearTimeout(timer);
-    }
-  }
-
-  async shortlist(input: ShortlistInput): Promise<ShortlistResult> {
-    this.assertConfigured();
-    try {
-      const content = await this.postChat(
-        [
-          { role: 'system', content: 'You screen job candidates and always reply with valid JSON.' },
-          { role: 'user', content: `${shortlistPrompt(input)}\n\nReply ONLY with JSON: {"score": number, "recommendation": "SHORTLIST|MAYBE|REJECT", "strengths": string[], "gaps": string[], "summary": string}` },
-        ],
-        { temperature: 0.2, response_format: { type: 'json_object' } },
-      );
-      return normalizeShortlist(JSON.parse(content));
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'ChatGPT request failed.';
-      throw new Error(message);
     }
   }
 }

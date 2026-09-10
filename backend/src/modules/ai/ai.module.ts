@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
-import { HrCopilotService } from './hr-copilot.service';
 import { OpenAiProvider } from './providers/openai.provider';
 import { OpencodeProvider } from './providers/opencode.provider';
+import { OllamaProvider } from './providers/ollama.provider';
+import { AiSettingsService } from './ai-settings.service';
+import { AiProviderSetting, AiProviderSettingSchema } from './schemas/ai-provider-setting.schema';
 import { JobApplication, JobApplicationSchema } from '../recruitment/schemas/job-application.schema';
 import { JobVacancy, JobVacancySchema } from '../recruitment/schemas/job-vacancy.schema';
 import { Employee, EmployeeSchema } from '../employees/schemas/employee.schema';
@@ -32,11 +34,12 @@ import { OrganizationModule } from '../organization/organization.module';
       { name: RestrictedHolidayOpt.name, schema: RestrictedHolidayOptSchema },
       { name: AttendanceRecord.name, schema: AttendanceRecordSchema },
       { name: Organization.name, schema: OrganizationSchema },
+      { name: AiProviderSetting.name, schema: AiProviderSettingSchema },
     ]),
     OrganizationModule,
   ],
   controllers: [AiController],
-  providers: [AiService, HrCopilotService, OpenAiProvider, OpencodeProvider],
-  exports: [AiService, HrCopilotService],
+  providers: [AiService, AiSettingsService, OpenAiProvider, OpencodeProvider, OllamaProvider],
+  exports: [AiService],
 })
 export class AiModule {}

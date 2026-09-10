@@ -2,12 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { opencodeConfig, type OpencodeProviderConfig } from '../config/opencode.config';
 import {
-  normalizeShortlist,
-  shortlistPrompt,
-  SHORTLIST_JSON_SCHEMA,
   type AiProvider,
-  type ShortlistInput,
-  type ShortlistResult,
 } from './ai-provider.interface';
 import { LoggerHelper } from '../../../common/logger';
 
@@ -259,63 +254,5 @@ export class OpencodeProvider implements AiProvider {
     if (texts.length > 0) return texts.join('\n\n');
     if (typeof root.text === 'string' && root.text.trim()) return root.text.trim();
     return '';
-  }
-
-  async shortlist(input: ShortlistInput): Promise<ShortlistResult> {
-    const providerID = this.cfg.providerID || 'opencode';
-
-    const promptText = [
-      shortlistPrompt(input),
-      '',
-      'IMPORTANT: Respond ONLY with a valid JSON object matching this schema (no markdown, no explanation):',
-      '{"score": number (0-100), "recommendation": "SHORTLIST"|"MAYBE"|"REJECT", "strengths": ["string"], "gaps": ["string"], "summary": "two sentence summary"}',
-    ].join('\n');
-
-    const result = await this.executeWithModelFallback<unknown>(`Shortlist ${input.candidateName}`, (modelID) => ({
-      parts: [{ type: 'text', text: promptText }],
-      model: { providerID, modelID },
-    }));
-
-    const parsed = this.extractStructured(result);
-    if (parsed) return normalizeShortlist(parsed);
-    throw new Error('OpenCode returned no structured output. Check model response.');
-  }
-
-  /** Accepts SDK-style `{info, parts}` as well as flatter server shapes, prioritizing text parts. */
-  private extractStructured(result: unknown): unknown {
-    if (!result || typeof result !== 'object') return null;
-    const root = result as Record<string, unknown>;
-    const info = root.info as Record<string, unknown> | undefined;
-    const structured = info?.structured_output ?? info?.structuredOutput ?? root.structured_output ?? root.structuredOutput;
-    if (structured && typeof structured === 'object') return structured;
-
-    const parts = (Array.isArray(root.parts) ? root.parts : []) as { type?: string; data?: unknown; text?: string }[];
-    // Check non-reasoning parts first
-    const contentParts = parts.filter((p) => p.type !== 'reasoning');
-    for (const part of [...contentParts, ...parts]) {
-      const text = typeof part?.text === 'string' ? part.text : typeof part?.data === 'string' ? part.data : '';
-      if (!text) continue;
-      const cleaned = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      if (match) {
-        try {
-          return JSON.parse(match[0]);
-        } catch {
-          // keep looking
-        }
-      }
-    }
-    if (typeof root.text === 'string') {
-      const cleaned = root.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      if (match) {
-        try {
-          return JSON.parse(match[0]);
-        } catch {
-          // fall through
-        }
-      }
-    }
-    return null;
   }
 }

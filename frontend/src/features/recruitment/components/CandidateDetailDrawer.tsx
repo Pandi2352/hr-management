@@ -6,7 +6,6 @@ import { Spinner } from '../../../components/ui/Spinner';
 import { useToast } from '../../../components/ui/toast';
 import { pipelineApi } from '../api/pipeline.api';
 import { NEXT_STAGES, type CandidateDetail, type Interview } from '../types/pipeline.types';
-import { CandidateAiScore } from '../../ai/components/CandidateAiScore';
 import { ScheduleInterviewModal } from './ScheduleInterviewModal';
 import { FeedbackModal } from './FeedbackModal';
 import { OfferModal } from './OfferModal';
@@ -155,24 +154,6 @@ export function CandidateDetailDrawer({
           </div>
 
           <StageTimeline current={detail.status} />
-
-          <CandidateAiScore
-            applicationId={detail._id}
-            score={
-              detail.aiScore !== undefined && detail.aiScore !== null
-                ? {
-                    aiScore: detail.aiScore,
-                    aiRecommendation: detail.aiRecommendation as never,
-                    aiSummary: detail.aiSummary,
-                    aiStrengths: detail.aiStrengths,
-                    aiGaps: detail.aiGaps,
-                    aiProvider: detail.aiProvider,
-                    aiScoredAt: detail.aiScoredAt,
-                  }
-                : null
-            }
-            onScored={refresh}
-          />
 
           {/* Stage actions */}
           {detail.status !== 'HIRED' && nextStages.length > 0 && (

@@ -1,4 +1,10 @@
-export type AiProviderId = 'openai' | 'opencode';
+export type AiProviderId = 'openai' | 'ollama' | 'opencode';
+
+export interface AiModelOption {
+  id: string;
+  label: string;
+  note: string;
+}
 
 export interface AiProviderStatus {
   id: AiProviderId;
@@ -7,36 +13,29 @@ export interface AiProviderStatus {
   model: string;
   isDefault: boolean;
   hint: string;
+  /** True when the key can be entered on this page rather than in the environment. */
+  supportsUiConfig: boolean;
+  /** Masked form only. The key itself never reaches the browser. */
+  apiKeyMasked: string;
+  hasApiKey: boolean;
+  /** Where the active settings came from. */
+  source: 'database' | 'environment';
+  host: string;
+  /** Suggested models for the dropdown. Empty when the provider has no list. */
+  models: AiModelOption[];
 }
 
 export interface AiProvidersState {
   enabled: boolean;
+  /** False when the server has no encryption secret, so keys cannot be stored. */
+  canStoreKeys: boolean;
   providers: AiProviderStatus[];
 }
 
-export type AiRecommendation = 'SHORTLIST' | 'MAYBE' | 'REJECT';
-
-export interface AiScore {
-  aiScore?: number | null;
-  aiRecommendation?: AiRecommendation | null;
-  aiSummary?: string;
-  aiStrengths?: string[];
-  aiGaps?: string[];
-  aiProvider?: string | null;
-  aiScoredAt?: string | null;
+export interface SaveProviderSettingsPayload {
+  /** Omit to keep the stored key; empty string to clear it. */
+  apiKey?: string;
+  model?: string;
+  host?: string;
+  enabled?: boolean;
 }
-
-export const AI_RECOMMENDATION_META: Record<AiRecommendation, { label: string; classes: string }> = {
-  SHORTLIST: {
-    label: 'Shortlist',
-    classes: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
-  },
-  MAYBE: {
-    label: 'Maybe',
-    classes: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-  },
-  REJECT: {
-    label: 'Reject',
-    classes: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300',
-  },
-};

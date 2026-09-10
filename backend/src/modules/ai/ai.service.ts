@@ -1,16 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { JobApplication, JobApplicationDocument } from '../recruitment/schemas/job-application.schema';
-import { JobVacancy, JobVacancyDocument } from '../recruitment/schemas/job-vacancy.schema';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuditAction, AuditResource } from '../../common/audit/audit.constants';
 import { LoggerHelper } from '../../common/logger';
-import { aiConfig, type AiModuleConfig, type AiProviderId } from './config/ai.config';
+import { aiConfig, AI_PROVIDER_IDS, type AiModuleConfig, type AiProviderId } from './config/ai.config';
 import { OpenAiProvider } from './providers/openai.provider';
 import { OpencodeProvider } from './providers/opencode.provider';
-import type { AiProvider } from './providers/ai-provider.interface';
+import { OllamaProvider } from './providers/ollama.provider';
+import type { AiProvider, ProviderOverride } from './providers/ai-provider.interface';
+import { AiSettingsService } from './ai-settings.service';
+import { OLLAMA_FREE_CLOUD_MODELS } from './config/ollama.models';
 
 export interface ProviderStatus {
   id: AiProviderId;
@@ -19,7 +18,21 @@ export interface ProviderStatus {
   model: string;
   isDefault: boolean;
   hint: string;
+  /** True when this provider's credentials can be entered in the settings UI. */
+  supportsUiConfig: boolean;
+  /** Masked form only. Never the key itself. */
+  apiKeyMasked: string;
+  /** True when a key is stored, from the UI or the environment. */
+  hasApiKey: boolean;
+  /** Where the active settings came from, so the page can say so. */
+  source: 'database' | 'environment';
+  host: string;
+  /** Suggested models for the dropdown. Empty when the provider has no list. */
+  models: { id: string; label: string; note: string }[];
 }
+
+/** Providers whose credentials can be typed into the settings page. */
+const UI_CONFIGURABLE: AiProviderId[] = ['ollama'];
 
 @Injectable()
 export class AiService {
@@ -29,13 +42,13 @@ export class AiService {
 
   constructor(
     configService: ConfigService,
-    @InjectModel(JobApplication.name) private readonly applicationModel: Model<JobApplicationDocument>,
-    @InjectModel(JobVacancy.name) private readonly vacancyModel: Model<JobVacancyDocument>,
     private readonly auditService: AuditService,
+    private readonly settingsService: AiSettingsService,
   ) {
     this.moduleCfg = aiConfig(configService);
     this.providers = {
       openai: new OpenAiProvider(configService),
+      ollama: new OllamaProvider(configService),
       opencode: new OpencodeProvider(configService),
     };
   }
@@ -44,26 +57,133 @@ export class AiService {
     return this.moduleCfg.enabled;
   }
 
-  /** Default provider, validated as configured (copilot entry point). */
-  defaultProvider(): AiProvider {
-    return this.pickProvider(undefined);
+  /** Whether keys can be stored at all, so the page can explain if not. */
+  canStoreKeys(): boolean {
+    return this.settingsService.canStoreKeys();
   }
 
-  listProviders(): ProviderStatus[] {    return (Object.keys(this.providers) as AiProviderId[]).map((id) => {
-      const provider = this.providers[id];
-      const configured = this.isEnabled() && provider.isConfigured();
-      return {
-        id,
-        displayName: provider.displayName,
-        configured,
-        model: provider.modelLabel(),
-        isDefault: this.moduleCfg.defaultProvider === id,
-        hint:
-          id === 'openai'
-            ? 'Set OPENAI_API_KEY to enable.'
-            : 'Run `opencode serve` (default http://localhost:4096).',
-      };
+  /**
+   * Everything the settings page needs, with no secret in it.
+   *
+   * Async because the UI-configurable providers read their saved credentials
+   * per organization. The masked key is the only form that leaves the server.
+   */
+  async listProviders(organizationId: string): Promise<ProviderStatus[]> {
+    // Ordered by the shared id list rather than object key order, so the page
+    // does not reshuffle when a provider is added.
+    return Promise.all(
+      AI_PROVIDER_IDS.filter((id) => this.providers[id]).map(async (id) => {
+        const provider = this.providers[id];
+        const uiConfigurable = UI_CONFIGURABLE.includes(id);
+        const override = uiConfigurable ? await this.overrideFor(organizationId, id) : undefined;
+
+        return {
+          id,
+          displayName: provider.displayName,
+          configured: this.isEnabled() && provider.isConfigured(override),
+          model: provider.modelLabel(override),
+          isDefault: this.moduleCfg.defaultProvider === id,
+          hint: this.hintFor(id, override),
+          supportsUiConfig: uiConfigurable,
+          apiKeyMasked: override?.apiKeyMasked || '',
+          hasApiKey: Boolean(override?.apiKey),
+          source: (override?.fromDatabase ? 'database' : 'environment') as 'database' | 'environment',
+          host: override?.host || '',
+          models: id === 'ollama' ? OLLAMA_FREE_CLOUD_MODELS : [],
+        };
+      }),
+    );
+  }
+
+  /**
+   * What an operator has to do to switch a provider on.
+   *
+   * A provider that can describe its own setup is asked; the older two cannot,
+   * so their text lives here until they grow the method.
+   */
+  private hintFor(id: AiProviderId, override?: ProviderOverride): string {
+    const provider = this.providers[id] as AiProvider & {
+      configurationHint?: (o?: ProviderOverride) => string;
+    };
+    if (typeof provider.configurationHint === 'function') return provider.configurationHint(override);
+    if (id === 'openai') return 'Set OPENAI_API_KEY to enable.';
+    return 'Run the opencode server (default http://localhost:4096).';
+  }
+
+  /** Saved settings for one provider, or undefined when it is environment-only. */
+  private async overrideFor(
+    organizationId: string,
+    id: AiProviderId,
+  ): Promise<(ProviderOverride & { fromDatabase: boolean; apiKeyMasked: string }) | undefined> {
+    if (!UI_CONFIGURABLE.includes(id)) return undefined;
+    const resolved = await this.settingsService.resolve(organizationId, id, {
+      apiKey: '',
+      model: '',
+      host: '',
     });
+    return {
+      apiKey: resolved.apiKey,
+      model: resolved.model,
+      host: resolved.host,
+      enabled: resolved.enabled,
+      fromDatabase: resolved.fromDatabase,
+      apiKeyMasked: resolved.apiKeyMasked,
+    };
+  }
+
+  async saveProviderSettings(
+    organizationId: string,
+    id: AiProviderId,
+    input: { apiKey?: string; model?: string; host?: string; enabled?: boolean },
+    actorUserId: string,
+  ): Promise<ProviderStatus[]> {
+    if (!this.providers[id]) throw new BadRequestException(`Unknown AI provider "${id}".`);
+    if (!UI_CONFIGURABLE.includes(id)) {
+      throw new BadRequestException(
+        `${this.providers[id].displayName} is configured through the environment, not this page.`,
+      );
+    }
+
+    await this.settingsService.save(organizationId, id, input, actorUserId);
+
+    await this.auditService.record({
+      action: AuditAction.UPDATE,
+      resourceType: AuditResource.ORGANIZATION,
+      resourceId: `ai-provider:${id}`,
+      organizationId,
+      actorUserId,
+      description: `AI provider settings updated for ${id}`,
+      // Records that the credential changed, never the credential.
+      after: {
+        model: input.model,
+        host: input.host,
+        enabled: input.enabled,
+        keyChanged: input.apiKey !== undefined,
+      },
+    });
+
+    return this.listProviders(organizationId);
+  }
+
+  async clearProviderSettings(
+    organizationId: string,
+    id: AiProviderId,
+    actorUserId: string,
+  ): Promise<ProviderStatus[]> {
+    if (!this.providers[id]) throw new BadRequestException(`Unknown AI provider "${id}".`);
+
+    await this.settingsService.clear(organizationId, id);
+
+    await this.auditService.record({
+      action: AuditAction.DELETE,
+      resourceType: AuditResource.ORGANIZATION,
+      resourceId: `ai-provider:${id}`,
+      organizationId,
+      actorUserId,
+      description: `AI provider settings cleared for ${id}`,
+    });
+
+    return this.listProviders(organizationId);
   }
 
   /**
@@ -71,99 +191,56 @@ export class AiService {
    * failures are data (`{ok: false}`), never throws (except unknown id or
    * globally disabled AI).
    */
-  async testProvider(id: AiProviderId): Promise<{ ok: boolean; latencyMs: number; detail: string }> {
+  async testProvider(
+    id: AiProviderId,
+    organizationId: string,
+  ): Promise<{ ok: boolean; latencyMs: number; detail: string }> {
     if (!this.isEnabled()) {
       throw new BadRequestException('AI features are disabled (AI_ENABLED=false).');
     }
     const provider = this.providers[id];
     if (!provider) throw new BadRequestException(`Unknown AI provider "${id}".`);
-    return provider.test();
-  }
-
-  private pickProvider(requested?: AiProviderId): AiProvider {
-    if (!this.isEnabled()) {
-      throw new BadRequestException('AI features are disabled (AI_ENABLED=false).');
-    }
-    let id = requested || this.moduleCfg.defaultProvider;
-    let provider = this.providers[id];
-    if (!provider) throw new BadRequestException(`Unknown AI provider "${id}".`);
-    if (!provider.isConfigured()) {
-      const fallbackId = (Object.keys(this.providers) as AiProviderId[]).find(
-        (k) => k !== id && this.providers[k]?.isConfigured(),
-      );
-      if (fallbackId) {
-        provider = this.providers[fallbackId];
-      } else {
-        throw new BadRequestException(
-          `${provider.displayName} is not configured. ${id === 'openai' ? 'Set OPENAI_API_KEY.' : 'Start `opencode serve` or set OPENCODE_BASE_URL.'}`,
-        );
-      }
-    }
-    return provider;
+    return provider.test(await this.overrideFor(organizationId, id));
   }
 
   /**
-   * Scores a candidate for HR shortlisting and stores the snapshot on the
-   * application. Resume files are binary (PDF/DOCX) — scoring uses the
-   * structured application fields until document parsing lands.
+   * The provider to use, together with the settings it should run under.
+   *
+   * Replaces the synchronous picker for callers that have an organization,
+   * because a UI-entered credential cannot be read without a round trip. The
+   * fallback rule is unchanged: if the requested provider is not configured,
+   * the first configured one takes over rather than failing the request.
    */
-  async scoreCandidate(applicationId: string, providerId: AiProviderId | undefined, orgId: string | null, actorId: string) {
-    const provider = this.pickProvider(providerId);
-    const application: any = await this.applicationModel.findById(applicationId).lean();
-    if (!application) throw new NotFoundException('Candidate application not found.');
-    if (['HIRED', 'REJECTED', 'WITHDRAWN'].includes(application.status)) {
-      throw new BadRequestException(`Application is already ${application.status.toLowerCase()}.`);
+  async pickProviderWithSettings(
+    organizationId: string,
+    requested?: AiProviderId,
+  ): Promise<{ provider: AiProvider; override?: ProviderOverride }> {
+    if (!this.isEnabled()) {
+      throw new BadRequestException('AI features are disabled (AI_ENABLED=false).');
     }
 
-    const vacancy: any = await this.vacancyModel.findById(application.jobId).lean().catch(() => null);
-    let result;
-    try {
-      result = await provider.shortlist({
-        jobTitle: application.jobTitle,
-        department: application.department,
-        location: vacancy?.location || '',
-        overview: vacancy?.overview || '',
-        requirements: vacancy?.requirements || [],
-        experienceLevel: vacancy?.experienceLevel || '',
-        candidateName: application.fullName,
-        candidateEmail: application.email,
-        candidatePhone: application.phone,
-        yearsExperience: application.yearsExperience || '',
-        earliestStartDate: application.earliestStartDate || '',
-        coverLetter: application.coverLetter || '',
-      });
-    } catch (err: unknown) {
-      // Upstream AI failures surface as 502 with the provider's own message
-      // (the global filter hides plain-Error text behind a generic 500).
-      const message = err instanceof Error ? err.message : 'AI provider request failed.';
-      throw new HttpException({ message }, HttpStatus.BAD_GATEWAY);
+    const id = requested || this.moduleCfg.defaultProvider;
+    if (!this.providers[id]) throw new BadRequestException(`Unknown AI provider "${id}".`);
+
+    const override = await this.overrideFor(organizationId, id);
+    if (this.providers[id].isConfigured(override)) {
+      return { provider: this.providers[id], override };
     }
 
-    const updated = await this.applicationModel.findByIdAndUpdate(
-      applicationId,
-      {
-        aiScore: result.score,
-        aiRecommendation: result.recommendation,
-        aiSummary: result.summary,
-        aiStrengths: result.strengths,
-        aiGaps: result.gaps,
-        aiProvider: provider.id,
-        aiScoredAt: new Date(),
-      },
-      { new: true },
+    for (const candidate of AI_PROVIDER_IDS) {
+      if (candidate === id || !this.providers[candidate]) continue;
+      const candidateOverride = await this.overrideFor(organizationId, candidate);
+      if (this.providers[candidate].isConfigured(candidateOverride)) {
+        this.logger.warn(null, 'Requested AI provider is not configured; falling back', {
+          requested: id,
+          fallback: candidate,
+        });
+        return { provider: this.providers[candidate], override: candidateOverride };
+      }
+    }
+
+    throw new BadRequestException(
+      `${this.providers[id].displayName} is not configured. ${this.hintFor(id, override)}`,
     );
-
-    await this.auditService.record({
-      action: AuditAction.CREATE,
-      resourceType: AuditResource.CANDIDATE,
-      resourceId: applicationId,
-      organizationId: orgId,
-      actorUserId: actorId,
-      description: `AI shortlist (${provider.id}): ${application.fullName} scored ${result.score} — ${result.recommendation}`,
-      after: { score: result.score, recommendation: result.recommendation, provider: provider.id },
-    });
-
-    this.logger.info(null, 'Candidate scored', { applicationId, provider: provider.id, score: result.score });
-    return updated;
   }
 }
