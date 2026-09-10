@@ -16,6 +16,8 @@ export interface ResolvedProviderSettings {
   host: string;
   /** False only when an administrator switched this provider off in the UI. */
   enabled: boolean;
+  /** Whether marked as default active provider for this organization */
+  isDefault: boolean;
   /** True when the values came from a saved row rather than the environment. */
   fromDatabase: boolean;
   /** `••••abcd`, or empty. Safe to return to a client. */
@@ -28,6 +30,7 @@ export interface SaveProviderSettingsInput {
   model?: string;
   host?: string;
   enabled?: boolean;
+  isDefault?: boolean;
 }
 
 /**
@@ -76,6 +79,7 @@ export class AiSettingsService {
       return {
         ...envDefaults,
         enabled: true,
+        isDefault: false,
         fromDatabase: false,
         apiKeyMasked: envDefaults.apiKey ? maskSecret(envDefaults.apiKey) : '',
       };
@@ -102,6 +106,7 @@ export class AiSettingsService {
       model: row.model || envDefaults.model,
       host: row.host || envDefaults.host,
       enabled: row.enabled !== false,
+      isDefault: Boolean(row.isDefault),
       fromDatabase: true,
       apiKeyMasked: stored ? row.apiKeyMasked || maskSecret(stored) : apiKey ? maskSecret(apiKey) : '',
     };
@@ -143,6 +148,17 @@ export class AiSettingsService {
     if (input.host !== undefined) update.host = input.host.trim().replace(/\/+$/, '');
     if (input.enabled !== undefined) update.enabled = input.enabled;
 
+    if (input.isDefault === true) {
+      // Mark this provider default and clear default on others for this org
+      await this.settingModel.updateMany(
+        { organizationId, providerId: { $ne: providerId } },
+        { $set: { isDefault: false } },
+      );
+      update.isDefault = true;
+    } else if (input.isDefault === false) {
+      update.isDefault = false;
+    }
+
     await this.settingModel.updateOne(
       { organizationId, providerId },
       { $set: update, $setOnInsert: { organizationId, providerId } },
@@ -152,12 +168,31 @@ export class AiSettingsService {
     this.logger.info(null, 'AI provider settings saved', {
       providerId,
       organizationId,
-      // Deliberately records *that* the key changed, never the key.
       keyChanged: input.apiKey !== undefined,
       model: update.model,
+      isDefault: update.isDefault,
     });
 
     return this.resolve(organizationId, providerId, { apiKey: '', model: '', host: '' });
+  }
+
+  /** Marks a provider as the default active provider for the organization */
+  async setDefault(organizationId: string, providerId: AiProviderId): Promise<void> {
+    await this.settingModel.updateMany({ organizationId }, { $set: { isDefault: false } });
+    await this.settingModel.updateOne(
+      { organizationId, providerId },
+      { $set: { isDefault: true }, $setOnInsert: { organizationId, providerId } },
+      { upsert: true },
+    );
+  }
+
+  /** Finds which provider is designated as default in database, if any */
+  async getDefaultProvider(organizationId: string): Promise<AiProviderId | null> {
+    const row = await this.settingModel
+      .findOne({ organizationId, isDefault: true })
+      .lean()
+      .catch(() => null);
+    return (row?.providerId as AiProviderId) || null;
   }
 
   /** Removes every override for a provider, returning it to the environment. */

@@ -51,6 +51,10 @@ export class AiProviderSetting {
   @Prop({ type: Boolean, default: true })
   enabled: boolean;
 
+  /** Designated as primary default provider for the organization */
+  @Prop({ type: Boolean, default: false })
+  isDefault: boolean;
+
   @Prop({ type: String, default: '' })
   updatedByUserId: string;
 

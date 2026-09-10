@@ -36,4 +36,17 @@ export class SaveProviderSettingsDto {
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
+
+  @ApiPropertyOptional({ description: 'Designate as the primary default AI provider for this organization.' })
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
+}
+
+export class TestPromptDto {
+  @ApiProperty({ example: 'Hello! Respond with one short sentence acknowledging this test.', description: 'Prompt to test LLM generation' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  prompt: string;
 }

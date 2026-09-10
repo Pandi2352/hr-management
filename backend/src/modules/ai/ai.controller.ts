@@ -6,7 +6,7 @@ import { RequirePermissions } from '../../common/decorators/roles.decorator';
 import { PERMISSIONS } from '../../common/constants';
 import { AiService } from './ai.service';
 import { OrganizationService } from '../organization/organization.service';
-import { SaveProviderSettingsDto } from './dto/ai.dto';
+import { SaveProviderSettingsDto, TestPromptDto } from './dto/ai.dto';
 import type { AiProviderId } from './config/ai.config';
 import { ResultEntity } from '../../common/response';
 
@@ -102,5 +102,31 @@ export class AiController {
       { enabled: this.aiService.isEnabled(), canStoreKeys: this.aiService.canStoreKeys(), providers },
       'Provider settings cleared',
     );
+  }
+
+  @Post('providers/:id/set-default')
+  @RequirePermissions(PERMISSIONS.RECRUITMENT_MANAGE)
+  @ApiOperation({ summary: 'Set a provider as the default for the organization' })
+  async setDefaultProvider(@Request() req: any, @Param('id') id: AiProviderId) {
+    const orgId = await this.requireOrgId(req);
+    const actorId = req.user?.userId || req.user?.id;
+    const providers = await this.aiService.setDefaultProvider(orgId, id, actorId);
+    return ResultEntity.ok(
+      { enabled: this.aiService.isEnabled(), canStoreKeys: this.aiService.canStoreKeys(), providers },
+      'Default provider updated',
+    );
+  }
+
+  @Post('providers/:id/test-prompt')
+  @RequirePermissions(PERMISSIONS.RECRUITMENT_MANAGE)
+  @ApiOperation({ summary: 'Send a live test prompt to verify generation & latency' })
+  async testPrompt(
+    @Request() req: any,
+    @Param('id') id: AiProviderId,
+    @Body() dto: TestPromptDto,
+  ) {
+    const orgId = await this.requireOrgId(req);
+    const result = await this.aiService.testPrompt(id, orgId, dto.prompt);
+    return ResultEntity.ok(result, 'Test prompt generation completed');
   }
 }

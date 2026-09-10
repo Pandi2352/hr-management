@@ -35,7 +35,7 @@ const CANDIDATE_FREE_MODELS = [
 @Injectable()
 export class OpencodeProvider implements AiProvider {
   readonly id = 'opencode' as const;
-  readonly displayName = 'Opencode (free models)';
+  readonly displayName = 'OpenCode';
   private readonly logger = LoggerHelper.Instance.child(OpencodeProvider.name);
   private readonly cfg: OpencodeProviderConfig;
 

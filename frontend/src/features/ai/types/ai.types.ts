@@ -1,4 +1,4 @@
-export type AiProviderId = 'openai' | 'ollama' | 'opencode';
+export type AiProviderId = 'openai' | 'anthropic' | 'gemini' | 'groq' | 'ollama' | 'opencode';
 
 export interface AiModelOption {
   id: string;
@@ -38,4 +38,11 @@ export interface SaveProviderSettingsPayload {
   model?: string;
   host?: string;
   enabled?: boolean;
+  isDefault?: boolean;
+}
+
+export interface TestPromptResponse {
+  reply: string;
+  latencyMs: number;
+  modelUsed: string;
 }

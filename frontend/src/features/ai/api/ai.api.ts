@@ -1,5 +1,10 @@
 import { apiClient } from '../../../utils/apiClient';
-import type { AiProvidersState, AiProviderId, SaveProviderSettingsPayload } from '../types/ai.types';
+import type {
+  AiProvidersState,
+  AiProviderId,
+  SaveProviderSettingsPayload,
+  TestPromptResponse,
+} from '../types/ai.types';
 
 export const aiApi = {
   providers: async (): Promise<AiProvidersState> => {
@@ -20,10 +25,18 @@ export const aiApi = {
     return res.data.data as AiProvidersState;
   },
 
+  setDefaultProvider: async (id: AiProviderId): Promise<AiProvidersState> => {
+    const res = await apiClient.post(`/ai/providers/${id}/set-default`);
+    return res.data.data as AiProvidersState;
+  },
 
   testProvider: async (id: AiProviderId): Promise<{ ok: boolean; latencyMs: number; detail: string }> => {
     const res = await apiClient.post(`/ai/providers/${id}/test`);
     return res.data.data as { ok: boolean; latencyMs: number; detail: string };
   },
 
+  testPrompt: async (id: AiProviderId, prompt: string): Promise<TestPromptResponse> => {
+    const res = await apiClient.post(`/ai/providers/${id}/test-prompt`, { prompt });
+    return res.data.data as TestPromptResponse;
+  },
 };

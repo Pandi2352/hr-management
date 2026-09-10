@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { openAiConfig, type OpenAiProviderConfig } from '../config/openai.config';
 import {
   type AiProvider,
   type ProviderOverride,
@@ -8,27 +7,42 @@ import {
 } from './ai-provider.interface';
 import { LoggerHelper } from '../../../common/logger';
 
-/** ChatGPT provider — OpenAI chat completions with JSON/text output. */
+export interface GroqConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  enabled: boolean;
+  timeoutMs: number;
+}
+
 @Injectable()
-export class OpenAiProvider implements AiProvider {
-  readonly id = 'openai' as const;
-  readonly displayName = 'OpenAI (ChatGPT)';
-  private readonly logger = LoggerHelper.Instance.child(OpenAiProvider.name);
-  private readonly envCfg: OpenAiProviderConfig;
+export class GroqProvider implements AiProvider {
+  readonly id = 'groq' as const;
+  readonly displayName = 'Groq (LPU Ultra-Fast)';
+  private readonly logger = LoggerHelper.Instance.child(GroqProvider.name);
+  private readonly envCfg: GroqConfig;
 
   constructor(configService: ConfigService) {
-    this.envCfg = openAiConfig(configService);
+    const apiKey = (configService.get<string>('GROQ_API_KEY', '') || '').trim();
+    this.envCfg = {
+      apiKey,
+      baseUrl: configService.get<string>('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+      model: configService.get<string>('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+      enabled: apiKey.length > 0,
+      timeoutMs: Number(configService.get<string>('GROQ_TIMEOUT_MS', '60000')) || 60000,
+    };
   }
 
-  private effective(override?: ProviderOverride): OpenAiProviderConfig {
+  private effective(override?: ProviderOverride): GroqConfig {
     if (!override) return this.envCfg;
     const apiKey = override.apiKey !== undefined ? override.apiKey : this.envCfg.apiKey;
-    const baseUrl = (override.host || this.envCfg.baseUrl || 'https://api.openai.com/v1').trim().replace(/\/+$/, '');
-    const model = (override.model || this.envCfg.model || 'gpt-4o-mini').trim();
+    const baseUrl = (override.host || this.envCfg.baseUrl || 'https://api.groq.com/openai/v1')
+      .trim()
+      .replace(/\/+$/, '');
+    const model = (override.model || this.envCfg.model || 'llama-3.3-70b-versatile').trim();
     return {
       ...this.envCfg,
       apiKey,
-      hasApiKey: apiKey.length > 0,
       baseUrl,
       model,
       enabled: override.enabled === false ? false : apiKey.length > 0 || this.envCfg.enabled,
@@ -44,23 +58,23 @@ export class OpenAiProvider implements AiProvider {
     return this.effective(override).model;
   }
 
-  private assertConfigured(override?: ProviderOverride): OpenAiProviderConfig {
+  private assertConfigured(override?: ProviderOverride): GroqConfig {
     const eff = this.effective(override);
     if (!eff.enabled || !eff.apiKey) {
-      throw new Error('OpenAI is not configured. Enter an OpenAI API key.');
+      throw new Error('Groq is not configured. Enter a Groq API key.');
     }
     return eff;
   }
 
-  private async postChat(
-    messages: { role: string; content: string }[],
-    override?: ProviderOverride,
-    extra: Record<string, unknown> = {},
-  ): Promise<string> {
+  async chat(system: string, user: string, override?: ProviderOverride): Promise<string> {
     const eff = this.assertConfigured(override);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), eff.timeoutMs);
     try {
+      const messages: { role: string; content: string }[] = [];
+      if (system) messages.push({ role: 'system', content: system });
+      messages.push({ role: 'user', content: user });
+
       const res = await fetch(`${eff.baseUrl}/chat/completions`, {
         method: 'POST',
         signal: controller.signal,
@@ -68,44 +82,36 @@ export class OpenAiProvider implements AiProvider {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${eff.apiKey}`,
         },
-        body: JSON.stringify({ model: eff.model, temperature: 0.3, messages, ...extra }),
+        body: JSON.stringify({
+          model: eff.model,
+          temperature: 0.3,
+          messages,
+        }),
       });
+
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        throw new Error(`OpenAI request failed (${res.status}). ${text.slice(0, 200)}`);
+        throw new Error(`Groq request failed (${res.status}): ${text.slice(0, 200)}`);
       }
+
       const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       const content = body.choices?.[0]?.message?.content?.trim() || '';
-      if (!content) throw new Error('OpenAI returned an empty reply.');
+      if (!content) throw new Error('Groq returned an empty reply.');
       return content;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'OpenAI request failed.';
-      this.logger.error(null, 'OpenAI chat failed', err as Error);
+      const message = err instanceof Error ? err.message : 'Groq chat failed.';
+      this.logger.error(null, 'Groq chat failed', err as Error);
       throw new Error(message);
     } finally {
       clearTimeout(timer);
     }
   }
 
-  /** Free-form chat for copilots (system + user turns, plain text out). */
-  async chat(system: string, user: string, override?: ProviderOverride): Promise<string> {
-    return this.postChat(
-      [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      override,
-    );
-  }
-
-  /**
-   * In-menu connection test: lists models (cheapest authenticated call).
-   */
   async test(override?: ProviderOverride): Promise<ProviderTestResult> {
     const started = Date.now();
     const eff = this.effective(override);
     if (!eff.apiKey) {
-      return { ok: false, latencyMs: 0, detail: 'Enter an OpenAI API key (sk-...) to test.' };
+      return { ok: false, latencyMs: 0, detail: 'Enter a Groq API key (gsk_...) to test.' };
     }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
@@ -116,24 +122,25 @@ export class OpenAiProvider implements AiProvider {
       });
       const latencyMs = Date.now() - started;
       if (res.status === 401) {
-        return { ok: false, latencyMs, detail: 'Invalid API key (401). Please check the key entered.' };
+        return { ok: false, latencyMs, detail: 'Invalid Groq API key (401). Check the key entered.' };
       }
       if (!res.ok) {
-        return { ok: false, latencyMs, detail: `OpenAI responded HTTP ${res.status}. Check API key and base URL.` };
+        const text = await res.text().catch(() => '');
+        return { ok: false, latencyMs, detail: `Groq returned HTTP ${res.status}: ${text.slice(0, 150)}` };
       }
       const body = (await res.json().catch(() => ({}))) as { data?: unknown[] };
       const count = Array.isArray(body.data) ? body.data.length : 0;
       return {
         ok: true,
         latencyMs,
-        detail: `Connected to OpenAI successfully (${count} models available). Active model: "${eff.model}".`,
+        detail: `Connected to Groq LPU engine successfully (${count} models available). Active model: "${eff.model}".`,
       };
     } catch (err: unknown) {
       return {
         ok: false,
         latencyMs: Date.now() - started,
         detail: err instanceof Error && /aborted/i.test(err.message)
-          ? 'Connection timed out reaching OpenAI.'
+          ? 'Connection timed out reaching Groq.'
           : `Network error: ${err instanceof Error ? err.message : 'Cannot reach host'}`,
       };
     } finally {

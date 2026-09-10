@@ -1,9 +1,16 @@
 import { ConfigService } from '@nestjs/config';
 
-export type AiProviderId = 'openai' | 'opencode' | 'ollama';
+export type AiProviderId = 'openai' | 'anthropic' | 'gemini' | 'groq' | 'ollama' | 'opencode';
 
 /** Every id, in the order the settings page lists them. */
-export const AI_PROVIDER_IDS: AiProviderId[] = ['openai', 'ollama', 'opencode'];
+export const AI_PROVIDER_IDS: AiProviderId[] = [
+  'openai',
+  'anthropic',
+  'gemini',
+  'groq',
+  'ollama',
+  'opencode',
+];
 
 export interface AiModuleConfig {
   enabled: boolean;
