@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../auth/context/AuthContext';
 import { ChangePasswordTab } from '../auth/components/ChangePasswordTab';
+import { ActiveSessionsPanel } from '../auth/components/ActiveSessionsPanel';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/toast';
@@ -708,6 +709,17 @@ export function ProfilePage() {
               Manage your authentication credentials, update password requirements, and safeguard your account.
             </p>
             <ChangePasswordTab />
+          </div>
+
+          {/*
+            * Sits under the password form on purpose.
+            *
+            * The two belong together: noticing a device you do not recognise
+            * and changing your password are one action, and splitting them
+            * across two screens is how the second half gets forgotten.
+            */}
+          <div className="mt-6 border-t border-slate-200 pt-6 dark:border-slate-800">
+            <ActiveSessionsPanel />
           </div>
         </div>
       )}

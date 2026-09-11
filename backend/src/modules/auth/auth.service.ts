@@ -4,6 +4,8 @@ import {
   HttpException,
   HttpStatus,
   ForbiddenException,
+  BadRequestException,
+  NotFoundException,
   } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -33,6 +35,7 @@ import {
   DEFAULT_SECURITY_POLICY,
 } from '../../common/utils/password-policy.util';
 import { randomBytes, randomUUID, createHash } from 'crypto';
+import { describeAddress, parseUserAgent } from './user-agent.util';
 import { LoggerHelper } from '../../common/logger';
 
 /**
@@ -630,12 +633,23 @@ export class AuthService {
     ipAddress: string,
     userAgent: string,
     rememberMe = false,
+    /**
+     * The sign-in this belongs to. Absent on a fresh login, supplied on a
+     * refresh so the device keeps one identity across token rotation.
+     */
+    continuing?: { familyId: string; startedAt: Date },
   ) {
     const policy = await this.getPolicy();
     const sessionMinutes = policy.sessionTimeoutMinutes;
 
+    const familyId = continuing?.familyId || randomUUID();
+    const startedAt = continuing?.startedAt || new Date();
+
     const payload = {
       sub: user._id,
+      // The session family, so an authenticated request can say which device
+      // it came from without the refresh token being present.
+      sid: familyId,
       email: user.email,
       roles: user.roles,
       organizationId: user.organizationId || null,
@@ -656,11 +670,18 @@ export class AuthService {
     const refreshTokenHash = hashRefreshToken(refreshToken);
     const expiresAt = new Date(Date.now() + (rememberMe ? 30 : 7) * 24 * 60 * 60 * 1000);
 
+    const device = parseUserAgent(userAgent);
+
     await this.sessionModel.create({
       userId: user._id,
+      familyId,
+      startedAt,
+      lastUsedAt: new Date(),
       refreshTokenHash,
       ipAddress,
       userAgent,
+      deviceLabel: device.label,
+      deviceType: device.deviceType,
       expiresAt,
       rememberMe,
     });
@@ -800,9 +821,22 @@ export class AuthService {
     }
 
     // Rotate: retire the presented session before minting its replacement.
-    await this.sessionModel.updateOne({ _id: matched._id }, { $set: { revokedAt: new Date() } });
+    await this.sessionModel.updateOne(
+      { _id: matched._id },
+      { $set: { revokedAt: new Date(), revokedReason: 'ROTATED' } },
+    );
 
-    return this.issueSession(user, ipAddress, userAgent, matched.rememberMe ?? false);
+    /*
+     * The replacement inherits the family and the original sign-in time.
+     *
+     * Without this the sessions list would show a device that signed in a week
+     * ago as having appeared four minutes ago, which is exactly the kind of
+     * thing that makes somebody think they have been broken into.
+     */
+    return this.issueSession(user, ipAddress, userAgent, matched.rememberMe ?? false, {
+      familyId: matched.familyId || randomUUID(),
+      startedAt: matched.startedAt || (matched as any).createdAt || new Date(),
+    });
   }
 
   /** Shared logout audit — resolves the actor so the record stays readable. */
@@ -820,10 +854,114 @@ export class AuthService {
     });
   }
 
+  /**
+   * Every device currently signed in as this user.
+   *
+   * Live records only — one per device, because rotation carries the family
+   * forward rather than accumulating rows. Nothing that could authenticate is
+   * returned: the refresh token digest stays on the server, so this screen can
+   * be opened anywhere without widening the account's attack surface.
+   */
+  async listSessions(userId: string, currentFamilyId?: string) {
+    const sessions = await this.sessionModel
+      .find({ userId, revokedAt: null, expiresAt: { $gt: new Date() } })
+      .sort({ lastUsedAt: -1 })
+      .lean();
+
+    return sessions.map((session: any) => {
+      const device = parseUserAgent(session.userAgent);
+
+      return {
+        // The family, not the document id: the document is replaced on every
+        // refresh, so its id would be stale by the time somebody clicked it.
+        id: session.familyId || String(session._id),
+        deviceLabel: session.deviceLabel || device.label,
+        deviceType: session.deviceType || device.deviceType,
+        browser: device.browser,
+        os: device.os,
+        location: describeAddress(session.ipAddress),
+        ipAddress: session.ipAddress || '',
+        signedInAt: session.startedAt || session.createdAt || null,
+        lastUsedAt: session.lastUsedAt || session.createdAt || null,
+        expiresAt: session.expiresAt,
+        rememberMe: Boolean(session.rememberMe),
+        /** The device reading this list. It cannot be ended from here. */
+        isCurrent: Boolean(currentFamilyId) && session.familyId === currentFamilyId,
+      };
+    });
+  }
+
+  /**
+   * Ends one device's session.
+   *
+   * The current device is deliberately refused: "sign out everything except
+   * this" is a different button from "sign out", and a person who ends their
+   * own session from a list of devices has almost always misread the row.
+   */
+  async revokeSession(userId: string, familyId: string, currentFamilyId?: string) {
+    if (currentFamilyId && familyId === currentFamilyId) {
+      throw new BadRequestException(
+        'That is the device you are using. Use sign out if you meant to end this session.',
+      );
+    }
+
+    const result = await this.sessionModel.updateMany(
+      { userId, familyId, revokedAt: null },
+      { $set: { revokedAt: new Date(), revokedReason: 'REVOKED_BY_USER' } },
+    );
+
+    if (result.modifiedCount === 0) {
+      throw new NotFoundException('That session has already ended.');
+    }
+
+    const user = await this.userModel.findById(userId).lean();
+    await this.auditService.record({
+      action: AuditAction.SESSION_REVOKED,
+      resourceType: AuditResource.SESSION,
+      resourceId: familyId,
+      organizationId: user?.organizationId ?? null,
+      actorUserId: userId,
+      actorEmail: user?.email || '',
+      description: 'Signed a device out from the active sessions list',
+    });
+
+    this.logger.info(null, 'Session revoked by its owner', { userId, familyId });
+
+    return { revoked: result.modifiedCount };
+  }
+
+  /** Ends every other device, leaving the one asking signed in. */
+  async revokeOtherSessions(userId: string, currentFamilyId?: string) {
+    const filter: Record<string, unknown> = { userId, revokedAt: null };
+    if (currentFamilyId) filter.familyId = { $ne: currentFamilyId };
+
+    const result = await this.sessionModel.updateMany(filter, {
+      $set: { revokedAt: new Date(), revokedReason: 'REVOKED_BY_USER' },
+    });
+
+    const user = await this.userModel.findById(userId).lean();
+    await this.auditService.record({
+      action: AuditAction.SESSION_REVOKED,
+      resourceType: AuditResource.SESSION,
+      resourceId: userId,
+      organizationId: user?.organizationId ?? null,
+      actorUserId: userId,
+      actorEmail: user?.email || '',
+      description: `Signed out ${result.modifiedCount} other device(s)`,
+    });
+
+    this.logger.info(null, 'Other sessions revoked', {
+      userId,
+      revokedCount: result.modifiedCount,
+    });
+
+    return { revoked: result.modifiedCount };
+  }
+
   async logoutAll(userId: string) {
     const result = await this.sessionModel.updateMany(
       { userId, revokedAt: null },
-      { $set: { revokedAt: new Date() } },
+      { $set: { revokedAt: new Date(), revokedReason: 'LOGOUT' } },
     );
 
     this.logger.info(null, 'All sessions revoked', { userId, revokedCount: result.modifiedCount });

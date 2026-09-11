@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
+  Param,
   Body,
   Req,
   Res,
@@ -217,4 +219,42 @@ export class AuthController {
         'Login successful',
       );
   }
+
+  // --- Where am I signed in -------------------------------------------------
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Every device currently signed in as this user' })
+  async listSessions(@Req() req: any) {
+    const userId = req.user?.userId || req.user?.id;
+    const data = await this.authService.listSessions(userId, req.user?.sid);
+    return ResultEntity.ok(data);
+  }
+
+  @Delete('sessions/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Sign one device out' })
+  async revokeSession(@Req() req: any, @Param('id') id: string) {
+    const userId = req.user?.userId || req.user?.id;
+    const data = await this.authService.revokeSession(userId, id, req.user?.sid);
+    return ResultEntity.ok(data, 'That device has been signed out.');
+  }
+
+  @Post('sessions/revoke-others')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Sign out every device except this one' })
+  async revokeOtherSessions(@Req() req: any) {
+    const userId = req.user?.userId || req.user?.id;
+    const data = await this.authService.revokeOtherSessions(userId, req.user?.sid);
+    return ResultEntity.ok(
+      data,
+      data.revoked === 0
+        ? 'No other devices were signed in.'
+        : `Signed out ${data.revoked} other device${data.revoked === 1 ? '' : 's'}.`,
+    );
+  }
+
 }

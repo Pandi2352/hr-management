@@ -82,4 +82,40 @@ export const authApi = {
     const response = await apiClient.get('/auth/password-policy');
     return response.data.data;
   },
+
+  // --- Where am I signed in -----------------------------------------------
+
+  async listSessions(): Promise<ActiveSession[]> {
+    const response = await apiClient.get('/auth/sessions');
+    return response.data.data as ActiveSession[];
+  },
+
+  async revokeSession(id: string): Promise<{ revoked: number }> {
+    const response = await apiClient.delete(`/auth/sessions/${id}`);
+    return response.data.data;
+  },
+
+  async revokeOtherSessions(): Promise<{ revoked: number }> {
+    const response = await apiClient.post('/auth/sessions/revoke-others');
+    return response.data.data;
+  },
 };
+
+/** One device currently signed in as this user. */
+export interface ActiveSession {
+  /** The session family, stable across token rotation. */
+  id: string;
+  deviceLabel: string;
+  deviceType: 'Desktop' | 'Mobile' | 'Tablet' | 'Unknown';
+  browser: string;
+  os: string;
+  /** Where the connection came from. Never a guessed city. */
+  location: string;
+  ipAddress: string;
+  signedInAt: string | null;
+  lastUsedAt: string | null;
+  expiresAt: string;
+  rememberMe: boolean;
+  /** The device reading this list. It cannot be ended from here. */
+  isCurrent: boolean;
+}

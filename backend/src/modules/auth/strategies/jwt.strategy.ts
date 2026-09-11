@@ -13,6 +13,14 @@ export interface JwtPayload {
   email: string;
   roles: string[];
   organizationId: string | null;
+  /**
+   * The session family this token was issued to.
+   *
+   * Lets a request say which device it came from without the refresh token
+   * being present, which is what the active-sessions list needs to mark the row
+   * you are reading it on. Absent on tokens issued before this existed.
+   */
+  sid?: string;
 }
 
 @Injectable()
@@ -57,6 +65,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       permissions: user.permissions,
       departmentScope: user.departmentScope || [],
       organizationId: user.organizationId,
+      // Passed through so the sessions list can tell this device from the rest.
+      sid: payload.sid,
     };
   }
 }
