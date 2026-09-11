@@ -55,6 +55,11 @@ import { QuizHubPage } from "../features/quiz/pages/QuizHubPage";
 import { QuizPlayPage } from "../features/quiz/pages/QuizPlayPage";
 import { PracticePage } from "../features/quiz/pages/PracticePage";
 import { AttemptReviewPage } from "../features/quiz/pages/AttemptReviewPage";
+import { PerformancePage } from "../features/modules/pages/PerformancePage";
+import { DocumentsPage } from "../features/modules/pages/DocumentsPage";
+import { AssetsPage } from "../features/modules/pages/AssetsPage";
+import { AnalyticsPage } from "../features/modules/pages/AnalyticsPage";
+import { CompliancePage } from "../features/modules/pages/CompliancePage";
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "MANAGER"];
 
@@ -316,6 +321,26 @@ export const router = createBrowserRouter([
             <p className="text-xs text-slate-500 mt-1">Centralized pending requests and workflow approval center.</p>
           </div>
         ),
+      },
+      {
+        path: "performance",
+        element: <PerformancePage />,
+      },
+      {
+        path: "documents",
+        element: <DocumentsPage />,
+      },
+      {
+        path: "assets",
+        element: <AssetsPage />,
+      },
+      {
+        path: "analytics",
+        element: <AnalyticsPage />,
+      },
+      {
+        path: "compliance",
+        element: <CompliancePage />,
       },
       {
         path: "organization",

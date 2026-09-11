@@ -33,6 +33,11 @@ import {
   CaretRight,
   UserCheck,
   TrendUp,
+  Target,
+  Files,
+  Laptop,
+  ChartBar,
+  Scales,
   type IconWeight,
 } from "@phosphor-icons/react";
 import { AtriumGlyph } from "../../../features/atrium/icons/AtriumIcons";
@@ -223,10 +228,16 @@ export function Sidebar({
     { title: "Security Policies", icon: LockKey, href: "/security/settings", tint: "rose" },
     { title: "Audit Trail", icon: ClockCounterClockwise, href: "/audit/logs", tint: "orange" },
     { title: "Login History", icon: SignIn, href: "/audit/login-history", tint: "cyan" },
+    { title: "Compliance Center", icon: Scales, href: "/compliance", tint: "emerald" },
   ];
 
   const operationsItems = [
     { title: "Quiz Arena", icon: QuizArenaGlyph, href: "/quizzes", tint: "amber" },
+    { title: "AI Agents", icon: Robot, href: "/agents", tint: "fuchsia" },
+    { title: "Performance & OKRs", icon: Target, href: "/performance", tint: "indigo" },
+    { title: "Analytics & Reports", icon: ChartBar, href: "/analytics", tint: "teal" },
+    { title: "Document Vault", icon: Files, href: "/documents", tint: "sky" },
+    { title: "Company Assets", icon: Laptop, href: "/assets", tint: "emerald" },
     { title: "Atrium", icon: AtriumGlyph, href: "/atrium", tint: "fuchsia" },
     { title: "Contacts", icon: AddressBook, href: "/contacts", tint: "sky" },
     { title: "Onboarding", icon: UserPlus, href: "/lifecycle/onboarding", tint: "violet" },
@@ -245,6 +256,8 @@ export function Sidebar({
     { title: "My Attendance", icon: ClockUser, href: "/attendance", tint: "teal" },
     { title: "My Leaves", icon: AirplaneTilt, href: "/leave", tint: "amber" },
     { title: "Holidays", icon: SunHorizon, href: "/holidays", tint: "orange" },
+    { title: "Performance & OKRs", icon: Target, href: "/performance", tint: "violet" },
+    { title: "Document Vault", icon: Files, href: "/documents", tint: "sky" },
     { title: "My Employee File", icon: IdentificationCard, href: "/my-employee", tint: "violet" },
     { title: "My Profile", icon: UserList, href: "/profile", tint: "blue" },
   ];

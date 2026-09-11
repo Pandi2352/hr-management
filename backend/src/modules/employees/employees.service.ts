@@ -288,7 +288,7 @@ export class EmployeesService {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const [total, statusRows, departmentRows, typeRows, newJoiners] = await Promise.all([
+    const [total, statusRows, departmentRows, typeRows, newJoiners, monthlyHiresRows] = await Promise.all([
       this.empModel.countDocuments(baseFilter),
       this.empModel.aggregate([
         { $match: baseFilter },
@@ -308,6 +308,16 @@ export class EmployeesService {
         ...baseFilter,
         joiningDate: { $gte: startOfMonth.toISOString().slice(0, 10) },
       }),
+      this.empModel.aggregate([
+        { $match: { ...baseFilter, joiningDate: { $exists: true, $ne: null } } },
+        {
+          $group: {
+            _id: { $substr: ['$joiningDate', 0, 7] },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
     ]);
 
     const departments = await this.deptModel
@@ -327,6 +337,9 @@ export class EmployeesService {
       departmentCount: departments.length,
       byStatus: toRecord(statusRows),
       byEmploymentType: toRecord(typeRows),
+      monthlyHires: monthlyHiresRows
+        .filter((r) => r._id && /^\d{4}-\d{2}$/.test(r._id))
+        .map((r) => ({ month: r._id, count: r.count })),
       byDepartment: departmentRows.map((row) => ({
         departmentId: row._id || null,
         name: row._id ? deptMap.get(String(row._id))?.name || 'Unknown' : 'Unassigned',

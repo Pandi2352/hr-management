@@ -13,6 +13,7 @@ export interface EmployeeStats {
   departmentCount: number;
   byStatus: Record<string, number>;
   byEmploymentType: Record<string, number>;
+  monthlyHires?: { month: string; count: number }[];
   byDepartment: DepartmentHeadcount[];
 }
 
