@@ -8,6 +8,8 @@ import { EmployeeGamification, EmployeeGamificationDocument } from './schemas/ga
 import { Employee, EmployeeDocument } from '../employees/schemas/employee.schema';
 import { AiService } from '../ai/ai.service';
 import { CreateQuizDto, GenerateAiQuizDto, AssignQuizDto, SubmitQuizAttemptDto } from './dto/quiz.dto';
+import { reconcileCategory } from './quiz-category.util';
+import { ASSIGNABLE_STATUSES, QUIZ_STATUSES, type QuizStatus } from './schemas/quiz.schema';
 
 interface AiGeneratedQuizJson {
   title: string;
@@ -36,14 +38,68 @@ export class QuizService {
   ) {}
 
   /** Create a new quiz manually */
+
+  /**
+   * Categories actually in use, most-used first.
+   *
+   * Derived from the quizzes themselves rather than a separate collection, so
+   * the list needs no maintenance: a category appears when a quiz uses it and
+   * disappears when the last one is gone.
+   */
+  async listCategories(orgId: string): Promise<{ name: string; quizCount: number }[]> {
+    const rows = await this.quizModel.aggregate([
+      { $match: { organizationId: orgId, category: { $nin: [null, ''] } } },
+      { $group: { _id: '$category', quizCount: { $sum: 1 } } },
+      { $sort: { quizCount: -1, _id: 1 } },
+      { $limit: 100 },
+    ]);
+    return rows.map((r: { _id: string; quizCount: number }) => ({
+      name: r._id,
+      quizCount: r.quizCount,
+    }));
+  }
+
+  /**
+   * Settles on the category a quiz should carry.
+   *
+   * An empty proposal means the caller wants the agent to decide, which is the
+   * normal path now that the studio no longer asks for one up front. Whatever
+   * arrives is matched against the categories already in use, so a generated
+   * "information security" joins the existing "Information Security" instead of
+   * founding a second one beside it.
+   */
+  private async resolveCategory(orgId: string, proposed?: string): Promise<string> {
+    const existing = (await this.listCategories(orgId)).map((c) => c.name);
+    return reconcileCategory(proposed || 'General', existing);
+  }
+
   async createQuiz(orgId: string, userId: string, userName: string, dto: CreateQuizDto): Promise<Quiz> {
+    const category = await this.resolveCategory(orgId, dto.category);
     const quiz = new this.quizModel({
       ...dto,
+      // After the spread: the resolved name wins over whatever the client sent.
+      category,
+      // Normalised here rather than trusted from the client. A question with no
+      // points made every score NaN, because grading summed an undefined.
+      questions: (dto.questions || []).map((q) => ({
+        ...q,
+        points: Number(q.points) > 0 ? Number(q.points) : 10,
+        tags: Array.isArray((q as any).tags) ? (q as any).tags : [],
+        isApproved: false,
+      })),
       organizationId: orgId,
       createdBy: userId,
       createdByName: userName,
       isAiGenerated: false,
-      status: 'PUBLISHED',
+      /*
+       * Draft, not published.
+       *
+       * This used to publish directly, which walked straight past the review
+       * gate the rest of this module enforces — a quiz could be assigned to the
+       * whole company without anyone having read it. Creation produces a draft;
+       * a person approves it.
+       */
+      status: 'DRAFT',
     });
     return quiz.save();
   }
@@ -67,14 +123,24 @@ export class QuizService {
   }> {
     const questionCount = dto.questionCount || 5;
     const difficulty = dto.difficulty || 'INTERMEDIATE';
-    const category = dto.category || 'General';
+
+    /*
+     * The category is the model's call unless the caller insisted on one. It
+     * is shown the categories already in use so it reuses an existing name
+     * where the topic fits, which is what stops the list fragmenting into
+     * near-duplicates one quiz at a time.
+     */
+    const existingCategories = (await this.listCategories(orgId)).map((c) => c.name);
+    const categoryHint = existingCategories.length
+      ? `Existing categories in this organization: ${existingCategories.join(', ')}. Reuse one of these exactly if the topic fits; only invent a new one if none is a reasonable home.`
+      : 'No categories exist yet. Choose a short, reusable one (two or three words).';
 
     const systemPrompt = `You are the PeopleOS Quiz Master Agent. You generate engaging, professional training and assessment quizzes for employees in an enterprise organization.
 Respond ONLY with valid, raw JSON matching this schema:
 {
   "title": "Short catchy title",
   "description": "Engaging description of this quiz",
-  "category": "${category}",
+  "category": "Short reusable category name",
   "questions": [
     {
       "prompt": "Clear question text?",
@@ -87,7 +153,8 @@ Respond ONLY with valid, raw JSON matching this schema:
 }
 Each question must have exactly 4 options. Options must be distinct, realistic, and educational. Do not include markdown code fences or conversational text.`;
 
-    const userPrompt = `Generate a ${difficulty.toLowerCase()}-level quiz with exactly ${questionCount} questions on the topic: "${dto.topic}". Category: "${category}".`;
+    const userPrompt = `Generate a ${difficulty.toLowerCase()}-level quiz with exactly ${questionCount} questions on the topic: "${dto.topic}".
+${dto.category ? `The caller has chosen the category "${dto.category}"; use it exactly.` : categoryHint}`;
 
     try {
       const generated = await this.aiService.generateJson<AiGeneratedQuizJson>(
@@ -97,6 +164,10 @@ Each question must have exactly 4 options. Options must be distinct, realistic, 
       );
 
       if (generated?.questions && Array.isArray(generated.questions) && generated.questions.length > 0) {
+        const category = reconcileCategory(
+          dto.category || generated.category || 'General',
+          existingCategories,
+        );
         return {
           title: generated.title || `${dto.topic} Assessment`,
           description: generated.description || `Assessment on ${dto.topic}`,
@@ -119,11 +190,11 @@ Each question must have exactly 4 options. Options must be distinct, realistic, 
       this.logger.warn(`AI Quiz Generation failed, providing fallback template: ${msg}`);
     }
 
-    // Fallback template if LLM is offline or unconfigured
+    // Fallback template if the model is offline or unconfigured
     return {
       title: `${dto.topic} Knowledge Check`,
       description: `Training quiz on ${dto.topic}`,
-      category,
+      category: reconcileCategory(dto.category || 'General', existingCategories),
       difficulty,
       timeLimitMinutes: questionCount * 2,
       passingScorePct: 70,
@@ -156,9 +227,12 @@ Each question must have exactly 4 options. Options must be distinct, realistic, 
     focusAreas: string[];
     refinedPrompt: string;
   }> {
-    const category = dto.category || 'Compliance & Safety';
     const difficulty = dto.difficulty || 'INTERMEDIATE';
     const questionCount = dto.questionCount || 5;
+
+    // Same rule as generation: the agent proposes, the existing list decides
+    // the spelling.
+    const existingCategories = (await this.listCategories(orgId)).map((c) => c.name);
 
     const systemPrompt = `You are the PeopleOS Quiz Master Agent. Your task is to enhance an enterprise training quiz topic into a comprehensive assessment blueprint and refined generation prompt.
 Respond ONLY with valid, raw JSON matching this schema:
@@ -166,22 +240,27 @@ Respond ONLY with valid, raw JSON matching this schema:
   "suggestedTitle": "Professional and engaging quiz title",
   "learningObjectives": ["Clear objective 1", "Clear objective 2", "Clear objective 3"],
   "focusAreas": ["Key area 1", "Key area 2", "Key area 3"],
+  "category": "Short reusable category name",
   "refinedPrompt": "A detailed, professional prompt instructing an assessment AI on exactly how to evaluate employees on this topic with practical scenario-based questions."
 }
 Do not include markdown code fences or conversational text.`;
 
+    const categoryHint = existingCategories.length
+      ? `Existing categories: ${existingCategories.join(', ')}. Reuse one exactly if the topic fits.`
+      : 'No categories exist yet; choose a short, reusable one.';
+
     const userPrompt = `Enhance this quiz topic for enterprise employees:
 Topic: "${dto.topic}"
-Target Category: "${category}"
 Difficulty: "${difficulty}"
-Number of questions: ${questionCount}`;
+Number of questions: ${questionCount}
+${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
 
     try {
       const result = await this.aiService.generateJson<any>(userPrompt, systemPrompt, { organizationId: orgId });
       if (result && result.suggestedTitle && result.refinedPrompt) {
         return {
           suggestedTitle: result.suggestedTitle,
-          category,
+          category: reconcileCategory(dto.category || result.category || 'General', existingCategories),
           difficulty,
           questionCount,
           learningObjectives: Array.isArray(result.learningObjectives) ? result.learningObjectives : [
@@ -201,7 +280,7 @@ Number of questions: ${questionCount}`;
 
     return {
       suggestedTitle: `${dto.topic} Professional Assessment`,
-      category,
+      category: reconcileCategory(dto.category || 'General', existingCategories),
       difficulty,
       questionCount,
       learningObjectives: [
@@ -218,6 +297,153 @@ Number of questions: ${questionCount}`;
     };
   }
 
+
+  /**
+   * Edits a quiz that is not yet published.
+   *
+   * Published is the line, not approved: once people have been assigned a quiz
+   * and started sitting it, changing the questions underneath them would make
+   * their stored answers refer to questions they were never asked. Editing a
+   * published quiz means archiving it and publishing a new one.
+   */
+  async updateQuiz(orgId: string, quizId: string, dto: Record<string, any>): Promise<Quiz> {
+    const quiz = await this.quizModel.findOne({ _id: quizId, organizationId: orgId });
+    if (!quiz) throw new NotFoundException('Quiz not found.');
+
+    if (quiz.status === 'PUBLISHED' || quiz.status === 'ARCHIVED') {
+      throw new BadRequestException(
+        `A ${quiz.status.toLowerCase()} quiz cannot be edited. Duplicate it instead, so attempts already recorded still match the questions that were asked.`,
+      );
+    }
+
+    const scalar = [
+      'title', 'description', 'difficulty', 'timeLimitMinutes',
+      'passingScorePct', 'xpReward', 'shuffleOptions', 'shuffleQuestions',
+    ];
+    for (const field of scalar) {
+      if (dto[field] !== undefined) (quiz as any)[field] = dto[field];
+    }
+
+    if (dto.category !== undefined) {
+      quiz.category = await this.resolveCategory(orgId, dto.category);
+    }
+
+    if (Array.isArray(dto.tags)) {
+      quiz.tags = [...new Set(dto.tags.map((t: string) => String(t).trim().toLowerCase()).filter(Boolean))].slice(0, 12);
+    }
+
+    if (dto.attemptPolicy) {
+      quiz.attemptPolicy = { ...quiz.attemptPolicy, ...dto.attemptPolicy } as typeof quiz.attemptPolicy;
+    }
+
+    if (Array.isArray(dto.questions)) {
+      if (dto.questions.length === 0) {
+        throw new BadRequestException('A quiz needs at least one question.');
+      }
+      quiz.questions = dto.questions.map((q: any) => ({
+        prompt: String(q.prompt || '').trim(),
+        options: (q.options || []).map((o: any) => String(o).trim()),
+        correctOptionIndex: Number(q.correctOptionIndex) || 0,
+        explanation: String(q.explanation || '').trim(),
+        points: Number(q.points) || 10,
+        tags: Array.isArray(q.tags) ? q.tags.map((t: any) => String(t)) : [],
+        section: String(q.section || ''),
+        sourceEvidence: String(q.sourceEvidence || ''),
+        isApproved: Boolean(q.isApproved),
+      })) as typeof quiz.questions;
+      quiz.markModified('questions');
+    }
+
+    await quiz.save();
+    return quiz.toObject();
+  }
+
+  /**
+   * Moves a quiz through its lifecycle.
+   *
+   * The allowed moves are listed rather than inferred, because the interesting
+   * part is what is *not* allowed: nothing reaches PUBLISHED without passing
+   * through APPROVED, so a generated quiz cannot be put in front of employees
+   * without a person having accepted it.
+   */
+  async transition(
+    orgId: string,
+    quizId: string,
+    target: QuizStatus,
+    actor: { userId?: string; id?: string; firstName?: string; lastName?: string } | undefined,
+    note?: string,
+  ): Promise<Quiz> {
+    if (!QUIZ_STATUSES.includes(target)) {
+      throw new BadRequestException(`Unknown quiz status "${target}".`);
+    }
+
+    const quiz = await this.quizModel.findOne({ _id: quizId, organizationId: orgId });
+    if (!quiz) throw new NotFoundException('Quiz not found.');
+
+    const allowed: Record<QuizStatus, QuizStatus[]> = {
+      DRAFT: ['IN_REVIEW', 'ARCHIVED'],
+      IN_REVIEW: ['APPROVED', 'DRAFT', 'ARCHIVED'],
+      APPROVED: ['PUBLISHED', 'DRAFT', 'ARCHIVED'],
+      PUBLISHED: ['ARCHIVED'],
+      ARCHIVED: ['DRAFT'],
+    };
+
+    if (!allowed[quiz.status]?.includes(target)) {
+      throw new BadRequestException(
+        `A ${quiz.status.toLowerCase()} quiz cannot move to ${target.toLowerCase()}.`,
+      );
+    }
+
+    if (target === 'APPROVED' || target === 'IN_REVIEW') {
+      // Approving a quiz with no questions, or with a key pointing at nothing,
+      // would publish a broken assessment. Cheaper to refuse here.
+      if (quiz.questions.length === 0) {
+        throw new BadRequestException('A quiz needs at least one question before review.');
+      }
+      const broken = quiz.questions.findIndex(
+        (q) => q.correctOptionIndex < 0 || q.correctOptionIndex >= (q.options?.length || 0),
+      );
+      if (broken !== -1) {
+        throw new BadRequestException(
+          `Question ${broken + 1} has an answer key that does not point at one of its options.`,
+        );
+      }
+    }
+
+    quiz.status = target;
+    quiz.reviewNote = note || '';
+
+    if (target === 'APPROVED') {
+      quiz.approvedBy = actor?.userId || actor?.id || '';
+      quiz.approvedByName = [actor?.firstName, actor?.lastName].filter(Boolean).join(' ');
+      quiz.approvedAt = new Date();
+      // Approving accepts every question in it; that is what approval means.
+      quiz.questions.forEach((q) => {
+        q.isApproved = true;
+      });
+      quiz.markModified('questions');
+    }
+
+    if (target === 'DRAFT') {
+      quiz.approvedBy = '';
+      quiz.approvedByName = '';
+      quiz.approvedAt = null;
+    }
+
+    await quiz.save();
+    this.logger.log(`Quiz ${quizId} moved to ${target}`);
+    return quiz.toObject();
+  }
+
+  /** Whether a quiz may be assigned to real employees yet. */
+  private assertAssignable(status: QuizStatus): void {
+    if (!ASSIGNABLE_STATUSES.includes(status)) {
+      throw new BadRequestException(
+        `This quiz is ${status.toLowerCase()}. Only an approved or published quiz can be assigned.`,
+      );
+    }
+  }
+
   /** Assign a quiz to specific employees or ALL active employees in the organization */
   async assignQuiz(
     orgId: string,
@@ -227,6 +453,11 @@ Number of questions: ${questionCount}`;
   ): Promise<{ assignedCount: number; isAllEmployees: boolean }> {
     const quiz = await this.quizModel.findOne({ _id: quizId, organizationId: orgId });
     if (!quiz) throw new NotFoundException('Quiz not found.');
+
+    // The review gate. A generated quiz can be confidently wrong, and an
+    // unreviewed answer key does not just fail one person — it teaches the
+    // whole company the wrong thing and then records them as having learned it.
+    this.assertAssignable(quiz.status);
 
     let targetEmployeeIds: string[] = [];
 
@@ -337,9 +568,29 @@ Number of questions: ${questionCount}`;
   }
 
   /** Get quiz details for playing (strips correct answers to prevent inspecting) */
-  async getQuizForPlay(orgId: string, quizId: string): Promise<any> {
+  /**
+   * The quiz as the person sitting it sees it.
+   *
+   * Answers are stripped rather than hidden, and the order is shuffled here on
+   * the server. Shuffling in the client would be decoration: the original order
+   * would still be in the payload, and two people sitting together would still
+   * be able to compare "the answer is C".
+   *
+   * `optionOrder` travels back with the submission so the server can map a
+   * chosen position onto the original option. Without it, a shuffled quiz would
+   * grade every answer against the wrong key.
+   */
+  async getQuizForPlay(orgId: string, quizId: string, employeeId?: string): Promise<any> {
     const quiz = await this.quizModel.findOne({ _id: quizId, organizationId: orgId }).lean();
     if (!quiz) throw new NotFoundException('Quiz not found.');
+
+    if (employeeId) {
+      await this.assertAttemptAllowed(orgId, quiz, employeeId);
+    }
+
+    const questionOrder = quiz.shuffleQuestions
+      ? this.shuffled(quiz.questions.map((_, i) => i))
+      : quiz.questions.map((_, i) => i);
 
     return {
       _id: quiz._id,
@@ -347,17 +598,83 @@ Number of questions: ${questionCount}`;
       description: quiz.description,
       category: quiz.category,
       difficulty: quiz.difficulty,
+      locale: quiz.locale,
       timeLimitMinutes: quiz.timeLimitMinutes,
       passingScorePct: quiz.passingScorePct,
       xpReward: quiz.xpReward,
-      questions: quiz.questions.map((q, idx) => ({
-        index: idx,
-        id: q.id,
-        prompt: q.prompt,
-        options: q.options,
-        points: q.points,
-      })),
+      attemptPolicy: quiz.attemptPolicy,
+      questions: questionOrder.map((originalIndex) => {
+        const q = quiz.questions[originalIndex];
+        const optionOrder = quiz.shuffleOptions
+          ? this.shuffled(q.options.map((_, i) => i))
+          : q.options.map((_, i) => i);
+
+        return {
+          index: originalIndex,
+          id: q.id,
+          prompt: q.prompt,
+          // Options in their shuffled order, with the mapping the grader needs.
+          options: optionOrder.map((i) => q.options[i]),
+          optionOrder,
+          points: q.points,
+        };
+      }),
     };
+  }
+
+  /** Fisher-Yates on a copy, so the caller's array is untouched. */
+  private shuffled<T>(items: T[]): T[] {
+    const out = [...items];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
+  /**
+   * Enforces the attempt policy before someone is handed the questions.
+   *
+   * Checked on the way in rather than only on submit: letting a person sit a
+   * quiz they are not allowed to submit wastes their time and reads as a bug.
+   */
+  private async assertAttemptAllowed(
+    orgId: string,
+    quiz: { _id: string; attemptPolicy?: { maxAttempts?: number; cooldownHours?: number; mustPass?: boolean }; passingScorePct: number },
+    employeeId: string,
+  ): Promise<void> {
+    const policy = quiz.attemptPolicy || {};
+    const maxAttempts = policy.maxAttempts ?? 1;
+
+    const attempts = await this.attemptModel
+      .find({ organizationId: orgId, quizId: quiz._id, employeeId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // A passed attempt closes the quiz regardless of how many are allowed:
+    // re-sitting something you have already passed only risks the record.
+    if (attempts.some((a: any) => a.passed)) {
+      throw new BadRequestException('You have already passed this quiz.');
+    }
+
+    // 0 means unlimited, which is what an onboarding check wants.
+    if (maxAttempts > 0 && attempts.length >= maxAttempts) {
+      throw new BadRequestException(
+        `You have used all ${maxAttempts} attempt${maxAttempts === 1 ? '' : 's'} for this quiz.`,
+      );
+    }
+
+    const cooldownHours = policy.cooldownHours ?? 0;
+    if (cooldownHours > 0 && attempts.length > 0) {
+      const last = new Date((attempts[0] as any).createdAt || 0).getTime();
+      const readyAt = last + cooldownHours * 3600 * 1000;
+      if (Date.now() < readyAt) {
+        const hoursLeft = Math.ceil((readyAt - Date.now()) / 3600000);
+        throw new BadRequestException(
+          `You can retry this quiz in ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}.`,
+        );
+      }
+    }
   }
 
   /** Submit and grade a quiz attempt, award XP, update leaderboard & badges */
@@ -370,15 +687,35 @@ Number of questions: ${questionCount}`;
     const quiz = await this.quizModel.findOne({ _id: quizId, organizationId: orgId });
     if (!quiz) throw new NotFoundException('Quiz not found.');
 
+    // Re-checked here because the play endpoint's check guards the UI, not the
+    // API: a submission can be posted without ever loading the questions.
+    await this.assertAttemptAllowed(orgId, quiz as any, employeeId);
+
     let totalScore = 0;
     let maxScore = 0;
     const gradedAnswers = quiz.questions.map((q, idx) => {
       const submitted = dto.answers.find((a) => a.questionIndex === idx);
-      const selected = submitted ? submitted.selectedOptionIndex : -1;
+
+      /*
+       * The client answers by position in the list it was shown, which is not
+       * the original order once options are shuffled. `optionOrder` is the
+       * mapping the play endpoint handed out, so position 2 becomes whichever
+       * original option was displayed there. Grading without this step marks
+       * nearly every answer on a shuffled quiz wrong.
+       */
+      const shown = submitted?.selectedOptionIndex ?? -1;
+      const order = submitted?.optionOrder;
+      const selected =
+        order && shown >= 0 && shown < order.length ? order[shown] : shown;
+
+      // Coerced because a question saved before points had a default would
+      // otherwise turn the whole attempt's score into NaN, and Mongoose then
+      // rejects the attempt with a cast error the person cannot act on.
+      const points = Number(q.points) > 0 ? Number(q.points) : 10;
       const isCorrect = selected === q.correctOptionIndex;
-      const pointsAwarded = isCorrect ? q.points : 0;
+      const pointsAwarded = isCorrect ? points : 0;
       totalScore += pointsAwarded;
-      maxScore += q.points;
+      maxScore += points;
 
       return {
         questionIndex: idx,
@@ -386,7 +723,9 @@ Number of questions: ${questionCount}`;
         correctOptionIndex: q.correctOptionIndex,
         isCorrect,
         pointsAwarded,
+        // Returned so the review screen can show why a wrong answer was wrong.
         explanation: q.explanation,
+        sourceEvidence: q.sourceEvidence || '',
       };
     });
 

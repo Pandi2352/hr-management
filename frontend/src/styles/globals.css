@@ -181,6 +181,14 @@ textarea:focus-visible {
   background: #475569;
 }
 
+/* The sheen that crosses an AI action button while a request is in flight.
+   Defined here rather than inline so the keyframes exist once for every use. */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* ==========================================================================
    Content Scrollbar — the main outlet area
    ==========================================================================

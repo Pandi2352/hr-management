@@ -1,33 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
+  ClipboardCheck,
   Trophy,
   Sparkles,
-  ArrowRight,
+  BrainCircuit,
+  Target,
+  BookOpen,
+  ListOrdered,
   ArrowLeft,
-  CheckCircle2,
   Check,
   Send,
   Loader2,
-  BrainCircuit,
-  Users,
-  UserCheck,
-  Calendar,
-  Search,
   RotateCcw,
-  Target,
-  ListOrdered,
-  BookOpen,
 } from 'lucide-react';
+import { PageHeader } from '../../../components/common/PageHeader';
 import { Button, Input } from '../../../components/ui';
+import { AiActionButton } from '../../../components/ui/AiActionButton';
+import { QuestionEditor } from '../../quiz/components/QuestionEditor';
+import { SelectField } from '../../../components/ui/SelectField';
 import { FormField } from '../../../components/ui/FormField';
 import { useToast } from '../../../components/ui/toast';
+import { cn } from '../../../utils/cn';
 import { quizApi } from '../../quiz/api/quiz.api';
-import { employeesApi } from '../../employees/api/employees.api';
-import type { Employee } from '../../employees/types/employees.types';
-import type { QuizQuestion } from '../../quiz/types/quiz.types';
+import type {
+  QuizQuestion,
+  QuizTemplate,
+  QuizLocaleOption,
+} from '../../quiz/types/quiz.types';
 
 type AgentStep = 'input' | 'enhanced' | 'generated' | 'success';
+
+/**
+ * The four steps, as data.
+ *
+ * The stepper used to be four near-identical blocks of markup, which is why
+ * three of them drifted into slightly different classes. One array, one
+ * renderer: a step cannot look different from its neighbours by accident.
+ */
+const STEPS: { key: AgentStep; label: string }[] = [
+  { key: 'input', label: 'Objective & parameters' },
+  { key: 'enhanced', label: 'AI enhanced prompt' },
+  { key: 'generated', label: 'Review & edit' },
+  { key: 'success', label: 'Saved as draft' },
+];
+
+const DIFFICULTY_OPTIONS = [
+  { value: 'BEGINNER', label: 'Beginner', sublabel: 'Foundational recall' },
+  { value: 'INTERMEDIATE', label: 'Intermediate', sublabel: 'Operational judgement' },
+  { value: 'ADVANCED', label: 'Advanced', sublabel: 'Scenario-heavy' },
+];
+
+/** The server rejects anything outside this range, so the input matches it. */
+const MIN_QUESTIONS = 3;
+const MAX_QUESTIONS = 15;
+
+/** The window an employee gets. Short enough to stay a check, long enough to read. */
+const MIN_MINUTES = 1;
+const MAX_MINUTES = 180;
+
+/** The value that means "let the agent choose the category". */
+const AUTO_CATEGORY = '';
 
 interface EnhancedPromptData {
   suggestedTitle: string;
@@ -39,6 +72,48 @@ interface EnhancedPromptData {
   refinedPrompt: string;
 }
 
+/** One template option. Its purpose is the label, not a tooltip. */
+function TemplateChip({
+  label,
+  hint,
+  active,
+  onClick,
+}: {
+  label: string;
+  hint: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'max-w-[230px] cursor-pointer rounded-md border px-3 py-2 text-left transition-colors',
+        active
+          ? 'border-primary bg-primary-light'
+          : 'border-hairline bg-surface hover:bg-surface-2',
+      )}
+    >
+      <span className={cn('block text-[12px] font-semibold', active ? 'text-primary' : 'text-ink')}>
+        {label}
+      </span>
+      <span className="block truncate text-[10.5px] text-ink-3">{hint}</span>
+    </button>
+  );
+}
+
+/** One number in the generated-quiz header. */
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-2 text-center">
+      <div className="text-[10px] font-bold uppercase text-ink-3">{label}</div>
+      <div className="mt-0.5 text-xs font-bold text-ink">{value}</div>
+    </div>
+  );
+}
+
 export const QuizAgentPage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
@@ -47,9 +122,16 @@ export const QuizAgentPage: React.FC = () => {
 
   // Step 1 Inputs
   const [topic, setTopic] = useState('');
-  const [category, setCategory] = useState('Compliance & Safety');
+  const [category, setCategory] = useState(AUTO_CATEGORY);
+  const [locale, setLocale] = useState('en');
+  const [templateId, setTemplateId] = useState('');
+  const [templates, setTemplates] = useState<QuizTemplate[]>([]);
+  const [pendingReview, setPendingReview] = useState(0);
+  const [locales, setLocales] = useState<QuizLocaleOption[]>([]);
+  const [categories, setCategories] = useState<{ name: string; quizCount: number }[]>([]);
   const [difficulty, setDifficulty] = useState<'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'>('INTERMEDIATE');
   const [questionCount, setQuestionCount] = useState(5);
+  const [durationMinutes, setDurationMinutes] = useState(10);
   const [isEnhancing, setIsEnhancing] = useState(false);
 
   // Step 2 Enhanced Data
@@ -69,21 +151,33 @@ export const QuizAgentPage: React.FC = () => {
     questions: QuizQuestion[];
   } | null>(null);
 
-  const [assignAll, setAssignAll] = useState(true);
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
-  const [dueDate, setDueDate] = useState('');
-  const [employeeSearch, setEmployeeSearch] = useState('');
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [sentForReview, setSentForReview] = useState(false);
 
-  // Step 4 Success Data
-  const [assignedCount, setAssignedCount] = useState(0);
 
   useEffect(() => {
-    employeesApi
-      .getEmployees({ pageSize: 150 })
-      .then((res) => setEmployees(res.data || []))
+    // Offering what already exists is what keeps the category list from
+    // fragmenting; the server reconciles whatever comes back regardless.
+    quizApi
+      .categories()
+      .then(setCategories)
+      .catch(() => {
+        // The picker falls back to "let the agent choose", which still works.
+      });
+
+    // Templates and languages are static server-side, so a failure here just
+    // means the defaults: no template, English.
+    // How many quizzes are waiting on somebody. Shown on the review button so
+    // a draft written yesterday is not forgotten today.
+    quizApi
+      .listQuizzes()
+      .then((list) =>
+        setPendingReview(list.filter((q) => q.status === 'DRAFT' || q.status === 'IN_REVIEW').length),
+      )
       .catch(() => {});
+
+    quizApi.templates().then(setTemplates).catch(() => {});
+    quizApi.locales().then(setLocales).catch(() => {});
   }, []);
 
   // Handler: Enhance prompt with AI
@@ -138,51 +232,57 @@ export const QuizAgentPage: React.FC = () => {
   };
 
   // Handler: Publish & Assign
-  const handlePublishAndAssign = async () => {
+  /**
+   * Saves the reviewed quiz, and optionally sends it for review.
+   *
+   * The studio stops here. Assignment used to live at the end of this flow,
+   * which meant a generated quiz could reach the whole company in the same
+   * breath as it was written. It now happens in the arena, against a quiz
+   * somebody has approved.
+   */
+  const handleSaveDraft = async (sendForReview: boolean) => {
     if (!generatedQuiz) return;
 
-    if (!assignAll && selectedEmployeeIds.length === 0) {
-      toast.warning('Please select at least one employee or choose "Assign to All Employees".');
+    const broken = generatedQuiz.questions.findIndex(
+      (q) =>
+        !q.prompt.trim() ||
+        q.options.some((o) => !o.trim()) ||
+        (q.correctOptionIndex ?? 0) >= q.options.length,
+    );
+    if (broken !== -1) {
+      toast.error(`Question ${broken + 1} is incomplete. Fill every option and mark the right one.`);
       return;
     }
 
     try {
       setIsPublishing(true);
-
-      // 1. Create Quiz
-      const created = await quizApi.createQuiz({
+      const saved = await quizApi.createQuiz({
         title: generatedQuiz.title,
         description: generatedQuiz.description,
         category: generatedQuiz.category,
-        difficulty: generatedQuiz.difficulty as any,
-        timeLimitMinutes: generatedQuiz.timeLimitMinutes,
+        difficulty: generatedQuiz.difficulty as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED',
+        // The author's duration, not the generator's guess.
+        timeLimitMinutes: durationMinutes,
         passingScorePct: generatedQuiz.passingScorePct,
         xpReward: generatedQuiz.xpReward,
         questions: generatedQuiz.questions.map((q) => ({
           prompt: q.prompt,
           options: q.options,
-          correctOptionIndex: typeof q.correctOptionIndex === 'number' ? q.correctOptionIndex : 0,
-          explanation: q.explanation || '',
-          points: q.points || 10,
+          correctOptionIndex: q.correctOptionIndex ?? 0,
+          explanation: q.explanation,
+          points: q.points,
         })),
       });
 
-      // 2. Assign to employees
-      const assignRes = await quizApi.assignQuiz(created._id, {
-        assignAll,
-        employeeIds: assignAll ? undefined : selectedEmployeeIds,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
-      });
+      if (sendForReview) {
+        await quizApi.submitForReview(saved._id);
+      }
 
-      setAssignedCount(assignRes.assignedCount);
+      setSentForReview(sendForReview);
       setStep('success');
-      toast.success(
-        assignAll
-          ? `Quiz published & assigned company-wide (${assignRes.assignedCount} employees)!`
-          : `Quiz published & assigned to ${assignRes.assignedCount} employees!`
-      );
+      toast.success(sendForReview ? 'Saved and sent for review.' : 'Saved as a draft.');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to publish and assign quiz.');
+      toast.error(err?.response?.data?.message || 'Could not save this quiz.');
     } finally {
       setIsPublishing(false);
     }
@@ -190,122 +290,113 @@ export const QuizAgentPage: React.FC = () => {
 
   const handleReset = () => {
     setStep('input');
+    setSentForReview(false);
     setTopic('');
     setEnhancedData(null);
     setGeneratedQuiz(null);
-    setSelectedEmployeeIds([]);
-    setDueDate('');
   };
 
-  const toggleEmployee = (empId: string) => {
-    setSelectedEmployeeIds((prev) =>
-      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
-    );
-  };
 
-  const filteredEmployees = employees.filter((emp) => {
-    const name = `${emp.firstName || ''} ${emp.lastName || ''} ${emp.workEmail || ''}`.toLowerCase();
-    return name.includes(employeeSearch.toLowerCase());
-  });
+  // "Let the agent choose" first, then whatever the organization already uses.
+  const categoryOptions = [
+    { value: AUTO_CATEGORY, label: 'Let the agent choose', sublabel: 'Recommended' },
+    ...categories.map((c) => ({
+      value: c.name,
+      label: c.name,
+      sublabel: c.quizCount === 1 ? '1 quiz' : `${c.quizCount} quizzes`,
+    })),
+  ];
 
   return (
-    <div className="max-w-5xl mx-auto pb-16 space-y-6">
-      {/* Top Header & Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline pb-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-            <Link to="/agents" className="hover:text-foreground transition-colors">
-              AI Agents
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-foreground">Quiz Master Agent</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-amber-500/20 bg-amber-500/10 text-amber-500">
-              <Trophy className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-foreground">Quiz Master Studio</h1>
-                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  AGENT-QZ-01 ACTIVE
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                AI-driven syllabus enhancement, dynamic challenge generation, and company-wide assignment
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Enter Quiz Arena Shortcut Button */}
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => navigate('/quizzes')}
-            variant="outline"
-            className="gap-2 rounded-md text-xs font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+    <div className="w-full space-y-5">
+      {/* The shared page header, rather than a hand-rolled one. The old block
+          reimplemented the title, subtitle and action row with its own spacing,
+          which is why it sat at a different rhythm from every other page. */}
+      <PageHeader
+        title="Quiz Master Studio"
+        description="Turn a topic into a graded quiz, then assign it to people or whole departments."
+        leading={
+          <Link
+            to="/agents"
+            title="Back to the Agents Hub"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
           >
-            <Trophy className="h-4 w-4 text-amber-500" />
-            <span>Enter Quiz Arena</span>
-          </Button>
-        </div>
-      </div>
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              AGENT-QZ-01
+            </span>
+            <Button
+              onClick={() => navigate('/quizzes?tab=management&filter=review')}
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              <span>
+                Review queue
+                {pendingReview > 0 && (
+                  <span className="ml-1.5 rounded-md bg-amber-100 px-1 py-px text-[10px] font-bold text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+                    {pendingReview}
+                  </span>
+                )}
+              </span>
+            </Button>
 
-      {/* Progress Stepper */}
-      <div className="grid grid-cols-4 gap-2 bg-surface border border-hairline rounded-md p-2">
-        <div
-          className={`flex items-center gap-2 p-2 rounded-md transition-colors ${
-            step === 'input'
-              ? 'bg-brand-500/10 border border-brand-500/30 text-brand-600 dark:text-brand-400 font-bold'
-              : 'text-muted-foreground'
-          }`}
-        >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface text-[10px] font-bold border border-hairline">
-            1
-          </span>
-          <span className="text-xs">Objective & Parameters</span>
-        </div>
+            <Button onClick={() => navigate('/quizzes')} variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Trophy className="h-3.5 w-3.5 text-amber-500" />
+              <span>Enter Quiz Arena</span>
+            </Button>
+          </div>
+        }
+      />
 
-        <div
-          className={`flex items-center gap-2 p-2 rounded-md transition-colors ${
-            step === 'enhanced'
-              ? 'bg-brand-500/10 border border-brand-500/30 text-brand-600 dark:text-brand-400 font-bold'
-              : 'text-muted-foreground'
-          }`}
-        >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface text-[10px] font-bold border border-hairline">
-            2
-          </span>
-          <span className="text-xs">AI Enhanced Prompt</span>
-        </div>
+      {/* Progress stepper — a completed step is marked done, not merely
+          un-highlighted, so it is obvious how far along the flow you are. */}
+      <nav aria-label="Progress" className="rounded-md border border-hairline bg-surface p-1.5">
+        <ol className="grid grid-cols-2 gap-1 md:grid-cols-4">
+          {STEPS.map((s2, index) => {
+            const currentIndex = STEPS.findIndex((x) => x.key === step);
+            const isCurrent = index === currentIndex;
+            const isDone = index < currentIndex;
 
-        <div
-          className={`flex items-center gap-2 p-2 rounded-md transition-colors ${
-            step === 'generated'
-              ? 'bg-brand-500/10 border border-brand-500/30 text-brand-600 dark:text-brand-400 font-bold'
-              : 'text-muted-foreground'
-          }`}
-        >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface text-[10px] font-bold border border-hairline">
-            3
-          </span>
-          <span className="text-xs">Generated & Assign</span>
-        </div>
-
-        <div
-          className={`flex items-center gap-2 p-2 rounded-md transition-colors ${
-            step === 'success'
-              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 font-bold'
-              : 'text-muted-foreground'
-          }`}
-        >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface text-[10px] font-bold border border-hairline">
-            4
-          </span>
-          <span className="text-xs">Distribution Live</span>
-        </div>
-      </div>
+            return (
+              <li
+                key={s2.key}
+                aria-current={isCurrent ? 'step' : undefined}
+                className={cn(
+                  'flex items-center gap-2 rounded-md px-2.5 py-2 transition-colors',
+                  isCurrent && 'bg-primary-light',
+                  !isCurrent && !isDone && 'opacity-70',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+                    isCurrent && 'bg-primary text-white',
+                    isDone && 'bg-emerald-500 text-white',
+                    !isCurrent && !isDone && 'border border-hairline bg-surface-2 text-ink-3',
+                  )}
+                >
+                  {isDone ? <Check className="h-3 w-3" /> : index + 1}
+                </span>
+                <span
+                  className={cn(
+                    'truncate text-[11.5px]',
+                    isCurrent ? 'font-semibold text-primary' : 'text-ink-3',
+                  )}
+                >
+                  {s2.label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
 
       {/* ========================================================================= */}
       {/* STEP 1: INITIAL TOPIC & PARAMETERS */}
@@ -313,11 +404,11 @@ export const QuizAgentPage: React.FC = () => {
       {step === 'input' && (
         <div className="bg-surface border border-hairline rounded-md p-6 space-y-6">
           <div>
-            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-brand-500" />
+            <h2 className="text-sm font-bold text-ink flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
               Specify Training Topic or Skill Focus
             </h2>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-ink-3 mt-1">
               Provide your initial topic or rough notes. The Quiz Master Agent will first enhance and
               structure it into a comprehensive assessment blueprint before generating questions.
             </p>
@@ -329,48 +420,112 @@ export const QuizAgentPage: React.FC = () => {
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="e.g. Workplace Cybersecurity & Phishing Awareness, Customer Escalation Playbook, Data Privacy Laws"
-                className="rounded-md text-xs"
+                className="text-xs"
               />
             </FormField>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField label="Category">
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-xs text-foreground focus:border-brand-500 focus:outline-none"
-                >
-                  <option value="Compliance & Safety">Compliance & Safety</option>
-                  <option value="Information Security">Information Security</option>
-                  <option value="Product & Technology">Product & Technology</option>
-                  <option value="Leadership & Culture">Leadership & Culture</option>
-                  <option value="Customer Experience">Customer Experience</option>
-                </select>
-              </FormField>
+            {/* Templates carry the settings that differ by purpose: a
+                certification needs one attempt and a high bar, an onboarding
+                check needs neither. Picking one fills those in. */}
+            {templates.length > 0 && (
+              <div>
+                <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-3">
+                  Start from a template
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <TemplateChip
+                    label="Blank"
+                    hint="Set everything yourself"
+                    active={!templateId}
+                    onClick={() => setTemplateId('')}
+                  />
+                  {templates.map((t) => (
+                    <TemplateChip
+                      key={t.id}
+                      label={t.name}
+                      hint={t.purpose}
+                      active={templateId === t.id}
+                      onClick={() => {
+                        setTemplateId(t.id);
+                        setCategory(t.category);
+                        setDifficulty(t.difficulty);
+                        setQuestionCount(t.questionCount);
+                        setDurationMinutes(t.timeLimitMinutes);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
-              <FormField label="Difficulty Level">
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value as any)}
-                  className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-xs text-foreground focus:border-brand-500 focus:outline-none"
-                >
-                  <option value="BEGINNER">Beginner (Foundational)</option>
-                  <option value="INTERMEDIATE">Intermediate (Operational)</option>
-                  <option value="ADVANCED">Advanced (Scenario-heavy)</option>
-                </select>
-              </FormField>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+              <SelectField
+                label="Category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                options={categoryOptions}
+                helperText={
+                  category
+                    ? 'Fixed to this category.'
+                    : 'The agent picks one, reusing an existing category where it fits.'
+                }
+              />
 
-              <FormField label="Question Count">
-                <select
+              <SelectField
+                label="Difficulty level"
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}
+                options={DIFFICULTY_OPTIONS}
+              />
+
+              <SelectField
+                label="Language"
+                value={locale}
+                onChange={(e) => setLocale(e.target.value)}
+                options={
+                  locales.length
+                    ? locales.map((l) => ({ value: l.code, label: l.label }))
+                    : [{ value: 'en', label: 'English' }]
+                }
+                helperText="Questions, options and explanations are written in this language."
+              />
+
+              <FormField
+                label="Question count"
+                helperText={`Between ${MIN_QUESTIONS} and ${MAX_QUESTIONS}.`}
+              >
+                <Input
+                  type="number"
+                  min={MIN_QUESTIONS}
+                  max={MAX_QUESTIONS}
                   value={questionCount}
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
-                  className="w-full rounded-md border border-hairline bg-surface px-3 py-2 text-xs text-foreground focus:border-brand-500 focus:outline-none"
-                >
-                  <option value={3}>3 Questions (Quick Check)</option>
-                  <option value={5}>5 Questions (Recommended)</option>
-                  <option value={8}>8 Questions (Standard)</option>
-                  <option value={10}>10 Questions (Comprehensive)</option>
-                </select>
+                  // Clamped on blur rather than on every keystroke, so typing
+                  // "12" does not fight the user at "1".
+                  onBlur={() =>
+                    setQuestionCount((n) =>
+                      Number.isFinite(n) ? Math.min(MAX_QUESTIONS, Math.max(MIN_QUESTIONS, n)) : 5,
+                    )
+                  }
+                />
+              </FormField>
+
+              <FormField
+                label="Duration (minutes)"
+                helperText={`The clock the employee sees. Auto-submits at zero.`}
+              >
+                <Input
+                  type="number"
+                  min={MIN_MINUTES}
+                  max={MAX_MINUTES}
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                  onBlur={() =>
+                    setDurationMinutes((n) =>
+                      Number.isFinite(n) ? Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, n)) : 10,
+                    )
+                  }
+                />
               </FormField>
             </div>
           </div>
@@ -380,24 +535,19 @@ export const QuizAgentPage: React.FC = () => {
               onClick={() => navigate('/agents')}
               variant="outline"
               size="sm"
-              className="rounded-md text-xs"
+              className="text-xs"
             >
               Back to Agents Hub
             </Button>
 
-            <Button
+            <AiActionButton
               onClick={handleEnhancePrompt}
-              disabled={isEnhancing || !topic.trim()}
-              size="sm"
-              className="gap-2 rounded-md text-xs px-5 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
-            >
-              {isEnhancing ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5" />
-              )}
-              <span>{isEnhancing ? 'Enhancing Prompt with AI...' : 'Enhance Prompt with AI'}</span>
-            </Button>
+              disabled={!topic.trim()}
+              isLoading={isEnhancing}
+              label="Build the blueprint"
+              loadingLabel="Reading your topic…"
+              hint="Turns your topic into objectives and a prompt"
+            />
           </div>
         </div>
       )}
@@ -410,23 +560,23 @@ export const QuizAgentPage: React.FC = () => {
           <div className="bg-surface border border-hairline rounded-md p-6 space-y-5">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 text-[11px] font-bold mb-1.5">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary-light text-primary dark:text-primary border border-primary/20 text-[11px] font-bold mb-1.5">
                   <BrainCircuit className="w-3.5 h-3.5" />
                   AI Assessment Blueprint Ready
                 </div>
-                <h2 className="text-base font-bold text-foreground">
+                <h2 className="text-base font-bold text-ink">
                   {enhancedData.suggestedTitle}
                 </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-ink-3 mt-0.5">
                   The Quiz Master Agent has structured your objective into measurable learning goals.
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[10.5px] px-2 py-0.5 rounded-md bg-surface-hover border border-hairline font-semibold">
+                <span className="text-[10.5px] px-2 py-0.5 rounded-md bg-surface-2 border border-hairline font-semibold">
                   {enhancedData.difficulty}
                 </span>
-                <span className="text-[10.5px] px-2 py-0.5 rounded-md bg-surface-hover border border-hairline font-semibold">
+                <span className="text-[10.5px] px-2 py-0.5 rounded-md bg-surface-2 border border-hairline font-semibold">
                   {enhancedData.questionCount} Questions
                 </span>
               </div>
@@ -434,12 +584,12 @@ export const QuizAgentPage: React.FC = () => {
 
             {/* Learning Objectives Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div className="rounded-md border border-hairline bg-surface-hover/30 p-4 space-y-2">
-                <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-brand-500" />
+              <div className="rounded-md border border-hairline bg-surface-2/30 p-4 space-y-2">
+                <h3 className="text-xs font-bold text-ink flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-primary" />
                   Target Learning Objectives
                 </h3>
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
+                <ul className="space-y-1.5 text-xs text-ink-3">
                   {enhancedData.learningObjectives.map((obj, i) => (
                     <li key={i} className="flex items-start gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
@@ -449,15 +599,15 @@ export const QuizAgentPage: React.FC = () => {
                 </ul>
               </div>
 
-              <div className="rounded-md border border-hairline bg-surface-hover/30 p-4 space-y-2">
-                <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-brand-500" />
+              <div className="rounded-md border border-hairline bg-surface-2/30 p-4 space-y-2">
+                <h3 className="text-xs font-bold text-ink flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-primary" />
                   Core Focus & Evaluation Areas
                 </h3>
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
+                <ul className="space-y-1.5 text-xs text-ink-3">
                   {enhancedData.focusAreas.map((area, i) => (
                     <li key={i} className="flex items-start gap-2">
-                      <ListOrdered className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
+                      <ListOrdered className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                       <span>{area}</span>
                     </li>
                   ))}
@@ -467,9 +617,9 @@ export const QuizAgentPage: React.FC = () => {
 
             {/* Refined Detailed Prompt */}
             <div className="space-y-2 pt-2">
-              <label className="text-xs font-bold text-foreground flex items-center justify-between">
+              <label className="text-xs font-bold text-ink flex items-center justify-between">
                 <span>Refined AI Generation Prompt</span>
-                <span className="text-[10.5px] text-muted-foreground font-normal">
+                <span className="text-[10.5px] text-ink-3 font-normal">
                   Editable if you wish to add specific requirements
                 </span>
               </label>
@@ -477,7 +627,7 @@ export const QuizAgentPage: React.FC = () => {
                 value={editableRefinedPrompt}
                 onChange={(e) => setEditableRefinedPrompt(e.target.value)}
                 rows={3}
-                className="w-full rounded-md border border-hairline bg-surface p-3 text-xs text-foreground font-mono leading-relaxed focus:border-brand-500 focus:outline-none"
+                className="w-full rounded-md border border-hairline bg-surface p-3 text-xs text-ink font-mono leading-relaxed focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -487,25 +637,20 @@ export const QuizAgentPage: React.FC = () => {
                 onClick={() => setStep('input')}
                 variant="outline"
                 size="sm"
-                className="gap-1.5 rounded-md text-xs"
+                className="gap-1.5 text-xs"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Adjust Parameters</span>
               </Button>
 
-              <Button
+              <AiActionButton
                 onClick={handleStartGeneration}
-                disabled={isGenerating}
-                size="sm"
-                className="gap-2 rounded-md text-xs px-5 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
-              >
-                {isGenerating ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5" />
-                )}
-                <span>{isGenerating ? 'Synthesizing Quiz...' : 'Accept & Start AI Generation'}</span>
-              </Button>
+                isLoading={isGenerating}
+                label="Generate the questions"
+                loadingLabel="Writing questions…"
+                hint={`${questionCount} questions with answer explanations`}
+                size="lg"
+              />
             </div>
           </div>
         </div>
@@ -515,286 +660,123 @@ export const QuizAgentPage: React.FC = () => {
       {/* STEP 3: GENERATED QUESTIONS & IMMEDIATE ASSIGNMENT WORKFLOW */}
       {/* ========================================================================= */}
       {step === 'generated' && generatedQuiz && (
-        <div className="space-y-6">
-          {/* Quiz Header & Metrics */}
-          <div className="bg-surface border border-hairline rounded-md p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-brand-600 tracking-wider">
+        <div className="space-y-4">
+          {/* What the agent produced, and what still has to happen to it */}
+          <div className="flex flex-col items-start justify-between gap-4 rounded-md border border-hairline bg-surface p-5 md:flex-row md:items-center">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
                 {generatedQuiz.category} · {generatedQuiz.difficulty}
               </span>
-              <h2 className="text-base font-bold text-foreground mt-0.5">
-                {generatedQuiz.title}
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-                {generatedQuiz.description}
-              </p>
+              <h2 className="mt-0.5 text-base font-bold text-ink">{generatedQuiz.title}</h2>
+              <p className="mt-1 max-w-xl text-xs text-ink-3">{generatedQuiz.description}</p>
             </div>
 
-            <div className="flex items-center gap-3 bg-surface-hover/40 p-2.5 rounded-md border border-hairline">
-              <div className="text-center px-2">
-                <div className="text-[10px] uppercase font-bold text-muted-foreground">Time</div>
-                <div className="text-xs font-bold text-foreground mt-0.5">
-                  {generatedQuiz.timeLimitMinutes} mins
-                </div>
-              </div>
-              <div className="w-px h-6 bg-hairline" />
-              <div className="text-center px-2">
-                <div className="text-[10px] uppercase font-bold text-muted-foreground">Passing</div>
-                <div className="text-xs font-bold text-brand-600 mt-0.5">
-                  {generatedQuiz.passingScorePct}%
-                </div>
-              </div>
-              <div className="w-px h-6 bg-hairline" />
-              <div className="text-center px-2">
-                <div className="text-[10px] uppercase font-bold text-muted-foreground">Reward</div>
-                <div className="text-xs font-bold text-amber-500 mt-0.5">
-                  +{generatedQuiz.xpReward} XP
-                </div>
-              </div>
+            <div className="flex items-center gap-3 rounded-md border border-hairline bg-surface-2 p-2.5">
+              <Metric label="Questions" value={String(generatedQuiz.questions.length)} />
+              <span className="h-6 w-px bg-hairline" />
+              <Metric label="Time" value={`${durationMinutes}m`} />
+              <span className="h-6 w-px bg-hairline" />
+              <Metric label="Pass mark" value={`${generatedQuiz.passingScorePct}%`} />
             </div>
           </div>
 
-          {/* Questions Review */}
+          {/*
+            Review is the point of this step. Nothing here is assignable yet:
+            the studio ends at a draft, and a person approves it in the arena.
+            That gate is why a generated answer key cannot reach an employee
+            without somebody having read it.
+          */}
+          <div className="rounded-md border border-hairline bg-surface-2 px-4 py-3 text-[11.5px] leading-relaxed text-ink-2">
+            Read every question before saving. The agent is confident even when it is wrong, and an
+            unreviewed answer key teaches the whole company the wrong thing. Use{' '}
+            <strong className="text-ink">Improve question</strong> on anything that reads oddly.
+          </div>
+
           <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Generated Questions Preview ({generatedQuiz.questions.length})
-            </h3>
-
             {generatedQuiz.questions.map((q, idx) => (
-              <div
+              <QuestionEditor
                 key={idx}
-                className="bg-surface border border-hairline rounded-md p-4 space-y-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-xs font-bold text-foreground">
-                    Q{idx + 1}. {q.prompt}
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-surface-hover border border-hairline">
-                    {q.points || 10} pts
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {q.options.map((opt, optIdx) => {
-                    const isCorrect = q.correctOptionIndex === optIdx;
-                    return (
-                      <div
-                        key={optIdx}
-                        className={`flex items-center gap-2 p-2 rounded-md border text-xs ${
-                          isCorrect
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-semibold'
-                            : 'bg-surface-hover/20 border-hairline text-foreground'
-                        }`}
-                      >
-                        <span
-                          className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] shrink-0 ${
-                            isCorrect
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-surface border border-hairline text-muted-foreground'
-                          }`}
-                        >
-                          {String.fromCharCode(65 + optIdx)}
-                        </span>
-                        <span>{opt}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {q.explanation && (
-                  <p className="text-[11px] text-muted-foreground bg-surface-hover/30 p-2 rounded-md border border-hairline">
-                    💡 <strong>Insight:</strong> {q.explanation}
-                  </p>
-                )}
-              </div>
+                question={q}
+                index={idx}
+                locale={locale}
+                difficulty={generatedQuiz.difficulty}
+                category={generatedQuiz.category}
+                canRemove={generatedQuiz.questions.length > 1}
+                onChange={(updated) =>
+                  setGeneratedQuiz({
+                    ...generatedQuiz,
+                    questions: generatedQuiz.questions.map((item, i) => (i === idx ? updated : item)),
+                  })
+                }
+                onRemove={() =>
+                  setGeneratedQuiz({
+                    ...generatedQuiz,
+                    questions: generatedQuiz.questions.filter((_, i) => i !== idx),
+                  })
+                }
+              />
             ))}
           </div>
 
-          {/* Assignment & Distribution Workflow Section */}
-          <div className="bg-surface border border-hairline rounded-md p-6 space-y-4">
-            <div className="flex items-center gap-2.5 pb-2 border-b border-hairline">
-              <div className="p-1.5 rounded-md bg-brand-500/10 text-brand-500">
-                <Users className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-foreground">
-                  Challenge Distribution Workflow
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Choose employee audience and assignment schedule
-                </p>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-hairline bg-surface p-4">
+            <Button variant="outline" size="sm" onClick={() => setStep('enhanced')} className="gap-1.5 text-xs">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to the blueprint
+            </Button>
 
-            {/* Scope Selector: All Employees vs Specific */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div
-                onClick={() => setAssignAll(true)}
-                className={`p-4 rounded-md border cursor-pointer transition-all ${
-                  assignAll
-                    ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30'
-                    : 'border-hairline bg-surface hover:bg-surface-hover'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Users className="w-4 h-4 text-brand-500" />
-                    Assign to All Employees (Company-wide)
-                  </span>
-                  {assignAll && <CheckCircle2 className="w-4 h-4 text-brand-500" />}
-                </div>
-                <p className="text-[11.5px] text-muted-foreground mt-1">
-                  Instantly challenge every active team member across all departments.
-                </p>
-              </div>
-
-              <div
-                onClick={() => setAssignAll(false)}
-                className={`p-4 rounded-md border cursor-pointer transition-all ${
-                  !assignAll
-                    ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30'
-                    : 'border-hairline bg-surface hover:bg-surface-hover'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <UserCheck className="w-4 h-4 text-brand-500" />
-                    Select Specific Employees
-                  </span>
-                  {!assignAll && <CheckCircle2 className="w-4 h-4 text-brand-500" />}
-                </div>
-                <p className="text-[11.5px] text-muted-foreground mt-1">
-                  Handpick targeted individuals or specific team cohorts.
-                </p>
-              </div>
-            </div>
-
-            {/* Specific employee picker if assignAll is false */}
-            {!assignAll && (
-              <div className="space-y-2 border border-hairline rounded-md bg-surface p-3">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-2.5" />
-                  <input
-                    type="text"
-                    value={employeeSearch}
-                    onChange={(e) => setEmployeeSearch(e.target.value)}
-                    placeholder="Search employees by name or email..."
-                    className="w-full bg-surface-hover/50 border border-hairline rounded-md pl-8 pr-3 py-1.5 text-xs text-foreground focus:outline-none"
-                  />
-                </div>
-
-                <div className="max-h-40 overflow-y-auto space-y-1 divide-y divide-hairline">
-                  {filteredEmployees.map((emp) => {
-                    const isSelected = selectedEmployeeIds.includes(emp._id);
-                    return (
-                      <div
-                        key={emp._id}
-                        onClick={() => toggleEmployee(emp._id)}
-                        className="flex items-center justify-between p-2 hover:bg-surface-hover rounded cursor-pointer transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {}}
-                            className="rounded border-hairline text-brand-500 pointer-events-none"
-                          />
-                          <span className="text-xs font-medium text-foreground">
-                            {emp.firstName} {emp.lastName}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground">{emp.workEmail}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Completion Deadline */}
-            <div className="flex items-center gap-3">
-              <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-              <FormField label="Completion Deadline (Optional)" className="flex-1">
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="rounded-md text-xs"
-                />
-              </FormField>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-hairline">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
-                onClick={() => setStep('enhanced')}
                 variant="outline"
                 size="sm"
-                className="gap-1.5 rounded-md text-xs"
+                onClick={() => handleSaveDraft(false)}
+                disabled={isPublishing}
+                className="gap-1.5 text-xs"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
+                {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Save as draft
               </Button>
 
               <Button
-                onClick={handlePublishAndAssign}
-                disabled={isPublishing}
                 size="sm"
-                className="gap-2 rounded-md text-xs px-6 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
+                onClick={() => handleSaveDraft(true)}
+                disabled={isPublishing}
+                className="gap-1.5 text-xs"
               >
-                {isPublishing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Send className="w-3.5 h-3.5" />
-                )}
-                <span>
-                  {isPublishing
-                    ? 'Publishing & Assigning...'
-                    : assignAll
-                    ? 'Publish & Assign to All Employees'
-                    : `Publish & Assign (${selectedEmployeeIds.length} Selected)`}
-                </span>
+                {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                Save and send for review
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* STEP 4: SUCCESS CONFIRMATION & ENTER ARENA */}
-      {/* ========================================================================= */}
       {step === 'success' && (
-        <div className="bg-surface border border-hairline rounded-md p-8 text-center max-w-xl mx-auto space-y-6">
-          <div className="inline-flex p-4 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-500">
-            <CheckCircle2 className="w-10 h-10" />
+        <div className="rounded-md border border-hairline bg-surface p-8 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <Check className="h-6 w-6" />
           </div>
 
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Challenge Live & Assigned!</h2>
-            <p className="text-xs text-muted-foreground mt-2 max-w-md mx-auto">
-              Your AI-generated quiz has been published and successfully assigned to{' '}
-              <strong className="text-foreground">{assignedCount} employees</strong>.
-              Notifications and challenges have been registered in their Quiz Arena workspace.
-            </p>
-          </div>
+          <h2 className="text-base font-bold text-ink">
+            {sentForReview ? 'Sent for review' : 'Saved as a draft'}
+          </h2>
+          <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-ink-3">
+            {sentForReview
+              ? 'A reviewer approves it in the Quiz Arena, and assignment happens there. Nothing reaches an employee until somebody has read it.'
+              : 'It is waiting in the Quiz Arena. Send it for review when you are ready, then approve and assign it there.'}
+          </p>
 
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <Button
-              onClick={() => navigate('/quizzes')}
-              className="gap-2 rounded-md text-xs px-5 bg-amber-500 hover:bg-amber-600 text-white font-bold"
-            >
-              <Trophy className="w-4 h-4" />
-              <span>Enter Quiz Arena</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5 text-xs">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Build another
             </Button>
-
             <Button
-              onClick={handleReset}
-              variant="outline"
-              className="gap-1.5 rounded-md text-xs"
+              size="sm"
+              onClick={() => navigate('/quizzes?tab=management&filter=review')}
+              className="gap-1.5 text-xs"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Create Another Quiz</span>
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              Go for review
             </Button>
           </div>
         </div>

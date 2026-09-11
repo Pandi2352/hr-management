@@ -17,8 +17,8 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
         <div className="w-12 h-12 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center mx-auto mb-3">
           <Trophy className="w-6 h-6" />
         </div>
-        <h3 className="text-sm font-semibold text-foreground">No Leaderboard Data Yet</h3>
-        <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+        <h3 className="text-sm font-semibold text-ink">No Leaderboard Data Yet</h3>
+        <p className="text-xs text-ink-3 mt-1 max-w-sm mx-auto">
           Complete quizzes to earn XP points, gain ranks, and claim your spot on the company podium!
         </p>
       </div>
@@ -40,9 +40,9 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
     if (!entry) {
       return (
         <div
-          className={`flex-1 flex flex-col items-center justify-center p-4 border border-dashed border-hairline rounded-md bg-surface-hover/10 opacity-40 ${heightClass}`}
+          className={`flex-1 flex flex-col items-center justify-center p-4 border border-dashed border-hairline rounded-md bg-surface-2/10 opacity-40 ${heightClass}`}
         >
-          <div className="text-xs text-muted-foreground font-medium">Rank #{place} Open</div>
+          <div className="text-xs text-ink-3 font-medium">Rank #{place} Open</div>
         </div>
       );
     }
@@ -52,7 +52,7 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
     return (
       <div
         className={`flex-1 flex flex-col items-center justify-between p-5 border rounded-md bg-surface transition-all ${
-          isCurrent ? 'ring-2 ring-brand-500 border-brand-500' : borderClass
+          isCurrent ? 'ring-2 ring-primary border-primary' : borderClass
         } ${heightClass}`}
       >
         {/* Top place badge */}
@@ -66,7 +66,7 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
               <Medal className="w-4 h-4" />
             )}
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          <span className="text-xs font-bold uppercase tracking-wider text-ink-3">
             {place === 1 ? '1st Place' : place === 2 ? '2nd Place' : '3rd Place'}
           </span>
         </div>
@@ -81,33 +81,33 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
                 className="w-14 h-14 rounded-full object-cover border-2 border-surface"
               />
             ) : (
-              <div className="w-14 h-14 rounded-full bg-brand-500/15 text-brand-600 font-bold text-lg flex items-center justify-center border-2 border-surface">
+              <div className="w-14 h-14 rounded-full bg-primary-light text-primary font-bold text-lg flex items-center justify-center border-2 border-surface">
                 {entry.displayName?.[0] || 'U'}
               </div>
             )}
-            <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-surface border border-hairline text-[10px] font-bold text-foreground flex items-center gap-0.5">
+            <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-surface border border-hairline text-[10px] font-bold text-ink flex items-center gap-0.5">
               <Zap className="w-2.5 h-2.5 text-amber-500" />
               Lvl {entry.level}
             </div>
           </div>
-          <h4 className="text-sm font-semibold text-foreground line-clamp-1">
+          <h4 className="text-sm font-semibold text-ink line-clamp-1">
             {entry.displayName}
           </h4>
-          <p className="text-[11px] text-muted-foreground line-clamp-1">{entry.departmentName}</p>
+          <p className="text-[11px] text-ink-3 line-clamp-1">{entry.departmentName}</p>
         </div>
 
         {/* XP & Stats */}
         <div className="w-full mt-3 pt-3 border-t border-hairline flex items-center justify-around text-center">
           <div>
-            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Score</div>
+            <div className="text-[10px] uppercase font-semibold text-ink-3">Score</div>
             <div className={`text-sm font-extrabold ${colorClass}`}>
               {entry.totalXp.toLocaleString()} XP
             </div>
           </div>
           <div className="w-px h-6 bg-hairline" />
           <div>
-            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Quizzes</div>
-            <div className="text-xs font-bold text-foreground flex items-center justify-center gap-1">
+            <div className="text-[10px] uppercase font-semibold text-ink-3">Quizzes</div>
+            <div className="text-xs font-bold text-ink flex items-center justify-center gap-1">
               <Target className="w-3 h-3 text-emerald-500" />
               {entry.quizzesCompleted}
             </div>
@@ -116,7 +116,7 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
             <>
               <div className="w-px h-6 bg-hairline" />
               <div>
-                <div className="text-[10px] uppercase font-semibold text-muted-foreground">Streak</div>
+                <div className="text-[10px] uppercase font-semibold text-ink-3">Streak</div>
                 <div className="text-xs font-bold text-orange-500 flex items-center justify-center gap-0.5">
                   <Flame className="w-3 h-3" />
                   {entry.currentStreak}x
@@ -172,19 +172,19 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
 
       {/* Ranks Table (Top 50) */}
       <div className="border border-hairline rounded-md bg-surface overflow-hidden">
-        <div className="px-5 py-3 border-b border-hairline bg-surface-hover/30 flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-hairline bg-surface-2/30 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-amber-500" />
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-ink">
               Overall Rankings
             </h3>
           </div>
-          <span className="text-xs text-muted-foreground">{entries.length} Champions Ranked</span>
+          <span className="text-xs text-ink-3">{entries.length} Champions Ranked</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-hairline bg-surface-hover/20 text-muted-foreground font-semibold">
+            <thead className="border-b border-hairline bg-surface-2/20 text-ink-3 font-semibold">
               <tr>
                 <th className="py-2.5 px-4 w-16 text-center">Rank</th>
                 <th className="py-2.5 px-4">Employee</th>
@@ -204,8 +204,8 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
                     key={entry.id}
                     className={`transition-colors ${
                       isCurrent
-                        ? 'bg-brand-500/10 font-medium'
-                        : 'hover:bg-surface-hover/40'
+                        ? 'bg-primary-light font-medium'
+                        : 'hover:bg-surface-2/40'
                     }`}
                   >
                     <td className="py-3 px-4 text-center font-bold">
@@ -222,7 +222,7 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
                           3
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">#{entry.rank}</span>
+                        <span className="text-ink-3">#{entry.rank}</span>
                       )}
                     </td>
                     <td className="py-3 px-4">
@@ -234,17 +234,17 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
                             className="w-7 h-7 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-7 h-7 rounded-full bg-brand-500/15 text-brand-600 font-bold text-xs flex items-center justify-center">
+                          <div className="w-7 h-7 rounded-full bg-primary-light text-primary font-bold text-xs flex items-center justify-center">
                             {entry.displayName?.[0] || 'U'}
                           </div>
                         )}
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-foreground">
+                            <span className="font-semibold text-ink">
                               {entry.displayName}
                             </span>
                             {isCurrent && (
-                              <span className="px-1.5 py-0.2 text-[9px] font-bold bg-brand-500 text-white rounded-md">
+                              <span className="px-1.5 py-0.2 text-[9px] font-bold bg-primary text-white rounded-md">
                                 YOU
                               </span>
                             )}
@@ -252,14 +252,14 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-muted-foreground">{entry.departmentName}</td>
+                    <td className="py-3 px-4 text-ink-3">{entry.departmentName}</td>
                     <td className="py-3 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover border border-hairline font-semibold text-foreground">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-2 border border-hairline font-semibold text-ink">
                         <Zap className="w-3 h-3 text-amber-500" />
                         Lvl {entry.level}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center font-medium text-foreground">
+                    <td className="py-3 px-4 text-center font-medium text-ink">
                       {entry.quizzesCompleted}
                     </td>
                     <td className="py-3 px-4 text-center">
@@ -268,12 +268,12 @@ export const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                        <Award className="w-3.5 h-3.5 text-brand-500" />
+                      <span className="inline-flex items-center gap-1 text-ink-3">
+                        <Award className="w-3.5 h-3.5 text-primary" />
                         {entry.badges?.length || 0}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right font-extrabold text-brand-600 dark:text-brand-400">
+                    <td className="py-3 px-4 text-right font-extrabold text-primary dark:text-primary">
                       {entry.totalXp.toLocaleString()} XP
                     </td>
                   </tr>

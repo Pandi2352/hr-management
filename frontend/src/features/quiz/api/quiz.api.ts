@@ -8,12 +8,126 @@ import type {
   CreateQuizPayload,
   GenerateAiQuizPayload,
   AssignQuizPayload,
+  UpdateQuizPayload,
+  QuizTemplate,
+  QuizLocaleOption,
+  QuestionDiagnosis,
+  BankQuestion,
 } from '../types/quiz.types';
 
 export const quizApi = {
   listQuizzes: async (category?: string): Promise<Quiz[]> => {
     const res = await apiClient.get('/quizzes', { params: category ? { category } : {} });
     return res.data.data as Quiz[];
+  },
+
+  /** Categories already in use, so the studio can offer them instead of inventing. */
+  categories: async (): Promise<{ name: string; quizCount: number }[]> => {
+    const res = await apiClient.get('/quizzes/categories');
+    return res.data.data as { name: string; quizCount: number }[];
+  },
+
+  /** The five starting points, with the settings that differ by purpose. */
+  templates: async (): Promise<QuizTemplate[]> => {
+    const res = await apiClient.get('/quizzes/templates');
+    return res.data.data as QuizTemplate[];
+  },
+
+  locales: async (): Promise<QuizLocaleOption[]> => {
+    const res = await apiClient.get('/quizzes/locales');
+    return res.data.data as QuizLocaleOption[];
+  },
+
+  // --- Authoring -----------------------------------------------------------
+
+  updateQuiz: async (quizId: string, payload: UpdateQuizPayload): Promise<Quiz> => {
+    const res = await apiClient.patch(`/quizzes/${quizId}`, payload);
+    return res.data.data as Quiz;
+  },
+
+  /** Reviews one question as posted, so it works on an unsaved draft. */
+  diagnoseQuestion: async (payload: {
+    prompt: string;
+    options: string[];
+    correctOptionIndex: number;
+    explanation?: string;
+    difficulty?: string;
+    locale?: string;
+    sourceText?: string;
+  }): Promise<QuestionDiagnosis> => {
+    const res = await apiClient.post('/quizzes/question-doctor', payload);
+    return res.data.data as QuestionDiagnosis;
+  },
+
+  regenerateQuestion: async (
+    quizId: string,
+    index: number,
+    instruction?: string,
+  ): Promise<Quiz> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/questions/${index}/regenerate`, {
+      instruction,
+    });
+    return res.data.data as Quiz;
+  },
+
+  // --- Review before publish ----------------------------------------------
+
+  submitForReview: async (quizId: string): Promise<Quiz> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/submit-for-review`);
+    return res.data.data as Quiz;
+  },
+
+  approveQuiz: async (quizId: string, note?: string): Promise<Quiz> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/approve`, { note });
+    return res.data.data as Quiz;
+  },
+
+  rejectQuiz: async (quizId: string, note?: string): Promise<Quiz> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/reject`, { note });
+    return res.data.data as Quiz;
+  },
+
+  publishQuiz: async (quizId: string): Promise<Quiz> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/publish`);
+    return res.data.data as Quiz;
+  },
+
+  // --- Question bank -------------------------------------------------------
+
+  listBank: async (filters: {
+    category?: string;
+    difficulty?: string;
+    tag?: string;
+    search?: string;
+  } = {}): Promise<BankQuestion[]> => {
+    const res = await apiClient.get('/quizzes/bank', { params: filters });
+    return res.data.data as BankQuestion[];
+  },
+
+  addToBank: async (payload: {
+    prompt: string;
+    options: string[];
+    correctOptionIndex: number;
+    explanation?: string;
+    points?: number;
+    category?: string;
+    difficulty?: string;
+    tags?: string[];
+    locale?: string;
+    sourceEvidence?: string;
+    sourceQuizId?: string;
+  }): Promise<BankQuestion> => {
+    const res = await apiClient.post('/quizzes/bank', payload);
+    return res.data.data as BankQuestion;
+  },
+
+  removeFromBank: async (id: string): Promise<void> => {
+    await apiClient.delete(`/quizzes/bank/${id}`);
+  },
+
+  pullFromBank: async (quizId: string, bankIds: string[]): Promise<Quiz> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/pull-from-bank`, { bankIds });
+    return res.data.data as Quiz;
   },
 
   createQuiz: async (payload: CreateQuizPayload): Promise<Quiz> => {

@@ -1,3 +1,82 @@
+/** A quiz's life from generated to assignable. */
+export type QuizStatus = 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
+
+/** Only these may be put in front of employees. */
+export const ASSIGNABLE_STATUSES: QuizStatus[] = ['APPROVED', 'PUBLISHED'];
+
+export const QUIZ_STATUS_LABELS: Record<QuizStatus, string> = {
+  DRAFT: 'Draft',
+  IN_REVIEW: 'In review',
+  APPROVED: 'Approved',
+  PUBLISHED: 'Published',
+  ARCHIVED: 'Archived',
+};
+
+export interface AttemptPolicy {
+  /** 0 means unlimited. */
+  maxAttempts: number;
+  scoring: 'BEST' | 'LATEST';
+  mustPass: boolean;
+  cooldownHours: number;
+}
+
+export interface QuizSection {
+  name: string;
+  questionCount: number;
+  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+}
+
+export interface QuizTemplate {
+  id: string;
+  name: string;
+  purpose: string;
+  category: string;
+  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  questionCount: number;
+  timeLimitMinutes: number;
+  passingScorePct: number;
+  xpReward: number;
+  tags: string[];
+  attemptPolicy: AttemptPolicy;
+  shuffleOptions: boolean;
+  shuffleQuestions: boolean;
+  sections: QuizSection[];
+  promptGuidance: string;
+}
+
+export interface QuizLocaleOption {
+  code: string;
+  label: string;
+}
+
+/** What the Question Doctor reports back about one question. */
+export interface QuestionDiagnosis {
+  clarityScore: number;
+  estimatedDifficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  ambiguityWarning: string;
+  answerKeyExplanation: string;
+  betterDistractors: string[];
+  suggestedRewrite: string;
+  sourceEvidence: string;
+  issues: string[];
+}
+
+export interface BankQuestion {
+  _id: string;
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+  explanation: string;
+  points: number;
+  category: string;
+  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  tags: string[];
+  locale: string;
+  sourceEvidence: string;
+  usageCount: number;
+  createdByName: string;
+}
+
 export interface QuizQuestion {
   id?: string;
   prompt: string;
@@ -5,6 +84,10 @@ export interface QuizQuestion {
   correctOptionIndex?: number;
   explanation?: string;
   points: number;
+  tags?: string[];
+  section?: string;
+  sourceEvidence?: string;
+  isApproved?: boolean;
 }
 
 export interface Quiz {
@@ -21,7 +104,17 @@ export interface Quiz {
   createdBy?: string;
   createdByName?: string;
   isAiGenerated?: boolean;
-  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  status: QuizStatus;
+  tags?: string[];
+  locale?: string;
+  templateId?: string;
+  sections?: QuizSection[];
+  attemptPolicy?: AttemptPolicy;
+  shuffleOptions?: boolean;
+  shuffleQuestions?: boolean;
+  approvedByName?: string;
+  approvedAt?: string;
+  reviewNote?: string;
   totalAssigned?: number;
   completedCount?: number;
   completionRate?: number;
@@ -47,6 +140,13 @@ export interface QuizAssignmentItem {
   passingScorePct: number;
 }
 
+export interface SubmittedAnswer {
+  questionIndex: number;
+  selectedOptionIndex: number;
+  /** The shuffle mapping handed out by the play endpoint. */
+  optionOrder?: number[];
+}
+
 export interface GradedAnswer {
   questionIndex: number;
   selectedOptionIndex: number;
@@ -54,6 +154,7 @@ export interface GradedAnswer {
   isCorrect: boolean;
   pointsAwarded: number;
   explanation?: string;
+  sourceEvidence?: string;
 }
 
 export interface QuizSubmissionResult {
@@ -117,6 +218,24 @@ export interface GenerateAiQuizPayload {
   category?: string;
   difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
   questionCount?: number;
+  locale?: string;
+  templateId?: string;
+}
+
+/** Edits to a quiz that is not yet published. */
+export interface UpdateQuizPayload {
+  title?: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  timeLimitMinutes?: number;
+  passingScorePct?: number;
+  xpReward?: number;
+  shuffleOptions?: boolean;
+  shuffleQuestions?: boolean;
+  attemptPolicy?: Partial<AttemptPolicy>;
+  questions?: QuizQuestion[];
 }
 
 export interface AssignQuizPayload {

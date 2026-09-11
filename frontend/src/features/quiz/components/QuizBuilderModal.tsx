@@ -13,6 +13,7 @@ import {
   Send,
 } from 'lucide-react';
 import { Button, Input } from '../../../components/ui';
+import { SelectField } from '../../../components/ui/SelectField';
 import { FormField } from '../../../components/ui/FormField';
 import { useToast } from '../../../components/ui/toast';
 import { quizApi } from '../api/quiz.api';
@@ -331,49 +332,46 @@ export function QuizBuilderModal({
                     value={aiTopic}
                     onChange={(e) => setAiTopic(e.target.value)}
                     placeholder="e.g. Workplace Cybersecurity, Anti-Bribery Compliance, Customer Escalation Handling"
-                    className="rounded-md text-xs"
+                    className="text-xs"
                   />
                 </FormField>
 
                 <div className="grid grid-cols-3 gap-3">
-                  <FormField label="Category">
-                    <select
+                  <SelectField
+                      label="Category"
                       value={aiCategory}
                       onChange={(e) => setAiCategory(e.target.value)}
-                      className="w-full rounded-md border border-hairline bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
-                    >
-                      <option value="Compliance & Safety">Compliance & Safety</option>
-                      <option value="Information Security">Information Security</option>
-                      <option value="Product & Technology">Product & Technology</option>
-                      <option value="Leadership & Culture">Leadership & Culture</option>
-                      <option value="Customer Experience">Customer Experience</option>
-                    </select>
-                  </FormField>
+                      options={[
+                        { value: 'Compliance & Safety', label: 'Compliance & Safety' },
+                        { value: 'Information Security', label: 'Information Security' },
+                        { value: 'Product & Technology', label: 'Product & Technology' },
+                        { value: 'Leadership & Culture', label: 'Leadership & Culture' },
+                        { value: 'Customer Experience', label: 'Customer Experience' },
+                      ]}
+                    />
 
-                  <FormField label="Difficulty">
-                    <select
+                  <SelectField
+                      label="Difficulty"
                       value={aiDifficulty}
                       onChange={(e) => setAiDifficulty(e.target.value as any)}
-                      className="w-full rounded-md border border-hairline bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
-                    >
-                      <option value="BEGINNER">Beginner</option>
-                      <option value="INTERMEDIATE">Intermediate</option>
-                      <option value="ADVANCED">Advanced</option>
-                    </select>
-                  </FormField>
+                      options={[
+                        { value: 'BEGINNER', label: 'Beginner' },
+                        { value: 'INTERMEDIATE', label: 'Intermediate' },
+                        { value: 'ADVANCED', label: 'Advanced' },
+                      ]}
+                    />
 
-                  <FormField label="Questions Count">
-                    <select
-                      value={aiCount}
+                  <SelectField
+                      label="Questions Count"
+                      value={String(aiCount)}
                       onChange={(e) => setAiCount(Number(e.target.value))}
-                      className="w-full rounded-md border border-hairline bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
-                    >
-                      <option value={3}>3 Questions</option>
-                      <option value={5}>5 Questions (Fast)</option>
-                      <option value={8}>8 Questions</option>
-                      <option value={10}>10 Questions</option>
-                    </select>
-                  </FormField>
+                      options={[
+                        { value: '3', label: '3 Questions' },
+                        { value: '5', label: '5 Questions (Fast)' },
+                        { value: '8', label: '8 Questions' },
+                        { value: '10', label: '10 Questions' },
+                      ]}
+                    />
                 </div>
 
                 <div className="flex justify-end pt-1">
@@ -381,7 +379,7 @@ export function QuizBuilderModal({
                     size="sm"
                     onClick={handleGenerateAi}
                     disabled={isGenerating}
-                    className="gap-1.5 rounded-md text-xs"
+                    className="gap-1.5 text-xs"
                   >
                     {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                     <span>{isGenerating ? 'Synthesizing Questions...' : 'Run Quiz Master Agent'}</span>
@@ -403,19 +401,18 @@ export function QuizBuilderModal({
                 />
               </FormField>
 
-              <FormField label="Category">
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-md border border-hairline bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
-                >
-                  <option value="Compliance & Safety">Compliance & Safety</option>
-                  <option value="Information Security">Information Security</option>
-                  <option value="Product & Technology">Product & Technology</option>
-                  <option value="Leadership & Culture">Leadership & Culture</option>
-                  <option value="Customer Experience">Customer Experience</option>
-                </select>
-              </FormField>
+              <SelectField
+                      label="Category"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      options={[
+                        { value: 'Compliance & Safety', label: 'Compliance & Safety' },
+                        { value: 'Information Security', label: 'Information Security' },
+                        { value: 'Product & Technology', label: 'Product & Technology' },
+                        { value: 'Leadership & Culture', label: 'Leadership & Culture' },
+                        { value: 'Customer Experience', label: 'Customer Experience' },
+                      ]}
+                    />
             </div>
 
             <FormField label="Description">
@@ -423,22 +420,21 @@ export function QuizBuilderModal({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Short briefing for employees taking this quiz..."
-                className="rounded-md text-xs"
+                className="text-xs"
               />
             </FormField>
 
             <div className="grid grid-cols-4 gap-3">
-              <FormField label="Difficulty">
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value as any)}
-                  className="w-full rounded-md border border-hairline bg-surface px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
-                >
-                  <option value="BEGINNER">Beginner</option>
-                  <option value="INTERMEDIATE">Intermediate</option>
-                  <option value="ADVANCED">Advanced</option>
-                </select>
-              </FormField>
+              <SelectField
+                      label="Difficulty"
+                      value={difficulty}
+                      onChange={(e) => setDifficulty(e.target.value as any)}
+                      options={[
+                        { value: 'BEGINNER', label: 'Beginner' },
+                        { value: 'INTERMEDIATE', label: 'Intermediate' },
+                        { value: 'ADVANCED', label: 'Advanced' },
+                      ]}
+                    />
 
               <FormField label="Time Limit (mins)">
                 <Input
@@ -447,7 +443,7 @@ export function QuizBuilderModal({
                   max={120}
                   value={timeLimitMinutes}
                   onChange={(e) => setTimeLimitMinutes(Number(e.target.value))}
-                  className="rounded-md text-xs"
+                  className="text-xs"
                 />
               </FormField>
 
@@ -458,7 +454,7 @@ export function QuizBuilderModal({
                   max={100}
                   value={passingScorePct}
                   onChange={(e) => setPassingScorePct(Number(e.target.value))}
-                  className="rounded-md text-xs"
+                  className="text-xs"
                 />
               </FormField>
 
@@ -513,7 +509,7 @@ export function QuizBuilderModal({
                       value={q.prompt}
                       onChange={(e) => updateQuestionPrompt(qIdx, e.target.value)}
                       placeholder="e.g. Which of the following best describes multi-factor authentication?"
-                      className="rounded-md text-xs"
+                      className="text-xs"
                     />
                   </FormField>
 
@@ -584,30 +580,30 @@ export function QuizBuilderModal({
                     type="checkbox"
                     checked={assignImmediately}
                     onChange={(e) => setAssignImmediately(e.target.checked)}
-                    className="rounded border-hairline text-brand-500 focus:ring-brand-400"
+                    className="rounded border-hairline text-primary focus:ring-primary"
                   />
                   <span>Assign Immediately</span>
                 </label>
               </div>
 
               {assignImmediately && (
-                <div className="p-4 rounded-md border border-hairline bg-surface-hover/30 space-y-3.5">
+                <div className="p-4 rounded-md border border-hairline bg-surface-2/30 space-y-3.5">
                   {/* Scope Selector: All Employees vs Specific */}
                   <div className="grid grid-cols-2 gap-3">
                     <div
                       onClick={() => setAssignAll(true)}
                       className={`p-3 rounded-md border cursor-pointer transition-all ${
                         assignAll
-                          ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30'
-                          : 'border-hairline bg-surface hover:bg-surface-hover'
+                          ? 'border-primary bg-primary-light ring-1 ring-primary/30'
+                          : 'border-hairline bg-surface hover:bg-surface-2'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-ink flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-brand-500" />
+                          <Users className="w-3.5 h-3.5 text-primary" />
                           Assign to All Employees
                         </span>
-                        {assignAll && <CheckCircle2 className="w-4 h-4 text-brand-500" />}
+                        {assignAll && <CheckCircle2 className="w-4 h-4 text-primary" />}
                       </div>
                       <p className="text-[11px] text-ink-3 mt-1">
                         Company-wide challenge. Recommended for team-wide skills & compliance.
@@ -618,16 +614,16 @@ export function QuizBuilderModal({
                       onClick={() => setAssignAll(false)}
                       className={`p-3 rounded-md border cursor-pointer transition-all ${
                         !assignAll
-                          ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30'
-                          : 'border-hairline bg-surface hover:bg-surface-hover'
+                          ? 'border-primary bg-primary-light ring-1 ring-primary/30'
+                          : 'border-hairline bg-surface hover:bg-surface-2'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-ink flex items-center gap-1.5">
-                          <UserCheck className="w-3.5 h-3.5 text-brand-500" />
+                          <UserCheck className="w-3.5 h-3.5 text-primary" />
                           Select Specific Employees
                         </span>
-                        {!assignAll && <CheckCircle2 className="w-4 h-4 text-brand-500" />}
+                        {!assignAll && <CheckCircle2 className="w-4 h-4 text-primary" />}
                       </div>
                       <p className="text-[11px] text-ink-3 mt-1">
                         Handpick targeted team members or departments.
@@ -645,7 +641,7 @@ export function QuizBuilderModal({
                           value={employeeSearch}
                           onChange={(e) => setEmployeeSearch(e.target.value)}
                           placeholder="Search employees by name or email..."
-                          className="w-full bg-surface-hover/50 border border-hairline rounded-md pl-8 pr-3 py-1.5 text-xs text-ink focus:outline-none"
+                          className="w-full bg-surface-2 border border-hairline rounded-md pl-8 pr-3 py-1.5 text-xs text-ink focus:outline-none"
                         />
                       </div>
 
@@ -656,14 +652,14 @@ export function QuizBuilderModal({
                             <div
                               key={emp._id}
                               onClick={() => toggleEmployeeSelect(emp._id)}
-                              className="flex items-center justify-between p-1.5 hover:bg-surface-hover rounded cursor-pointer transition-colors"
+                              className="flex items-center justify-between p-1.5 hover:bg-surface-2 rounded cursor-pointer transition-colors"
                             >
                               <div className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => {}}
-                                  className="rounded border-hairline text-brand-500 pointer-events-none"
+                                  className="rounded border-hairline text-primary pointer-events-none"
                                 />
                                 <span className="text-xs font-medium text-ink">
                                   {emp.firstName} {emp.lastName}
@@ -685,7 +681,7 @@ export function QuizBuilderModal({
                         type="date"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        className="rounded-md text-xs"
+                        className="text-xs"
                       />
                     </FormField>
                   </div>
@@ -697,7 +693,7 @@ export function QuizBuilderModal({
 
         {/* Modal Footer */}
         <div className="flex items-center justify-between border-t border-hairline bg-surface-2/40 px-5 py-3">
-          <Button variant="outline" size="sm" onClick={onClose} className="rounded-md text-xs">
+          <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
             Cancel
           </Button>
 
@@ -705,7 +701,7 @@ export function QuizBuilderModal({
             size="sm"
             onClick={handleSaveQuiz}
             disabled={isSubmitting}
-            className="gap-1.5 rounded-md text-xs px-5 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
+            className="gap-1.5 rounded-md text-xs px-5 bg-primary hover:bg-primary-hover text-white font-semibold"
           >
             {isSubmitting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
