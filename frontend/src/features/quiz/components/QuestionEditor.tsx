@@ -4,6 +4,7 @@ import { Button, Input } from '../../../components/ui';
 import { useToast } from '../../../components/ui/toast';
 import { cn } from '../../../utils/cn';
 import { quizApi } from '../api/quiz.api';
+import { toQuestionPayload } from '../utils/question.util';
 import { QuestionDoctorPanel } from './QuestionDoctorPanel';
 import {
   QUESTION_TYPES,
@@ -197,16 +198,13 @@ export function QuestionEditor({
     setIsBanking(true);
     try {
       await quizApi.addToBank({
-        prompt: question.prompt,
-        options: question.options,
-        correctOptionIndex: question.correctOptionIndex ?? 0,
-        explanation: question.explanation,
-        points: question.points,
+        // Whole, so a banked question keeps its type. Banking a
+        // fill-in-the-blank as a single choice with no options would put a
+        // question in the bank that can never be used again.
+        ...toQuestionPayload(question),
         category,
         difficulty,
-        tags: question.tags,
         locale,
-        sourceEvidence: question.sourceEvidence,
         sourceQuizId: quizId,
       });
       toast.success('Saved to the question bank.');

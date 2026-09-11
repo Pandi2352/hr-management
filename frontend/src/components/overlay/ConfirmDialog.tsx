@@ -46,9 +46,17 @@ export function ConfirmDialog({
         onClick={handleClose}
       />
 
-      {/* Modal Dialog (Strict Zero Shadow, rounded-md) */}
-      <div className="relative z-10 w-full max-w-md rounded-md bg-white p-6 border border-slate-200 dark:bg-slate-900 dark:border-slate-800 animate-in zoom-in-95">
-        <div className="flex items-start gap-4">
+      {/*
+        * Fixed width, bounded height.
+        *
+        * The title is caller-supplied and can be anything — a quiz whose title
+        * is an entire generation prompt turned this dialog into a wall of text
+        * with its buttons somewhere below the fold. The shell no longer grows
+        * with its content: long text scrolls inside, and the actions stay where
+        * they were.
+        */}
+      <div className="relative z-10 flex max-h-[70vh] w-[440px] max-w-[92vw] flex-col rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 animate-in zoom-in-95">
+        <div className="flex min-h-0 flex-1 items-start gap-4 overflow-y-auto p-6">
           <div
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${
               effectiveVariant === 'danger'
@@ -58,17 +66,20 @@ export function ConfirmDialog({
           >
             <AlertTriangle className="h-5 w-5" />
           </div>
-          <div>
-            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          <div className="min-w-0">
+            {/* Clamped rather than truncated to one line: enough of a long
+                title to recognise what is about to happen, never enough to
+                bury the question. */}
+            <h3 className="line-clamp-3 text-base font-semibold break-words text-slate-900 dark:text-slate-100">
               {title}
             </h3>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            <p className="mt-1 text-sm leading-relaxed break-words text-slate-600 dark:text-slate-400">
               {description || message}
             </p>
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 p-4 dark:border-slate-800">
           <Button variant="outline" size="sm" onClick={handleClose} disabled={isLoading}>
             {cancelLabel}
           </Button>

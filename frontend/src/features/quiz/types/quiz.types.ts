@@ -227,19 +227,30 @@ export interface CreateQuizPayload {
   timeLimitMinutes?: number;
   passingScorePct?: number;
   xpReward?: number;
+  /** Whole questions, every field the schema stores. */
   questions: {
+    type?: QuestionType;
     prompt: string;
     options: string[];
-    correctOptionIndex: number;
+    correctOptionIndex?: number;
+    correctOptionIndexes?: number[];
+    acceptedAnswers?: string[];
     explanation?: string;
     points?: number;
+    tags?: string[];
+    section?: string;
+    sourceEvidence?: string;
   }[];
 }
+
+/** How many of each question type to write. */
+export type QuestionMix = Partial<Record<QuestionType, number>>;
 
 export interface GenerateAiQuizPayload {
   topic: string;
   /** The author's brief, kept apart from the topic. */
   refinedPrompt?: string;
+  typeMix?: QuestionMix;
   category?: string;
   difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
   questionCount?: number;
@@ -544,6 +555,7 @@ export interface GenerationJob {
 export interface StartGenerationPayload {
   topic: string;
   questionCount: number;
+  typeMix?: QuestionMix;
   title?: string;
   description?: string;
   category?: string;

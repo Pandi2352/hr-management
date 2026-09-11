@@ -29,9 +29,23 @@ export class QuizQuestionDto {
   @IsOptional()
   type?: QuestionType;
 
+  /**
+   * The correct option, or -1 when the question has no options.
+   *
+   * `@Min(0)` rejected the -1 that a fill-in-the-blank carries, so saving a
+   * reviewed draft containing one failed with "correctOptionIndex must not be
+   * less than 0" — a message about a field the author never filled in, on a
+   * question type that does not have options at all.
+   *
+   * Whether the key is actually valid depends on the question's type, which a
+   * per-field rule cannot know. That check lives in `questionDefect`, which
+   * runs on save and again at the review gate and names both the question and
+   * the problem.
+   */
   @IsInt()
-  @Min(0)
-  correctOptionIndex: number;
+  @Min(-1)
+  @IsOptional()
+  correctOptionIndex?: number;
 
   /** The correct options, for a question with more than one. */
   @IsArray()
@@ -116,6 +130,39 @@ export class CreateQuizDto {
   questions: QuizQuestionDto[];
 }
 
+
+/**
+ * How many of each kind of question to write.
+ *
+ * Every field optional, so an author who does not care gets a sensible default
+ * spread rather than having to fill in four numbers to generate anything.
+ */
+export class QuestionMixDto {
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  SINGLE?: number;
+
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  MULTI?: number;
+
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  TRUE_FALSE?: number;
+
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  FILL_BLANK?: number;
+}
+
 export class GenerateAiQuizDto {
   @IsString()
   @IsNotEmpty()
@@ -144,6 +191,12 @@ export class GenerateAiQuizDto {
   @IsString()
   @IsOptional()
   refinedPrompt?: string;
+
+  /** How many of each question type. Scaled to the total if they disagree. */
+  @ValidateNested()
+  @Type(() => QuestionMixDto)
+  @IsOptional()
+  typeMix?: QuestionMixDto;
 }
 
 export class EnhanceQuizPromptDto {
@@ -247,18 +300,53 @@ export class SubmitQuizAttemptDto {
 
 /** One question sent to the Question Doctor for review. */
 export class DiagnoseQuestionDto {
+  @IsEnum(QUESTION_TYPES)
+  @IsOptional()
+  type?: QuestionType;
+
+  @IsArray()
+  @IsOptional()
+  @IsInt({ each: true })
+  correctOptionIndexes?: number[];
+
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
+  acceptedAnswers?: string[];
+
   @IsString()
   @IsNotEmpty()
   prompt: string;
 
+  /**
+   * The options, or an empty list for a fill-in-the-blank.
+   *
+   * `@ArrayMinSize(2)` refused a question type that has no options at all, so
+   * the Question Doctor could not be opened on one. How many options a
+   * question needs depends on its type, and the doctor's own structural checks
+   * already report that — with an explanation rather than a validator message.
+   */
   @IsArray()
-  @ArrayMinSize(2)
   @IsString({ each: true })
   options: string[];
 
+  /**
+   * The correct option, or -1 when the question has no options.
+   *
+   * `@Min(0)` rejected the -1 that a fill-in-the-blank carries, so saving a
+   * reviewed draft containing one failed with "correctOptionIndex must not be
+   * less than 0" — a message about a field the author never filled in, on a
+   * question type that does not have options at all.
+   *
+   * Whether the key is actually valid depends on the question's type, which a
+   * per-field rule cannot know. That check lives in `questionDefect`, which
+   * runs on save and again at the review gate and names both the question and
+   * the problem.
+   */
   @IsInt()
-  @Min(0)
-  correctOptionIndex: number;
+  @Min(-1)
+  @IsOptional()
+  correctOptionIndex?: number;
 
   @IsString()
   @IsOptional()
@@ -348,9 +436,12 @@ export class UpdateQuizDto {
   @IsArray()
   @IsOptional()
   questions?: {
+    type?: QuestionType;
     prompt: string;
     options: string[];
-    correctOptionIndex: number;
+    correctOptionIndex?: number;
+    correctOptionIndexes?: number[];
+    acceptedAnswers?: string[];
     explanation?: string;
     points?: number;
     tags?: string[];
@@ -369,6 +460,24 @@ export class ReviewQuizDto {
 }
 
 export class AddBankQuestionDto {
+  @IsEnum(QUESTION_TYPES)
+  @IsOptional()
+  type?: QuestionType;
+
+  @IsArray()
+  @IsOptional()
+  @IsInt({ each: true })
+  correctOptionIndexes?: number[];
+
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
+  acceptedAnswers?: string[];
+
+  @IsString()
+  @IsOptional()
+  section?: string;
+
   @IsString()
   @IsNotEmpty()
   prompt: string;
@@ -378,9 +487,23 @@ export class AddBankQuestionDto {
   @IsString({ each: true })
   options: string[];
 
+  /**
+   * The correct option, or -1 when the question has no options.
+   *
+   * `@Min(0)` rejected the -1 that a fill-in-the-blank carries, so saving a
+   * reviewed draft containing one failed with "correctOptionIndex must not be
+   * less than 0" — a message about a field the author never filled in, on a
+   * question type that does not have options at all.
+   *
+   * Whether the key is actually valid depends on the question's type, which a
+   * per-field rule cannot know. That check lives in `questionDefect`, which
+   * runs on save and again at the review gate and names both the question and
+   * the problem.
+   */
   @IsInt()
-  @Min(0)
-  correctOptionIndex: number;
+  @Min(-1)
+  @IsOptional()
+  correctOptionIndex?: number;
 
   @IsString()
   @IsOptional()
@@ -499,4 +622,10 @@ export class StartGenerationJobDto {
   @IsString()
   @IsOptional()
   refinedPrompt?: string;
+
+  /** How many of each question type. Scaled to the total if they disagree. */
+  @ValidateNested()
+  @Type(() => QuestionMixDto)
+  @IsOptional()
+  typeMix?: QuestionMixDto;
 }

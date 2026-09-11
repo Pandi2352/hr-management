@@ -33,24 +33,35 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
+      {/*
+        * Fixed width, bounded height, and the header stays put.
+        *
+        * A dialog that grows with its content pushes its own close button off
+        * the bottom of the screen as soon as the content is long, which is not
+        * something the caller can be expected to guard against. Content
+        * scrolls inside the shell instead.
+        */}
       <div
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-slate-900 dark:border dark:border-slate-800",
+          "relative z-10 flex max-h-[85vh] w-[560px] max-w-[94vw] flex-col rounded-md border border-slate-200 bg-white transition-all dark:border-slate-800 dark:bg-slate-900",
           className
         )}
       >
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5 dark:border-slate-800">
           {title && (
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
+            <h3 className="truncate text-base font-semibold text-slate-900 dark:text-white">
+              {title}
+            </h3>
           )}
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            aria-label="Close"
+            className="ml-auto shrink-0 cursor-pointer rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="pt-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );

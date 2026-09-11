@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { Archive, Check, Loader2, Send, Share2, Trash2, Undo2, Upload } from 'lucide-react';
-import { Button } from '../../../components/ui';
+import { useState, type ComponentType } from 'react';
+import { Archive, Check, Loader2, Play, Send, Share2, Trash2, Undo2, Upload } from 'lucide-react';
 import { ConfirmDialog } from '../../../components/overlay/ConfirmDialog';
 import { useToast } from '../../../components/ui/toast';
 import { cn } from '../../../utils/cn';
@@ -13,6 +12,8 @@ interface Props {
   onAssign: (quiz: Quiz) => void;
   /** Called once the quiz is gone, so the list can drop it. */
   onDeleted?: (quizId: string) => void;
+  /** Opens the quiz in the player. Rendered as the first action when given. */
+  onPreview?: () => void;
 }
 
 /** The colour a status carries wherever it is shown. */
@@ -39,7 +40,55 @@ export function QuizStatusBadge({ status, className }: { status: Quiz['status'];
 }
 
 /**
- * The buttons that move a quiz forward, and the one that assigns it.
+ * One action in the row.
+ *
+ * Square and icon-only unless it is the primary move, which keeps its label —
+ * five labelled buttons will not fit across a card, and five unlabelled ones
+ * leave nothing to aim at. The label is still on every button as its title and
+ * its accessible name, so nothing is hidden from a screen reader or a hover.
+ */
+function Action({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+  busy,
+  tone = 'default',
+  showLabel = false,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+  tone?: 'default' | 'primary' | 'danger';
+  showLabel?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className={cn(
+        'inline-flex h-7 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md border text-[11px] font-semibold transition-colors disabled:pointer-events-none disabled:opacity-40',
+        showLabel ? 'px-2.5' : 'w-7',
+        tone === 'primary' &&
+          'border-[var(--primary)] bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]',
+        tone === 'danger' &&
+          'border-transparent text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30',
+        tone === 'default' && 'border-hairline bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink',
+      )}
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
+      {showLabel && <span>{label}</span>}
+    </button>
+  );
+}
+
+/**
+ * The buttons that move a quiz forward, and the ones that end it.
  *
  * Only the moves that are legal from the current state are rendered. Showing a
  * disabled Assign on a draft would invite the click and then explain the
@@ -49,7 +98,7 @@ export function QuizStatusBadge({ status, className }: { status: Quiz['status'];
  * act: it puts a quiz in front of real people, and it should sit beside the
  * approval that earned the right to do so.
  */
-export function QuizLifecycleActions({ quiz, onChanged, onAssign, onDeleted }: Props) {
+export function QuizLifecycleActions({ quiz, onChanged, onAssign, onDeleted, onPreview }: Props) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<'archive' | 'delete' | null>(null);
@@ -65,9 +114,6 @@ export function QuizLifecycleActions({ quiz, onChanged, onAssign, onDeleted }: P
       setBusy(null);
     }
   };
-
-  const spinner = (label: string) =>
-    busy === label ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null;
 
   const canAssign = ASSIGNABLE_STATUSES.includes(quiz.status);
 
@@ -113,100 +159,87 @@ export function QuizLifecycleActions({ quiz, onChanged, onAssign, onDeleted }: P
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex w-full items-center gap-1">
+      {onPreview && <Action icon={Play} label="Preview" onClick={onPreview} disabled={!!busy} />}
+
       {quiz.status === 'DRAFT' && (
-        <Button
-          size="sm"
-          variant="outline"
+        <Action
+          icon={Send}
+          label="Send for review"
+          showLabel
+          tone="primary"
           disabled={!!busy}
+          busy={busy === 'review'}
           onClick={() => run('review', () => quizApi.submitForReview(quiz._id), 'Sent for review.')}
-          className="gap-1.5 text-[11px]"
-        >
-          {spinner('review') || <Send className="h-3.5 w-3.5" />}
-          Send for review
-        </Button>
+        />
       )}
 
       {quiz.status === 'IN_REVIEW' && (
         <>
-          <Button
-            size="sm"
-            variant="outline"
+          <Action
+            icon={Undo2}
+            label="Send back"
             disabled={!!busy}
+            busy={busy === 'reject'}
             onClick={() =>
               run('reject', () => quizApi.rejectQuiz(quiz._id, 'Needs more work.'), 'Sent back to draft.')
             }
-            className="gap-1.5 text-[11px]"
-          >
-            {spinner('reject') || <Undo2 className="h-3.5 w-3.5" />}
-            Send back
-          </Button>
-
-          <Button
-            size="sm"
+          />
+          <Action
+            icon={Check}
+            label="Approve"
+            showLabel
+            tone="primary"
             disabled={!!busy}
+            busy={busy === 'approve'}
             onClick={() => run('approve', () => quizApi.approveQuiz(quiz._id), 'Approved.')}
-            className="gap-1.5 text-[11px]"
-          >
-            {spinner('approve') || <Check className="h-3.5 w-3.5" />}
-            Approve
-          </Button>
+          />
         </>
       )}
 
       {quiz.status === 'APPROVED' && (
-        <Button
-          size="sm"
-          variant="outline"
+        <Action
+          icon={Upload}
+          label="Publish"
           disabled={!!busy}
+          busy={busy === 'publish'}
           onClick={() => run('publish', () => quizApi.publishQuiz(quiz._id), 'Published to the arena.')}
-          className="gap-1.5 text-[11px]"
-        >
-          {spinner('publish') || <Upload className="h-3.5 w-3.5" />}
-          Publish
-        </Button>
+        />
       )}
 
       {canAssign && (
-        <Button size="sm" onClick={() => onAssign(quiz)} className="gap-1.5 text-[11px]">
-          <Share2 className="h-3.5 w-3.5" />
-          Assign
-        </Button>
-      )}
-
-      {/* A draft has nothing to assign yet, so it says why rather than
-          offering a button that would be refused. */}
-      {!canAssign && quiz.status !== 'IN_REVIEW' && quiz.status !== 'DRAFT' && quiz.status !== 'ARCHIVED' && (
-        <span className="text-[10.5px] text-ink-3">Not assignable while {QUIZ_STATUS_LABELS[quiz.status].toLowerCase()}</span>
-      )}
-
-      {canArchive && (
-        <Button
-          size="sm"
-          variant="ghost"
+        <Action
+          icon={Share2}
+          label="Assign"
+          showLabel
+          tone="primary"
           disabled={!!busy}
-          onClick={() => setConfirming('archive')}
-          title="Take it out of circulation, keeping the record"
-          className="gap-1.5 text-[11px]"
-        >
-          <Archive className="h-3.5 w-3.5" />
-          Archive
-        </Button>
+          onClick={() => onAssign(quiz)}
+        />
       )}
 
-      {canDelete && (
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={!!busy}
-          onClick={() => setConfirming('delete')}
-          title="Delete this quiz"
-          className="gap-1.5 text-[11px] text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete
-        </Button>
-      )}
+      {/* Ending actions sit apart from the ones that move a quiz forward, so
+          Delete is never the button next to the one you meant to press. */}
+      <span className="ml-auto flex items-center gap-1">
+        {canArchive && (
+          <Action
+            icon={Archive}
+            label="Archive"
+            disabled={!!busy}
+            onClick={() => setConfirming('archive')}
+          />
+        )}
+
+        {canDelete && (
+          <Action
+            icon={Trash2}
+            label="Delete"
+            tone="danger"
+            disabled={!!busy}
+            onClick={() => setConfirming('delete')}
+          />
+        )}
+      </span>
 
       <ConfirmDialog
         isOpen={confirming === 'archive'}

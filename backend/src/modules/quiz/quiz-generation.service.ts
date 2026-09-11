@@ -17,6 +17,14 @@ import {
   TRUE_FALSE_OPTIONS,
   type QuestionType,
 } from './question-grading.util';
+import {
+  describeMix,
+  mixToSlices,
+  mixTotal,
+  normalizeMix,
+  outstandingMix,
+  type QuestionMix,
+} from './question-mix.util';
 
 /**
  * How many questions are asked for in one call to the model.
@@ -37,6 +45,16 @@ export const MAX_BACKGROUND_QUESTIONS = 100;
 
 /** How many consecutive empty batches before the job gives up. */
 const MAX_EMPTY_BATCHES = 3;
+
+/**
+ * How many times a shortfall is chased before the run settles for what it has.
+ *
+ * Models routinely return four questions when asked for five. Accepting that
+ * silently is how "I asked for five and got two" happens; asking forever is how
+ * a stubborn topic burns an afternoon of tokens. Three extra passes closes the
+ * gap in practice without either failure mode.
+ */
+const MAX_TOPUP_PASSES = 3;
 
 /**
  * How long a job may go without advancing before it is presumed dead.
@@ -260,40 +278,65 @@ export class QuizGenerationService {
 
   // --- The work -------------------------------------------------------------
 
-  private async run(jobId: string): Promise<void> {
-    const job = await this.jobModel.findById(jobId);
-    if (!job) return;
-
-    job.status = 'RUNNING';
-    job.startedAt = new Date();
-    await job.save();
-    await this.writeProgressCache(job);
-
-    const existingCategories = await this.categoriesInUse(job.organizationId);
+  /**
+   * Writes a whole set of questions to an author's order.
+   *
+   * Shared by the background job and the studio's inline generate, so both
+   * honour the requested count and the requested mix of question types. Two
+   * behaviours make that actually hold:
+   *
+   * - **One type per request.** A model asked for "a mix" returns whatever it
+   *   feels like. Asked for three true/false questions it returns three
+   *   true/false questions.
+   * - **Top-up passes.** Whatever is short after the first run is re-ordered,
+   *   up to a few times. This is the difference between asking for five and
+   *   getting five, and asking for five and getting two.
+   *
+   * `onProgress` is called after every batch so a background job can report a
+   * climbing count; the inline path passes nothing and simply waits.
+   */
+  async generateQuestions(
+    orgId: string,
+    params: {
+      topic: string;
+      difficulty?: string;
+      category?: string;
+      locale?: string;
+      refinedPrompt?: string;
+    },
+    total: number,
+    requestedMix: QuestionMix | undefined,
+    onProgress?: (questions: GeneratedQuestion[]) => Promise<void> | void,
+    shouldStop?: () => Promise<boolean> | boolean,
+  ): Promise<GeneratedQuestion[]> {
+    const mix = normalizeMix(total, requestedMix);
+    const existingCategories = await this.categoriesInUse(orgId);
     const questions: GeneratedQuestion[] = [];
+
+    this.logger.info(null, `Generating ${total} questions: ${describeMix(mix)}`);
+
+    let owed: QuestionMix = mix;
     let emptyBatches = 0;
 
-    try {
-      while (questions.length < job.questionsTotal) {
-        if (this.cancelled.has(jobId)) break;
+    for (let pass = 0; pass <= MAX_TOPUP_PASSES; pass += 1) {
+      if (mixTotal(owed) === 0) break;
 
-        // Re-read the status rather than trusting the in-memory set: a cancel
-        // from another process would not have touched it.
-        const current = await this.jobModel.findById(jobId).select('status').lean();
-        if (!current || current.status === 'CANCELLED') break;
+      for (const slice of mixToSlices(owed, BATCH_SIZE)) {
+        if (shouldStop && (await shouldStop())) return questions;
+        if (questions.length >= total) break;
 
-        const want = Math.min(BATCH_SIZE, job.questionsTotal - questions.length);
         const batch = await this.generateBatch(
-          job.organizationId,
-          job.params as any,
-          want,
+          orgId,
+          params,
+          slice.type,
+          slice.count,
           questions.map((q) => q.prompt),
           existingCategories,
         );
 
         if (batch.length === 0) {
           emptyBatches += 1;
-          if (emptyBatches >= MAX_EMPTY_BATCHES) {
+          if (emptyBatches >= MAX_EMPTY_BATCHES && questions.length === 0) {
             throw new Error(
               'The AI provider stopped returning usable questions. Check the provider settings and try again.',
             );
@@ -303,12 +346,60 @@ export class QuizGenerationService {
 
         emptyBatches = 0;
         questions.push(...batch);
-
-        job.questions = questions as any;
-        job.questionsDone = questions.length;
-        await job.save();
-        await this.writeProgressCache(job);
+        if (onProgress) await onProgress(questions);
       }
+
+      owed = outstandingMix(mix, questions);
+
+      if (mixTotal(owed) > 0 && pass < MAX_TOPUP_PASSES) {
+        this.logger.warn(
+          null,
+          `Short by ${mixTotal(owed)} after pass ${pass + 1}; asking again for ${describeMix(owed)}`,
+        );
+      }
+    }
+
+    if (questions.length < total) {
+      // Said out loud rather than passed off as a complete set. The draft is
+      // still worth having; the author needs to know it is short.
+      this.logger.warn(
+        null,
+        `Settled for ${questions.length} of ${total} questions after ${MAX_TOPUP_PASSES} top-up passes`,
+      );
+    }
+
+    return questions.slice(0, total);
+  }
+
+  private async run(jobId: string): Promise<void> {
+    const job = await this.jobModel.findById(jobId);
+    if (!job) return;
+
+    job.status = 'RUNNING';
+    job.startedAt = new Date();
+    await job.save();
+    await this.writeProgressCache(job);
+
+    try {
+      const questions = await this.generateQuestions(
+        job.organizationId,
+        job.params as any,
+        job.questionsTotal,
+        (job.params as any)?.typeMix,
+        async (produced) => {
+          job.questions = produced as any;
+          job.questionsDone = produced.length;
+          await job.save();
+          await this.writeProgressCache(job);
+        },
+        async () => {
+          if (this.cancelled.has(jobId)) return true;
+          // Re-read rather than trusting the in-memory set: a cancel from
+          // another process would not have touched it.
+          const current = await this.jobModel.findById(jobId).select('status').lean();
+          return !current || current.status === 'CANCELLED';
+        },
+      );
 
       if (this.cancelled.has(jobId)) {
         this.cancelled.delete(jobId);
@@ -319,7 +410,11 @@ export class QuizGenerationService {
         throw new Error('No questions could be generated for that topic.');
       }
 
-      const quiz = await this.saveDraft(job, questions, existingCategories);
+      const quiz = await this.saveDraft(
+        job,
+        questions,
+        await this.categoriesInUse(job.organizationId),
+      );
 
       job.status = 'COMPLETED';
       job.quizId = String(quiz._id);
@@ -346,7 +441,45 @@ export class QuizGenerationService {
     }
   }
 
-  /** One batch of questions, told what already exists so it does not repeat it. */
+  /**
+   * What each type requires, written for the model rather than for us.
+   *
+   * One type per request. A single prompt describing four types and asking for
+   * a mix produces whatever the model finds easiest, which in practice is four
+   * single-choice questions however the instruction was worded.
+   */
+  private typeInstruction(type: QuestionType, count: number): string {
+    const n = `${count} question${count === 1 ? '' : 's'}`;
+
+    if (type === 'TRUE_FALSE') {
+      return `Write exactly ${n} of type TRUE_FALSE.
+Each one: "options" is exactly ["True", "False"], "correctOptionIndex" is 0 or 1, "correctOptionIndexes" is [], "acceptedAnswers" is [].
+Write a statement that is decidably true or false. Avoid "always" and "never" unless the statement really is absolute.`;
+    }
+
+    if (type === 'MULTI') {
+      return `Write exactly ${n} of type MULTI.
+Each one: four to five options, at least TWO of them correct, every correct index listed in "correctOptionIndexes", "correctOptionIndex" is the first of those, "acceptedAnswers" is [].
+Begin the prompt with "Select all that apply:". The wrong options must be plausible, not obviously absurd.`;
+    }
+
+    if (type === 'FILL_BLANK') {
+      return `Write exactly ${n} of type FILL_BLANK.
+Each one: "options" is [], "correctOptionIndex" is -1, "correctOptionIndexes" is [], and "acceptedAnswers" lists every wording you would accept.
+Put ___ in the prompt where the answer belongs. The answer must be one or two words with no reasonable synonym you have not listed.`;
+    }
+
+    return `Write exactly ${n} of type SINGLE.
+Each one: exactly four options, exactly one correct, "correctOptionIndex" set, "correctOptionIndexes" is [], "acceptedAnswers" is [].
+The three wrong options must be tempting to somebody who half-knows the material.`;
+  }
+
+  /**
+   * One batch of questions, all of one type.
+   *
+   * Told what already exists so it does not repeat itself, and told exactly how
+   * many to write so a shortfall is visible to the caller rather than absorbed.
+   */
   private async generateBatch(
     orgId: string,
     params: {
@@ -356,6 +489,7 @@ export class QuizGenerationService {
       locale?: string;
       refinedPrompt?: string;
     },
+    type: QuestionType,
     count: number,
     existingPrompts: string[],
     existingCategories: string[],
@@ -366,9 +500,9 @@ export class QuizGenerationService {
 
 Respond ONLY with raw JSON:
 { "questions": [ {
-  "type": "SINGLE",
+  "type": "${type}",
   "prompt": "...",
-  "options": ["..."],
+  "options": [],
   "correctOptionIndex": 0,
   "correctOptionIndexes": [],
   "acceptedAnswers": [],
@@ -376,23 +510,15 @@ Respond ONLY with raw JSON:
   "tags": ["one concept name"]
 } ] }
 
-"type" is one of SINGLE, MULTI, TRUE_FALSE or FILL_BLANK.
+${this.typeInstruction(type, count)}
 
-Exactly ${count} question${count === 1 ? '' : 's'}.
+Return exactly ${count}. Returning fewer means the quiz is short of what was ordered.
 
-Question types, and what each one requires:
-- SINGLE: four distinct plausible options, "correctOptionIndex" set. Use this for most questions.
-- MULTI: four to six options with at least two correct, "correctOptionIndexes" listing every correct one. Say "Select all that apply" in the prompt.
-- TRUE_FALSE: options exactly ["True", "False"], "correctOptionIndex" 0 or 1.
-- FILL_BLANK: no options; put a ___ in the prompt and list every acceptable answer in "acceptedAnswers", including reasonable spellings. Keep the answer to one or two words.
-
-Mix them. A set that is entirely SINGLE tests recognition and nothing else.
+Tag every question with the concept it tests — a short noun phrase such as "Index design" or "Incident escalation". Tags are what the learning loop and the skill passport are built from, so they matter as much as the question.
 
 Keep every explanation to one sentence. A long answer is more likely to be cut off than to be read.
 
-Never quote these instructions, or the author's brief, inside a question.
-
-Tag every question with the concept it tests — a short noun phrase such as "Index design" or "Incident escalation". Tags are what the learning loop and the skill passport are built from, so they matter as much as the question.${this.localeInstruction(params.locale)}`;
+Never quote these instructions, or the author's brief, inside a question.${this.localeInstruction(params.locale)}`;
 
     const userPrompt = `Topic: "${params.topic}"
 Difficulty: ${difficulty.toLowerCase()}
@@ -420,30 +546,28 @@ ${existingPrompts.slice(-25).map((p) => `- ${p}`).join('\n') || '(none yet)'}`;
 
       const returned = out?.questions || [];
       const usable = returned
-        .map((q) => this.normalizeGenerated(q))
+        // The type we asked for wins over the one the model labelled it with:
+        // a model told to write true/false sometimes still says "SINGLE".
+        .map((q) => this.normalizeGenerated({ ...q, type }))
         .filter((q): q is GeneratedQuestion => q !== null);
 
-      /*
-       * Said out loud when a batch produces nothing.
-       *
-       * "The provider stopped returning usable questions" is true but useless
-       * on its own: the two causes — nothing came back at all, and everything
-       * that came back was malformed — need completely different fixes.
-       */
       if (usable.length === 0) {
         this.logger.warn(null, 'Generation batch produced nothing usable', {
+          type,
           returned: returned.length,
           firstDefect: returned.length
-            ? questionDefect(this.asCandidate(returned[0]) as any) || 'none'
+            ? questionDefect(this.asCandidate({ ...returned[0], type }) as any) || 'none'
             : 'no questions key in the response',
-          firstKeys: returned.length ? Object.keys(returned[0]).join(',') : '',
+        });
+      } else if (usable.length < count) {
+        this.logger.warn(null, 'Generation batch came up short', {
+          type,
+          asked: count,
+          got: usable.length,
         });
       }
 
       return usable
-        // A question the model got structurally wrong is dropped rather than
-        // repaired into something nobody wrote. The next batch makes up the
-        // shortfall, and the job only gives up after three empty ones.
         // A model asked repeatedly about one topic will eventually repeat
         // itself, and a quiz with the same question twice is a bug the author
         // has to find by reading all fifty.
@@ -461,13 +585,6 @@ ${existingPrompts.slice(-25).map((p) => `- ${p}`).join('\n') || '(none yet)'}`;
     }
   }
 
-  /**
-   * One generated question, checked into shape or thrown away.
-   *
-   * Returns null rather than a best-effort repair. A half-understood question
-   * that is quietly fixed up reaches an employee looking exactly like one that
-   * was written properly, and nobody finds out until they sit it.
-   */
   /** The raw question shaped into a candidate, before it is judged. */
   private asCandidate(raw: any): GeneratedQuestion {
     const type = questionType({ type: raw?.type });

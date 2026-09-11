@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { generateUuid } from '../../../common/utils/uuid.util';
+import { QUESTION_TYPES, type QuestionType } from '../question-grading.util';
 
 export type BankQuestionDocument = BankQuestion & Document;
 
@@ -27,11 +28,21 @@ export class BankQuestion {
   @Prop({ type: String, required: true, trim: true })
   prompt: string;
 
-  @Prop({ type: [String], required: true })
+  @Prop({ type: [String], default: [] })
   options: string[];
 
-  @Prop({ type: Number, required: true })
+  /** Defaults to single choice, which is what every entry predating types is. */
+  @Prop({ type: String, enum: QUESTION_TYPES, default: 'SINGLE' })
+  type: QuestionType;
+
+  @Prop({ type: Number, default: -1 })
   correctOptionIndex: number;
+
+  @Prop({ type: [Number], default: [] })
+  correctOptionIndexes: number[];
+
+  @Prop({ type: [String], default: [] })
+  acceptedAnswers: string[];
 
   @Prop({ type: String, default: '' })
   explanation: string;

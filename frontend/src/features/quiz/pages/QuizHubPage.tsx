@@ -464,70 +464,86 @@ export const QuizHubPage: React.FC = () => {
               {visibleQuizzes.map((quiz) => (
                 <div
                   key={quiz._id}
-                  className="flex flex-col justify-between rounded-md border border-hairline bg-surface p-5 transition-colors hover:border-ink-3/30"
+                  className="flex flex-col rounded-md border border-hairline bg-surface transition-colors hover:border-ink-3/30"
                 >
-                  <div>
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold tracking-wider text-ink-3 uppercase">
-                        {quiz.category || 'General'}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <QuizStatusBadge status={quiz.status} />
-                        <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-ink-2 capitalize">
-                          {quiz.difficulty?.toLowerCase()}
+                  <div className="flex flex-1 flex-col justify-between p-4">
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="truncate text-[10px] font-bold tracking-wider text-ink-3 uppercase">
+                          {quiz.category || 'General'}
                         </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <QuizStatusBadge status={quiz.status} />
+                          <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-ink-2 capitalize">
+                            {quiz.difficulty?.toLowerCase()}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    <h4 className="line-clamp-1 text-sm font-bold text-ink">{quiz.title}</h4>
-                    <p className="mt-1 line-clamp-2 text-xs text-ink-3">
-                      {quiz.description || 'Knowledge challenge.'}
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-3">
-                      <span>{quiz.questions?.length || 0} questions</span>
-                      <span>Pass {quiz.passingScorePct}%</span>
-                      <span>{quiz.timeLimitMinutes || 0} min</span>
-                      <span className="font-semibold text-ink-2">+{quiz.xpReward} XP</span>
-                    </div>
-
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-ink-3">
-                      <span>
-                        {quiz.attemptPolicy?.maxAttempts === 0
-                          ? 'Unlimited attempts'
-                          : `${quiz.attemptPolicy?.maxAttempts ?? 1} attempt${(quiz.attemptPolicy?.maxAttempts ?? 1) === 1 ? '' : 's'}`}
-                      </span>
-                      {quiz.shuffleOptions && <span>Options shuffled</span>}
-                      {quiz.locale && quiz.locale !== 'en' && (
-                        <span className="uppercase">{quiz.locale}</span>
-                      )}
-                      {quiz.isAiGenerated && <span>AI built</span>}
-                    </div>
-
-                    {quiz.status === 'APPROVED' && quiz.approvedByName && (
-                      <p className="mt-1.5 text-[10.5px] text-ink-3">
-                        Approved by {quiz.approvedByName}
+                      <h4 className="line-clamp-2 text-sm font-bold text-ink">{quiz.title}</h4>
+                      <p className="mt-1 line-clamp-2 text-xs text-ink-3">
+                        {quiz.description || 'Knowledge challenge.'}
                       </p>
-                    )}
-                  </div>
 
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-3">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleStartQuiz(quiz._id)}
-                      className="gap-1.5 text-[11px]"
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                      Preview
-                    </Button>
+                      {/* The numbers on one line, laid out rather than run
+                          together with bullet separators. */}
+                      <div className="mt-3 grid grid-cols-4 gap-2 rounded-md bg-surface-2/60 px-2.5 py-2">
+                        {[
+                          { label: 'Questions', value: quiz.questions?.length || 0 },
+                          { label: 'Pass', value: `${quiz.passingScorePct}%` },
+                          { label: 'Time', value: `${quiz.timeLimitMinutes || 0}m` },
+                          { label: 'XP', value: `+${quiz.xpReward}` },
+                        ].map((m) => (
+                          <div key={m.label} className="min-w-0">
+                            <p className="truncate text-[9.5px] font-semibold tracking-wide text-ink-3 uppercase">
+                              {m.label}
+                            </p>
+                            <p className="truncate text-xs font-bold tabular-nums text-ink">
+                              {m.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
 
-                    <QuizLifecycleActions
-                      quiz={quiz}
-                      onChanged={replaceQuiz}
-                      onAssign={setAssigningQuiz}
-                      onDeleted={dropQuiz}
-                    />
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {[
+                          quiz.attemptPolicy?.maxAttempts === 0
+                            ? 'Unlimited attempts'
+                            : `${quiz.attemptPolicy?.maxAttempts ?? 1} attempt${(quiz.attemptPolicy?.maxAttempts ?? 1) === 1 ? '' : 's'}`,
+                          quiz.shuffleOptions ? 'Options shuffled' : '',
+                          quiz.locale && quiz.locale !== 'en' ? quiz.locale.toUpperCase() : '',
+                          quiz.isAiGenerated ? 'AI built' : '',
+                        ]
+                          .filter(Boolean)
+                          .map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-md border border-hairline px-1.5 py-0.5 text-[10px] text-ink-3"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                      </div>
+
+                      {quiz.status === 'APPROVED' && quiz.approvedByName && (
+                        <p className="mt-2 text-[10.5px] text-ink-3">
+                          Approved by {quiz.approvedByName}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* One row. Five stacked buttons made every card a
+                        different height and pushed the real action out of
+                        sight. */}
+                    <div className="mt-4 flex items-center gap-1 border-t border-hairline pt-3">
+                      <QuizLifecycleActions
+                        quiz={quiz}
+                        onChanged={replaceQuiz}
+                        onAssign={setAssigningQuiz}
+                        onDeleted={dropQuiz}
+                        onPreview={() => handleStartQuiz(quiz._id)}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}

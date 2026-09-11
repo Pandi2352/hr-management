@@ -6,6 +6,7 @@ import { LoggerHelper } from '../../common/logger';
 import { Quiz, QuizDocument, QUIZ_LOCALE_LABELS, type QuizLocale } from './schemas/quiz.schema';
 import { BankQuestion, BankQuestionDocument } from './schemas/question-bank.schema';
 import { reconcileCategory } from './quiz-category.util';
+import { correctIndexes, questionDefect, questionType } from './question-grading.util';
 
 /** What the Question Doctor reports back about one question. */
 export interface QuestionDiagnosis {
@@ -71,7 +72,11 @@ export class QuizAuthoringService {
     input: {
       prompt: string;
       options: string[];
-      correctOptionIndex: number;
+      /** Optional: a fill-in-the-blank has no option to point at. */
+      correctOptionIndex?: number;
+      correctOptionIndexes?: number[];
+      acceptedAnswers?: string[];
+      type?: string;
       explanation?: string;
       difficulty?: string;
       locale?: string;
@@ -79,11 +84,43 @@ export class QuizAuthoringService {
     },
   ): Promise<QuestionDiagnosis> {
     if (!input.prompt?.trim()) throw new BadRequestException('A question is required.');
-    if (!Array.isArray(input.options) || input.options.length < 2) {
-      throw new BadRequestException('A question needs at least two options.');
+
+    /*
+     * Only question types that have options need options.
+     *
+     * This used to refuse anything with fewer than two, which meant the doctor
+     * could not be opened on a fill-in-the-blank at all — the one type whose
+     * wording is most worth reviewing, because there is no list of options to
+     * help somebody guess what was meant.
+     */
+    if (questionType(input as any) !== 'FILL_BLANK') {
+      if (!Array.isArray(input.options) || input.options.length < 2) {
+        throw new BadRequestException('A question with options needs at least two of them.');
+      }
     }
 
-    const systemPrompt = `You are a senior assessment reviewer. You examine one multiple-choice question and report what is wrong with it. You are blunt and specific; vague praise is useless to the person fixing it.
+    const type = questionType(input as any);
+
+    /*
+     * The reviewer is told what kind of question it is looking at.
+     *
+     * Left to assume multiple choice, it reported "answer options missing" and
+     * "marked answer not provided" about a fill-in-the-blank — advice that
+     * contradicts the question's own type and would send an author off to fix
+     * something that is not broken.
+     */
+    const typeBrief =
+      type === 'FILL_BLANK'
+        ? 'This is a FILL IN THE BLANK question. It has no options and no answer key by design — never report either as missing. Judge whether the blank has exactly one sensible answer, and whether every reasonable wording of that answer is in the accepted list. Leave "betterDistractors" empty.'
+        : type === 'MULTI'
+          ? 'This is a MULTIPLE ANSWER question: more than one option is correct, and a person must tick all of them. Judge whether each marked option is genuinely correct and each unmarked one genuinely wrong.'
+          : type === 'TRUE_FALSE'
+            ? 'This is a TRUE OR FALSE question. Two options is correct by design — never report that as too few. Judge whether the statement is decidably true or false rather than a matter of degree.'
+            : 'This is a single-answer multiple-choice question: exactly one option is correct.';
+
+    const systemPrompt = `You are a senior assessment reviewer. You examine one question and report what is wrong with it. You are blunt and specific; vague praise is useless to the person fixing it.
+
+${typeBrief}
 
 Respond ONLY with raw JSON:
 {
@@ -99,13 +136,25 @@ Respond ONLY with raw JSON:
 
 Judge clarity on whether a knowledgeable reader could misread the question, not on grammar. A question with two defensible answers scores below 50 however well written it is.`;
 
-    const marked = input.options[input.correctOptionIndex];
+    const keys = correctIndexes(input as any);
+
+    const answerBlock =
+      type === 'FILL_BLANK'
+        ? `Accepted answers: ${(input.acceptedAnswers || []).join(', ') || '(none)'}`
+        : `Options:
+${(input.options || [])
+  .map((o, i) => `  ${keys.includes(i) ? '[KEY]' : '     '} ${i + 1}. ${o}`)
+  .join('\n')}
+Marked answer: ${
+            keys.length === 0
+              ? '(none — nothing is marked correct)'
+              : keys.map((i) => input.options?.[i] ?? '(out of range)').join(', ')
+          }`;
+
     const userPrompt = `Review this question.
 
 Question: ${input.prompt}
-Options:
-${input.options.map((o, i) => `  ${i === input.correctOptionIndex ? '[KEY]' : '     '} ${i + 1}. ${o}`).join('\n')}
-Marked answer: ${marked ?? '(none — the key is out of range)'}
+${answerBlock}
 Stated explanation: ${input.explanation || '(none)'}
 Intended difficulty: ${input.difficulty || 'INTERMEDIATE'}
 ${input.sourceText ? `\nSource material:\n"""${input.sourceText.slice(0, 4000)}"""` : ''}`;
@@ -129,7 +178,7 @@ ${input.sourceText ? `\nSource material:\n"""${input.sourceText.slice(0, 4000)}"
   /** Clamps whatever the model returned into the documented shape. */
   private normalizeDiagnosis(
     raw: Partial<QuestionDiagnosis> | null,
-    input: { options: string[]; correctOptionIndex: number },
+    input: { options: string[]; correctOptionIndex?: number },
   ): QuestionDiagnosis {
     const fallback = this.structuralDiagnosis(input);
     if (!raw || typeof raw !== 'object') return fallback;
@@ -165,15 +214,62 @@ ${input.sourceText ? `\nSource material:\n"""${input.sourceText.slice(0, 4000)}"
    */
   private structuralDiagnosis(input: {
     options: string[];
-    correctOptionIndex: number;
+    correctOptionIndex?: number;
+    correctOptionIndexes?: number[];
+    acceptedAnswers?: string[];
+    type?: string;
     prompt?: string;
     explanation?: string;
   }): QuestionDiagnosis {
     const issues: string[] = [];
     const options = input.options || [];
+    const type = questionType(input as any);
 
-    if (input.correctOptionIndex < 0 || input.correctOptionIndex >= options.length) {
+    /*
+     * A fill-in-the-blank has no options, so every option-shaped check below
+     * would either say nothing or say something wrong — "fewer than three
+     * options makes guessing too easy" about a question with no options at
+     * all. It gets its own, shorter list.
+     */
+    if (type === 'FILL_BLANK') {
+      const accepted = (input.acceptedAnswers || []).map((a) => String(a).trim()).filter(Boolean);
+
+      if (accepted.length === 0) issues.push('No accepted answer, so nothing can be marked right.');
+      if (accepted.length === 1) {
+        issues.push('Only one accepted wording. Add the plural and any common spelling.');
+      }
+      if (accepted.some((a) => a.split(/\s+/).length > 3)) {
+        issues.push('An accepted answer is long enough that people will phrase it differently.');
+      }
+      if (input.prompt && !input.prompt.includes('_')) {
+        issues.push('The prompt has no ___ showing where the answer belongs.');
+      }
+      if (!input.explanation?.trim()) {
+        issues.push('No explanation, so a wrong answer teaches nothing.');
+      }
+
+      return {
+        clarityScore: issues.length === 0 ? 70 : Math.max(20, 70 - issues.length * 12),
+        estimatedDifficulty: 'INTERMEDIATE',
+        ambiguityWarning: '',
+        answerKeyExplanation: input.explanation || '',
+        betterDistractors: [],
+        suggestedRewrite: '',
+        sourceEvidence: '',
+        issues,
+      };
+    }
+
+    const keys = correctIndexes(input as any);
+
+    if (keys.length === 0) {
+      issues.push('No answer is marked as correct.');
+    } else if (keys.some((i) => i >= options.length)) {
       issues.push('The marked answer points outside the list of options.');
+    }
+
+    if (type === 'MULTI' && keys.length < 2) {
+      issues.push('A multiple-answer question needs at least two correct options.');
     }
 
     const seen = new Map<string, number>();
@@ -186,13 +282,17 @@ ${input.sourceText ? `\nSource material:\n"""${input.sourceText.slice(0, 4000)}"
     }
 
     if (options.some((o) => !o.trim())) issues.push('One of the options is empty.');
-    if (options.length < 3) issues.push('Fewer than three options makes guessing too easy.');
+    // True/false is two options by definition, so the usual "too few options"
+    // complaint would fire on every well-formed one.
+    if (type !== 'TRUE_FALSE' && options.length < 3) {
+      issues.push('Fewer than three options makes guessing too easy.');
+    }
 
     // A key that is far longer than its distractors is the oldest tell in
     // multiple choice: test-wise candidates pick the long one without reading.
     const lengths = options.map((o) => o.trim().length);
-    const keyLength = lengths[input.correctOptionIndex] ?? 0;
-    const others = lengths.filter((_, i) => i !== input.correctOptionIndex);
+    const keyLength = keys.length === 1 ? (lengths[keys[0]] ?? 0) : 0;
+    const others = lengths.filter((_, i) => !keys.includes(i));
     const avgOther = others.length ? others.reduce((a, b) => a + b, 0) / others.length : 0;
     if (avgOther > 0 && keyLength > avgOther * 1.8) {
       issues.push('The correct option is much longer than the others, which gives it away.');
@@ -314,27 +414,54 @@ ${others.map((p) => `- ${p}`).join('\n') || '(none)'}`;
     userId: string,
     userName: string,
     input: {
+      type?: string;
       prompt: string;
       options: string[];
-      correctOptionIndex: number;
+      correctOptionIndex?: number;
+      correctOptionIndexes?: number[];
+      acceptedAnswers?: string[];
       explanation?: string;
       points?: number;
       category?: string;
       difficulty?: string;
       tags?: string[];
+      section?: string;
       locale?: string;
       sourceEvidence?: string;
       sourceQuizId?: string;
     },
   ): Promise<BankQuestion> {
+    /*
+     * Refused here as well as at the quiz's own gate.
+     *
+     * A question goes into the bank precisely so it can be pulled into a future
+     * quiz without being reviewed again. Letting a broken one in means it comes
+     * back out broken, in a quiz nobody thought to check.
+     */
+    const defect = questionDefect({
+      type: questionType(input as any),
+      prompt: input.prompt,
+      options: input.options,
+      correctOptionIndex: input.correctOptionIndex,
+      correctOptionIndexes: input.correctOptionIndexes,
+      acceptedAnswers: input.acceptedAnswers,
+    } as any);
+    if (defect) {
+      throw new BadRequestException(`This question cannot be banked: ${defect}.`);
+    }
     const existingCategories = await this.bankModel.distinct('category', { organizationId: orgId });
     const category = reconcileCategory(input.category || 'General', existingCategories);
 
     const doc = {
       organizationId: orgId,
+      type: questionType(input as any),
       prompt: input.prompt.trim(),
-      options: input.options.map((o) => String(o).trim()),
-      correctOptionIndex: input.correctOptionIndex,
+      options: (input.options || []).map((o) => String(o).trim()),
+      correctOptionIndex: Number.isInteger(input.correctOptionIndex)
+        ? input.correctOptionIndex
+        : -1,
+      correctOptionIndexes: input.correctOptionIndexes || [],
+      acceptedAnswers: (input.acceptedAnswers || []).map((a) => String(a).trim()).filter(Boolean),
       explanation: (input.explanation || '').trim(),
       points: input.points || 10,
       category,
@@ -397,9 +524,13 @@ ${others.map((p) => `- ${p}`).join('\n') || '(none)'}`;
     for (const entry of entries) {
       if (alreadyAsked.has(entry.prompt.trim().toLowerCase())) continue;
       quiz.questions.push({
+        // Every field, so a banked fill-in-the-blank comes back out as one.
+        type: entry.type || 'SINGLE',
         prompt: entry.prompt,
         options: entry.options,
         correctOptionIndex: entry.correctOptionIndex,
+        correctOptionIndexes: entry.correctOptionIndexes || [],
+        acceptedAnswers: entry.acceptedAnswers || [],
         explanation: entry.explanation,
         points: entry.points,
         tags: entry.tags,

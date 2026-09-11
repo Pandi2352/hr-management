@@ -23,6 +23,7 @@ import type {
   TrainingRoi,
   GenerationJob,
   StartGenerationPayload,
+  QuestionType,
 } from '../types/quiz.types';
 
 export const quizApi = {
@@ -115,14 +116,18 @@ export const quizApi = {
   },
 
   addToBank: async (payload: {
+    type?: QuestionType;
     prompt: string;
     options: string[];
-    correctOptionIndex: number;
+    correctOptionIndex?: number;
+    correctOptionIndexes?: number[];
+    acceptedAnswers?: string[];
     explanation?: string;
     points?: number;
     category?: string;
     difficulty?: string;
     tags?: string[];
+    section?: string;
     locale?: string;
     sourceEvidence?: string;
     sourceQuizId?: string;

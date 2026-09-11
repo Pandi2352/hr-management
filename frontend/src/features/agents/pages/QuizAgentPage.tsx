@@ -24,10 +24,14 @@ import { FormField } from '../../../components/ui/FormField';
 import { useToast } from '../../../components/ui/toast';
 import { cn } from '../../../utils/cn';
 import { quizApi } from '../../quiz/api/quiz.api';
-import type {
-  QuizQuestion,
-  QuizTemplate,
-  QuizLocaleOption,
+import { firstQuestionProblem, toQuestionPayload } from '../../quiz/utils/question.util';
+import {
+  QUESTION_TYPE_HINTS,
+  QUESTION_TYPE_LABELS,
+  type QuestionType,
+  type QuizQuestion,
+  type QuizTemplate,
+  type QuizLocaleOption,
 } from '../../quiz/types/quiz.types';
 
 type AgentStep = 'input' | 'enhanced' | 'generated' | 'success';
@@ -59,6 +63,26 @@ const MAX_QUESTIONS = 50;
 /** The window an employee gets. Short enough to stay a check, long enough to read. */
 const MIN_MINUTES = 1;
 const MAX_MINUTES = 180;
+
+/**
+ * A count for each type that adds up to the total, weighted like a real quiz.
+ *
+ * Mirrors the server's default spread so the numbers an author sees before
+ * generating are the numbers that get generated.
+ */
+function spreadAcrossTypes(total: number): Record<QuestionType, number> {
+  if (total <= 3) return { SINGLE: total, MULTI: 0, TRUE_FALSE: 0, FILL_BLANK: 0 };
+  if (total <= 6) return { SINGLE: total - 2, MULTI: 1, TRUE_FALSE: 1, FILL_BLANK: 0 };
+
+  const trueFalse = Math.max(1, Math.round(total * 0.15));
+  const multi = Math.max(1, Math.round(total * 0.2));
+  const fill = Math.max(1, Math.round(total * 0.1));
+  const single = total - trueFalse - multi - fill;
+
+  return single < 1
+    ? { SINGLE: total, MULTI: 0, TRUE_FALSE: 0, FILL_BLANK: 0 }
+    : { SINGLE: single, MULTI: multi, TRUE_FALSE: trueFalse, FILL_BLANK: fill };
+}
 
 /** The value that means "let the agent choose the category". */
 const AUTO_CATEGORY = '';
@@ -143,6 +167,20 @@ export const QuizAgentPage: React.FC = () => {
   const [categories, setCategories] = useState<{ name: string; quizCount: number }[]>([]);
   const [difficulty, setDifficulty] = useState<'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'>('INTERMEDIATE');
   const [questionCount, setQuestionCount] = useState(5);
+  /*
+   * How many of each question type to write.
+   *
+   * Held as its own object rather than derived from the count, because the
+   * author's intent is "two single, one multi", not "five, distributed
+   * somehow". The count follows the mix, which is why editing a type updates
+   * the total rather than fighting it.
+   */
+  const [typeMix, setTypeMix] = useState<Record<QuestionType, number>>({
+    SINGLE: 5,
+    MULTI: 0,
+    TRUE_FALSE: 0,
+    FILL_BLANK: 0,
+  });
   const [durationMinutes, setDurationMinutes] = useState(10);
   const [isEnhancing, setIsEnhancing] = useState(false);
 
@@ -193,6 +231,8 @@ export const QuizAgentPage: React.FC = () => {
   }, []);
 
   // Handler: Enhance prompt with AI
+  const mixTotal = Object.values(typeMix).reduce((a, b) => a + b, 0);
+
   const handleEnhancePrompt = async () => {
     if (!topic.trim()) {
       toast.error('Please enter a quiz topic or training objective.');
@@ -237,6 +277,7 @@ export const QuizAgentPage: React.FC = () => {
         refinedPrompt: promptToUse,
         title: enhancedData.suggestedTitle,
         questionCount,
+        typeMix,
         category: enhancedData.category || undefined,
         difficulty: difficulty as any,
         locale,
@@ -277,6 +318,7 @@ export const QuizAgentPage: React.FC = () => {
         category: enhancedData.category,
         difficulty: enhancedData.difficulty as any,
         questionCount,
+        typeMix,
       });
 
       setGeneratedQuiz(res);
@@ -301,14 +343,16 @@ export const QuizAgentPage: React.FC = () => {
   const handleSaveDraft = async (sendForReview: boolean) => {
     if (!generatedQuiz) return;
 
-    const broken = generatedQuiz.questions.findIndex(
-      (q) =>
-        !q.prompt.trim() ||
-        q.options.some((o) => !o.trim()) ||
-        (q.correctOptionIndex ?? 0) >= q.options.length,
-    );
-    if (broken !== -1) {
-      toast.error(`Question ${broken + 1} is incomplete. Fill every option and mark the right one.`);
+    /*
+     * Checked by type, using the same rules the server applies.
+     *
+     * The old check assumed every question was single choice, so it demanded
+     * options from a fill-in-the-blank and an answer key from a question that
+     * has none — rejecting perfectly good questions before they were ever sent.
+     */
+    const problem = firstQuestionProblem(generatedQuiz.questions);
+    if (problem) {
+      toast.error(problem);
       return;
     }
 
@@ -323,13 +367,9 @@ export const QuizAgentPage: React.FC = () => {
         timeLimitMinutes: durationMinutes,
         passingScorePct: generatedQuiz.passingScorePct,
         xpReward: generatedQuiz.xpReward,
-        questions: generatedQuiz.questions.map((q) => ({
-          prompt: q.prompt,
-          options: q.options,
-          correctOptionIndex: q.correctOptionIndex ?? 0,
-          explanation: q.explanation,
-          points: q.points,
-        })),
+        // Passed through whole. Listing fields by hand is what dropped the
+        // question type on the way to the server.
+        questions: generatedQuiz.questions.map(toQuestionPayload),
       });
 
       if (sendForReview) {
@@ -500,6 +540,7 @@ export const QuizAgentPage: React.FC = () => {
                         setCategory(t.category);
                         setDifficulty(t.difficulty);
                         setQuestionCount(t.questionCount);
+                        setTypeMix(spreadAcrossTypes(t.questionCount));
                         setDurationMinutes(t.timeLimitMinutes);
                       }}
                     />
@@ -542,7 +583,7 @@ export const QuizAgentPage: React.FC = () => {
 
               <FormField
                 label="Question count"
-                helperText={`Between ${MIN_QUESTIONS} and ${MAX_QUESTIONS}.`}
+                helperText={`Between ${MIN_QUESTIONS} and ${MAX_QUESTIONS}. Changing this respreads the types below.`}
               >
                 <Input
                   type="number"
@@ -552,11 +593,13 @@ export const QuizAgentPage: React.FC = () => {
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
                   // Clamped on blur rather than on every keystroke, so typing
                   // "12" does not fight the user at "1".
-                  onBlur={() =>
-                    setQuestionCount((n) =>
-                      Number.isFinite(n) ? Math.min(MAX_QUESTIONS, Math.max(MIN_QUESTIONS, n)) : 5,
-                    )
-                  }
+                  onBlur={() => {
+                    const next = Number.isFinite(questionCount)
+                      ? Math.min(MAX_QUESTIONS, Math.max(MIN_QUESTIONS, questionCount))
+                      : 5;
+                    setQuestionCount(next);
+                    setTypeMix(spreadAcrossTypes(next));
+                  }}
                 />
               </FormField>
 
@@ -577,6 +620,80 @@ export const QuizAgentPage: React.FC = () => {
                   }
                 />
               </FormField>
+            </div>
+
+            {/*
+              * The mix, chosen before anything is generated.
+              *
+              * Each type is written in its own request, so what is typed here
+              * is what gets written — not a hint the model is free to ignore.
+              */}
+            <div className="mt-4 rounded-md border border-hairline bg-surface-2/40 p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-ink">Question types</p>
+                  <p className="mt-0.5 text-[11px] text-ink-3">
+                    Each type is written in its own pass, so these counts are kept exactly.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      'rounded-md px-2 py-1 text-[11px] font-bold',
+                      mixTotal === questionCount
+                        ? 'bg-surface text-ink-2'
+                        : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+                    )}
+                  >
+                    {mixTotal} of {questionCount}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTypeMix(spreadAcrossTypes(questionCount))}
+                    className="text-[11px]"
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                {(Object.keys(QUESTION_TYPE_LABELS) as QuestionType[]).map((type) => (
+                  <div key={type} className="rounded-md border border-hairline bg-surface p-2.5">
+                    <p className="text-[11px] font-semibold text-ink">
+                      {QUESTION_TYPE_LABELS[type]}
+                    </p>
+                    <p className="mt-0.5 mb-1.5 text-[10px] leading-tight text-ink-3">
+                      {QUESTION_TYPE_HINTS[type]}
+                    </p>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={MAX_QUESTIONS}
+                      value={typeMix[type]}
+                      onChange={(e) => {
+                        const n = Math.max(0, Math.min(MAX_QUESTIONS, Number(e.target.value) || 0));
+                        const next = { ...typeMix, [type]: n };
+                        setTypeMix(next);
+                        // The total follows the mix, so the two can never
+                        // disagree and nothing has to be reconciled later.
+                        const sum = Object.values(next).reduce((a, b) => a + b, 0);
+                        if (sum >= MIN_QUESTIONS && sum <= MAX_QUESTIONS) setQuestionCount(sum);
+                      }}
+                      className="text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {mixTotal !== questionCount && (
+                <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
+                  These add up to {mixTotal}, and the quiz is set to {questionCount}. The counts will
+                  be scaled to fit the total.
+                </p>
+              )}
             </div>
           </div>
 

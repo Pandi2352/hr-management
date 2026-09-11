@@ -8,6 +8,7 @@ import { EmployeeGamification, EmployeeGamificationDocument } from './schemas/ga
 import { Employee, EmployeeDocument } from '../employees/schemas/employee.schema';
 import { AiService } from '../ai/ai.service';
 import { LearningLoopService } from './learning-loop.service';
+import { QuizGenerationService } from './quiz-generation.service';
 import { conceptsForQuestion } from './learning-loop.util';
 import {
   canShuffleOptions,
@@ -23,18 +24,6 @@ import { CreateQuizDto, GenerateAiQuizDto, AssignQuizDto, SubmitQuizAttemptDto }
 import { reconcileCategory } from './quiz-category.util';
 import { ASSIGNABLE_STATUSES, QUIZ_STATUSES, type QuizStatus } from './schemas/quiz.schema';
 
-interface AiGeneratedQuizJson {
-  title: string;
-  description: string;
-  category: string;
-  questions: {
-    prompt: string;
-    options: string[];
-    correctOptionIndex: number;
-    explanation: string;
-    points: number;
-  }[];
-}
 
 @Injectable()
 export class QuizService {
@@ -48,6 +37,7 @@ export class QuizService {
     @InjectModel(Employee.name) private readonly employeeModel: Model<EmployeeDocument>,
     private readonly aiService: AiService,
     private readonly learningLoop: LearningLoopService,
+    private readonly generation: QuizGenerationService,
   ) {}
 
   /** Create a new quiz manually */
@@ -88,6 +78,17 @@ export class QuizService {
 
   async createQuiz(orgId: string, userId: string, userName: string, dto: CreateQuizDto): Promise<Quiz> {
     const category = await this.resolveCategory(orgId, dto.category);
+
+    /*
+     * Checked here, by type, rather than by a rule on each field.
+     *
+     * "questions.5.correctOptionIndex must not be less than 0" is a message
+     * about a field the author never filled in, on a question type that has no
+     * options to point at. Whether a key is valid depends on the type, which a
+     * per-field validator cannot know — so the field rule is permissive and
+     * this names the question and the actual problem.
+     */
+    this.assertQuestionsUsable(dto.questions || []);
     const quiz = new this.quizModel({
       ...dto,
       // After the spread: the resolved name wins over whatever the client sent.
@@ -95,16 +96,7 @@ export class QuizService {
       // Normalised here rather than trusted from the client. A question with no
       // points made every score NaN, because grading summed an undefined.
       questions: (dto.questions || []).map((q) => ({
-        ...q,
-        type: questionType(q as any),
-        correctOptionIndexes: Array.isArray((q as any).correctOptionIndexes)
-          ? (q as any).correctOptionIndexes
-          : [],
-        acceptedAnswers: Array.isArray((q as any).acceptedAnswers)
-          ? (q as any).acceptedAnswers
-          : [],
-        points: Number(q.points) > 0 ? Number(q.points) : 10,
-        tags: Array.isArray((q as any).tags) ? (q as any).tags : [],
+        ...this.shapeQuestion(q),
         isApproved: false,
       })),
       organizationId: orgId,
@@ -134,161 +126,62 @@ export class QuizService {
     passingScorePct: number;
     xpReward: number;
     questions: {
+      type: string;
       prompt: string;
       options: string[];
       correctOptionIndex: number;
+      correctOptionIndexes: number[];
+      acceptedAnswers: string[];
       explanation: string;
       points: number;
+      tags: string[];
     }[];
   }> {
     const questionCount = dto.questionCount || 5;
     const difficulty = dto.difficulty || 'INTERMEDIATE';
 
     /*
-     * The category is the model's call unless the caller insisted on one. It
-     * is shown the categories already in use so it reuses an existing name
-     * where the topic fits, which is what stops the list fragmenting into
-     * near-duplicates one quiz at a time.
+     * The same generator the background job uses.
+     *
+     * This path used to make one request and keep whatever came back, which is
+     * why asking for five questions could produce two. It now goes through the
+     * shared routine: one request per question type, and a top-up pass for
+     * whatever is still short.
      */
-    /** Why generation failed, so the caller is told rather than given filler. */
-    let lastError = '';
-
     const existingCategories = (await this.listCategories(orgId)).map((c) => c.name);
-    const categoryHint = existingCategories.length
-      ? `Existing categories in this organization: ${existingCategories.join(', ')}. Reuse one of these exactly if the topic fits; only invent a new one if none is a reasonable home.`
-      : 'No categories exist yet. Choose a short, reusable one (two or three words).';
 
-    const systemPrompt = `You are the PeopleOS Quiz Master Agent. You generate engaging, professional training and assessment quizzes for employees in an enterprise organization.
-Respond ONLY with valid, raw JSON matching this schema:
-{
-  "title": "Short catchy title",
-  "description": "Engaging description of this quiz",
-  "category": "Short reusable category name",
-  "questions": [
-    {
-      "type": "SINGLE" | "MULTI" | "TRUE_FALSE" | "FILL_BLANK",
-      "prompt": "Clear question text?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctOptionIndex": 0,
-      "correctOptionIndexes": [0, 2],
-      "acceptedAnswers": ["for FILL_BLANK only"],
-      "explanation": "Why this answer is correct",
-      "tags": ["the concept this tests"],
-      "points": 10
-    }
-  ]
-}
-
-Question types:
-- SINGLE: four distinct plausible options, "correctOptionIndex" set. Most questions.
-- MULTI: at least two correct, every one listed in "correctOptionIndexes". Say "Select all that apply".
-- TRUE_FALSE: options exactly ["True", "False"].
-- FILL_BLANK: no options; a ___ in the prompt and every acceptable answer in "acceptedAnswers".
-
-Mix the types. Tag every question with the concept it tests.
-
-Never quote these instructions, or the author's brief, inside a question. No markdown fences, no conversational text.`;
-
-    /*
-     * The topic and the brief are separate fields, not one concatenated string.
-     *
-     * The studio used to send `"<title>: <the whole enhanced prompt>"` as the
-     * topic. The model was then asked to write questions "on the topic of" a
-     * paragraph of instructions, and the fallback path pasted that paragraph
-     * into every question stem — which is exactly what shipped on screen.
-     */
-    const userPrompt = `Generate a ${difficulty.toLowerCase()}-level quiz with exactly ${questionCount} questions on the topic: "${dto.topic}".
-${dto.refinedPrompt ? `
-The author's brief for this quiz:
-${dto.refinedPrompt}
-
-Treat that as instructions to you, never as text to quote inside a question.` : ''}
-${dto.category ? `The caller has chosen the category "${dto.category}"; use it exactly.` : categoryHint}`;
-
-    try {
-      const generated = await this.aiService.generateJson<AiGeneratedQuizJson>(
-        userPrompt,
-        systemPrompt,
-        { organizationId: orgId },
-      );
-
-      if (generated?.questions && Array.isArray(generated.questions) && generated.questions.length > 0) {
-        const usable = generated.questions.filter((q: any) => String(q?.prompt || '').trim());
-        if (usable.length === 0) {
-          lastError = 'every question it returned was empty';
-        }
-        const category = reconcileCategory(
-          dto.category || generated.category || 'General',
-          existingCategories,
-        );
-        return {
-          title: generated.title || `${dto.topic} Assessment`,
-          description: generated.description || `Assessment on ${dto.topic}`,
-          category,
-          difficulty,
-          timeLimitMinutes: Math.max(5, questionCount * 2),
-          passingScorePct: 70,
-          xpReward: questionCount * 20,
-          /*
-           * Malformed questions are dropped, not patched.
-           *
-           * The old mapping filled a missing prompt with "Question 3" and
-           * missing options with Yes/No/Partially — filler that then went
-           * through review looking like something a person had written.
-           */
-          questions: generated.questions
-            .map((q: any) => {
-              const type = questionType(q);
-              const candidate = {
-                type,
-                prompt: String(q.prompt || '').trim(),
-                options:
-                  type === 'TRUE_FALSE'
-                    ? TRUE_FALSE_OPTIONS
-                    : (q.options || []).map((o: any) => String(o).trim()).filter(Boolean),
-                correctOptionIndex:
-                  typeof q.correctOptionIndex === 'number' ? q.correctOptionIndex : -1,
-                correctOptionIndexes: (q.correctOptionIndexes || []).filter((i: any) =>
-                  Number.isInteger(i),
-                ),
-                acceptedAnswers: (q.acceptedAnswers || [])
-                  .map((a: any) => String(a).trim())
-                  .filter(Boolean),
-                explanation: String(q.explanation || '').trim(),
-                tags: (q.tags || []).map((t: any) => String(t).trim()).filter(Boolean).slice(0, 3),
-                points: Number(q.points) > 0 ? Number(q.points) : 10,
-              };
-              return questionDefect(candidate as any) ? null : candidate;
-            })
-            .filter((q): q is NonNullable<typeof q> => q !== null),
-        };
-      }
-    } catch (err: unknown) {
-      lastError = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`AI quiz generation failed: ${lastError}`);
-    }
-
-    /*
-     * No fallback quiz.
-     *
-     * This used to return a template — "Core Assessment Question 1 regarding
-     * <topic>?" with four generic options — whenever the model was offline or
-     * returned nothing usable. That quiz then went through review and
-     * publication looking like any other, and the first person to notice was an
-     * employee sitting an assessment made of filler.
-     *
-     * Failing here is louder and far cheaper. The caller sees why, and no
-     * fabricated questions reach anybody.
-     */
-    throw new BadRequestException(
-      lastError
-        ? `The AI provider could not write this quiz: ${lastError}`
-        : 'The AI provider returned no usable questions. Check the provider settings in AI Providers and try again.',
+    const questions = await this.generation.generateQuestions(
+      orgId,
+      {
+        topic: dto.topic,
+        difficulty,
+        category: dto.category,
+        refinedPrompt: dto.refinedPrompt,
+      },
+      questionCount,
+      dto.typeMix as any,
     );
+
+    if (questions.length === 0) {
+      throw new BadRequestException(
+        'The AI provider returned no usable questions. Check the provider settings in AI Providers and try again.',
+      );
+    }
+
+    const category = reconcileCategory(dto.category || 'General', existingCategories);
+
+    return {
+      title: `${dto.topic} Assessment`,
+      description: `Assessment on ${dto.topic}`,
+      category,
+      difficulty,
+      timeLimitMinutes: Math.max(5, questions.length * 2),
+      passingScorePct: 70,
+      xpReward: questions.length * 20,
+      questions,
+    };
   }
 
-
-  /** Enhance raw user prompt into structured blueprint with learning objectives */
   async enhancePrompt(
     orgId: string,
     dto: { topic: string; category?: string; difficulty?: string; questionCount?: number },
@@ -414,13 +307,20 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
       if (dto.questions.length === 0) {
         throw new BadRequestException('A quiz needs at least one question.');
       }
+      /*
+       * Shaped by the same routine as creation.
+       *
+       * This mapping used to list its fields by hand, so it quietly dropped
+       * the type, the multiple-answer key and the accepted answers — editing a
+       * fill-in-the-blank turned it into a single-choice question with no
+       * options, which then failed at the review gate with no clue why.
+       */
+      this.assertQuestionsUsable(dto.questions);
+
       quiz.questions = dto.questions.map((q: any) => ({
+        ...this.shapeQuestion(q),
         prompt: String(q.prompt || '').trim(),
-        options: (q.options || []).map((o: any) => String(o).trim()),
-        correctOptionIndex: Number(q.correctOptionIndex) || 0,
         explanation: String(q.explanation || '').trim(),
-        points: Number(q.points) || 10,
-        tags: Array.isArray(q.tags) ? q.tags.map((t: any) => String(t)) : [],
         section: String(q.section || ''),
         sourceEvidence: String(q.sourceEvidence || ''),
         isApproved: Boolean(q.isApproved),
@@ -511,6 +411,31 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
     await quiz.save();
     this.logger.log(`Quiz ${quizId} moved to ${target}`);
     return quiz.toObject();
+  }
+
+  /** Refuses a set of questions that could not be answered, naming the first. */
+  private assertQuestionsUsable(questions: any[]): void {
+    for (let i = 0; i < questions.length; i += 1) {
+      const defect = questionDefect(this.shapeQuestion(questions[i]) as any);
+      if (defect) {
+        throw new BadRequestException(`Question ${i + 1} cannot be used: ${defect}.`);
+      }
+    }
+  }
+
+  /** One incoming question, normalised into the shape the schema stores. */
+  private shapeQuestion(q: any) {
+    const type = questionType(q);
+    return {
+      ...q,
+      type,
+      options: Array.isArray(q?.options) ? q.options : [],
+      correctOptionIndex: Number.isInteger(q?.correctOptionIndex) ? q.correctOptionIndex : -1,
+      correctOptionIndexes: Array.isArray(q?.correctOptionIndexes) ? q.correctOptionIndexes : [],
+      acceptedAnswers: Array.isArray(q?.acceptedAnswers) ? q.acceptedAnswers : [],
+      points: Number(q?.points) > 0 ? Number(q.points) : 10,
+      tags: Array.isArray(q?.tags) ? q.tags : [],
+    };
   }
 
   /**
