@@ -7,6 +7,9 @@ import { QuizAttempt, QuizAttemptDocument } from './schemas/quiz-attempt.schema'
 import { EmployeeGamification, EmployeeGamificationDocument } from './schemas/gamification.schema';
 import { Employee, EmployeeDocument } from '../employees/schemas/employee.schema';
 import { AiService } from '../ai/ai.service';
+import { LearningLoopService } from './learning-loop.service';
+import { conceptsForQuestion } from './learning-loop.util';
+import { GRADING_VERSION } from './quiz-insights.util';
 import { CreateQuizDto, GenerateAiQuizDto, AssignQuizDto, SubmitQuizAttemptDto } from './dto/quiz.dto';
 import { reconcileCategory } from './quiz-category.util';
 import { ASSIGNABLE_STATUSES, QUIZ_STATUSES, type QuizStatus } from './schemas/quiz.schema';
@@ -35,6 +38,7 @@ export class QuizService {
     @InjectModel(EmployeeGamification.name) private readonly gamificationModel: Model<EmployeeGamificationDocument>,
     @InjectModel(Employee.name) private readonly employeeModel: Model<EmployeeDocument>,
     private readonly aiService: AiService,
+    private readonly learningLoop: LearningLoopService,
   ) {}
 
   /** Create a new quiz manually */
@@ -723,9 +727,19 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
         correctOptionIndex: q.correctOptionIndex,
         isCorrect,
         pointsAwarded,
+        pointsPossible: points,
         // Returned so the review screen can show why a wrong answer was wrong.
         explanation: q.explanation,
         sourceEvidence: q.sourceEvidence || '',
+        // Copied, not referenced: editing the quiz later must not change what
+        // this person is shown about the attempt they actually sat.
+        prompt: q.prompt,
+        options: [...(q.options || [])],
+        concepts: conceptsForQuestion({
+          tags: q.tags,
+          section: q.section,
+          category: quiz.category,
+        }),
       };
     });
 
@@ -746,12 +760,24 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
     if (scorePct === 100) badgesUnlocked.push('Century Club (100% Score)');
     if (passed && dto.timeTakenSeconds < speedThreshold) badgesUnlocked.push('Speed Demon');
 
+    const priorAttempts = await this.attemptModel.countDocuments({
+      organizationId: orgId,
+      quizId,
+      employeeId,
+    });
+
     // Save attempt record
     const attempt = new this.attemptModel({
       organizationId: orgId,
       quizId,
       employeeId,
       answers: gradedAnswers,
+      gradingVersion: GRADING_VERSION,
+      passingScorePct: quiz.passingScorePct,
+      quizTitle: quiz.title,
+      attemptNumber: priorAttempts + 1,
+      attemptPolicySnapshot: JSON.parse(JSON.stringify(quiz.attemptPolicy || {})),
+      autoSubmitted: Boolean(dto.autoSubmitted),
       score: totalScore,
       totalPoints: maxScore,
       scorePct,
@@ -779,6 +805,22 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
 
     // Update Employee Gamification Profile
     await this.updateGamification(orgId, employeeId, xpEarned, scorePct === 100, badgesUnlocked);
+
+    /*
+     * Step one of the learning loop: a submitted quiz becomes a diagnosis.
+     *
+     * Awaited so the results screen can ask for the loop immediately and find
+     * it there, but the service swallows its own failures — a diagnosis that
+     * cannot be written must never cost somebody their attempt.
+     */
+    await this.learningLoop.recordQuizAttempt(
+      orgId,
+      employeeId,
+      quiz as any,
+      gradedAnswers,
+      String(attempt._id),
+      scorePct,
+    );
 
     return {
       attemptId: attempt._id,

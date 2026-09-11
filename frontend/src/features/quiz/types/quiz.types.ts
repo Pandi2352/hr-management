@@ -243,3 +243,253 @@ export interface AssignQuizPayload {
   assignAll?: boolean;
   dueDate?: string;
 }
+
+// --- Wrong Answer -> Learning Loop -----------------------------------------
+
+export type MasteryBand = 'FRAGILE' | 'DEVELOPING' | 'SOLID' | 'MASTERED';
+
+export const MASTERY_BAND_LABELS: Record<MasteryBand, string> = {
+  FRAGILE: 'Fragile',
+  DEVELOPING: 'Developing',
+  SOLID: 'Solid',
+  MASTERED: 'Mastered',
+};
+
+export interface ConceptCoaching {
+  whyItMatters: string;
+  explanation: string;
+  commonMistake: string;
+  practiceTips: string[];
+  /** Whether a model wrote this, or it was assembled from the quiz itself. */
+  source: 'AI' | 'QUIZ';
+  generatedAt: string | null;
+}
+
+export interface ConceptProgress {
+  concept: string;
+  seen: number;
+  correct: number;
+  masteryPct: number;
+  band: MasteryBand;
+  trend: 'UP' | 'DOWN' | 'FLAT';
+  baselinePct: number;
+  isWeak: boolean;
+  coaching: ConceptCoaching | null;
+  lastSeenAt: string;
+}
+
+export interface LearningLoop {
+  quizId: string;
+  quizTitle: string;
+  quizCategory: string;
+  lastScorePct: number;
+  firstScorePct: number;
+  attemptCount: number;
+  practiceCount: number;
+  lastPracticedAt: string | null;
+  overallMasteryPct: number;
+  weakConcepts: string[];
+  concepts: ConceptProgress[];
+  hasOpenPractice: boolean;
+  openPracticeId: string | null;
+}
+
+export interface PracticeQuestionView {
+  index: number;
+  prompt: string;
+  options: string[];
+  concept: string;
+  origin: 'QUIZ' | 'BANK' | 'AI';
+}
+
+export interface PracticeSetView {
+  practiceId: string;
+  quizId: string;
+  quizTitle: string;
+  concepts: string[];
+  status: 'OPEN' | 'COMPLETED';
+  questions: PracticeQuestionView[];
+}
+
+export interface ConceptMovement {
+  concept: string;
+  beforePct: number;
+  afterPct: number;
+  band: MasteryBand;
+  trend: 'UP' | 'DOWN' | 'FLAT';
+  /** True once the concept is no longer counted as weak. */
+  resolved: boolean;
+}
+
+export interface PracticeResult {
+  practiceId: string;
+  scorePct: number;
+  correctCount: number;
+  total: number;
+  answers: {
+    questionIndex: number;
+    prompt: string;
+    options: string[];
+    concept: string;
+    selectedOptionIndex: number;
+    correctOptionIndex: number;
+    isCorrect: boolean;
+    explanation: string;
+  }[];
+  movement: ConceptMovement[];
+  remainingWeakConcepts: string[];
+  loop: LearningLoop;
+}
+
+// --- Explainable Score ------------------------------------------------------
+
+export interface ExplainedQuestion {
+  index: number;
+  prompt: string;
+  options: string[];
+  concepts: string[];
+  selectedOptionIndex: number;
+  selectedOptionText: string | null;
+  correctOptionIndex: number;
+  correctOptionText: string;
+  isCorrect: boolean;
+  pointsAwarded: number;
+  pointsPossible: number;
+  explanation: string;
+  answered: boolean;
+}
+
+export interface ExplainedScore {
+  attemptId: string;
+  gradingVersion: string;
+  gradingRules: string[];
+  quizId: string;
+  quizTitle: string;
+  employeeId: string;
+  employeeName: string;
+  submittedAt: string;
+  timeTakenSeconds: number;
+  autoSubmitted: boolean;
+  attemptNumber: number;
+  attemptPolicy: AttemptPolicy | Record<string, never>;
+  passMarkPct: number;
+  scorePct: number;
+  passed: boolean;
+  xpEarned: number;
+  calculation: {
+    questionsTotal: number;
+    questionsAnswered: number;
+    questionsUnanswered: number;
+    questionsCorrect: number;
+    pointsAwarded: number;
+    pointsPossible: number;
+    recomputedScorePct: number;
+    /** False when the stored score cannot be reproduced from the stored answers. */
+    matchesStoredScore: boolean;
+    formula: string;
+  };
+  questions: ExplainedQuestion[];
+  /** False for attempts taken before per-answer snapshots were recorded. */
+  snapshotAvailable: boolean;
+}
+
+export interface AttemptSummary {
+  attemptId: string;
+  attemptNumber: number;
+  scorePct: number;
+  passed: boolean;
+  submittedAt: string;
+  timeTakenSeconds: number;
+  autoSubmitted: boolean;
+  questionsCorrect: number;
+  questionsTotal: number;
+}
+
+// --- Skill Passport ---------------------------------------------------------
+
+export type SkillLevel = 'Emerging' | 'Developing' | 'Intermediate' | 'Advanced';
+
+export interface PassportSkill {
+  skill: string;
+  masteryPct: number;
+  level: SkillLevel;
+  evidenceCount: number;
+  correct: number;
+  trend: 'UP' | 'DOWN' | 'FLAT';
+  measuredByQuizzes: number;
+  lastSeenAt: string;
+  /** Where the evidence came from. Quizzes today; training and confidence next. */
+  evidence: ('QUIZ' | 'TRAINING' | 'CONFIDENCE')[];
+}
+
+export interface SkillPassport {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  avatarUrl: string;
+  jobTitle: string;
+  department: string;
+  headline: 'Starting out' | 'Growing' | 'Steady' | 'Accelerating';
+  xp: number;
+  level: number;
+  badges: string[];
+  currentStreak: number;
+  skillsTracked: number;
+  quizzesCompleted: number;
+  passRate: { numerator: number; denominator: number; pct: number };
+  strengths: PassportSkill[];
+  growthAreas: PassportSkill[];
+  skills: PassportSkill[];
+}
+
+// --- Training ROI -----------------------------------------------------------
+
+export interface RateValue {
+  numerator: number;
+  denominator: number;
+  pct: number;
+}
+
+export interface TrainingRoi {
+  scope: 'QUIZ' | 'ORGANISATION';
+  quizId: string | null;
+  generatedAt: string;
+  completion: RateValue;
+  pass: RateValue;
+  improvement: {
+    learnersWithRetry: number;
+    avgFirstPct: number;
+    avgLatestPct: number;
+    deltaPoints: number;
+  };
+  weakestSkills: {
+    skill: string;
+    masteryPct: number;
+    learnersAffected: number;
+    answersSeen: number;
+  }[];
+  needingSupport: {
+    employeeId: string;
+    employeeName: string;
+    department: string;
+    quizId: string;
+    quizTitle: string;
+    scorePct: number;
+    attempts: number;
+    reason: string;
+    reasonLabel: string;
+    weakConcepts: string[];
+  }[];
+  flaggedQuestions: {
+    quizId: string;
+    quizTitle: string;
+    questionIndex: number;
+    prompt: string;
+    responses: number;
+    correctPct: number;
+    flag: 'TOO_HARD' | 'TOO_EASY' | 'HEALTHY';
+    reason: string;
+  }[];
+  recommendations: string[];
+  totals: { quizzes: number; assignments: number; attempts: number; learners: number };
+}

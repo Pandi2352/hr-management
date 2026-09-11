@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Delete,
   Get,
   Param,
@@ -29,7 +30,10 @@ import {
   ReviewQuizDto,
   AddBankQuestionDto,
   PullFromBankDto,
+  SubmitPracticeDto,
 } from './dto/quiz.dto';
+import { LearningLoopService } from './learning-loop.service';
+import { QuizInsightsService } from './quiz-insights.service';
 import { OrganizationService } from '../organization/organization.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -43,6 +47,8 @@ export class QuizController {
   constructor(
     private readonly quizService: QuizService,
     private readonly authoringService: QuizAuthoringService,
+    private readonly learningLoop: LearningLoopService,
+    private readonly insights: QuizInsightsService,
     private readonly orgService: OrganizationService,
     @InjectModel(Employee.name) private readonly employeeModel: Model<EmployeeDocument>,
   ) {}
@@ -51,6 +57,23 @@ export class QuizController {
     if (req.user?.organizationId) return req.user.organizationId;
     const defaultOrg = await this.orgService.getProfile();
     return defaultOrg._id;
+  }
+
+  /**
+   * Whether this viewer may look at somebody else's results.
+   *
+   * Scores are personal. A passport or an explained score belongs to the person
+   * it describes, and only the roles that already run the programme may open
+   * someone else's.
+   */
+  private canViewOthers(req: any): boolean {
+    const roles = [...(req.user?.roles || []), req.user?.role]
+      .filter(Boolean)
+      .map((r: string) => String(r).toUpperCase());
+
+    return roles.some((r) =>
+      ['SUPER_ADMIN', 'SUPERADMIN', 'ADMIN', 'ORG_ADMIN', 'OWNER', 'HR', 'HR_ADMIN', 'MANAGER'].includes(r),
+    );
   }
 
   private async getEmployeeId(req: any, orgId: string): Promise<string> {
@@ -313,4 +336,126 @@ export class QuizController {
     const data = await this.quizService.submitAttempt(orgId, employeeId, quizId, dto);
     return ResultEntity.ok(data, data.passed ? 'Congratulations! You passed the quiz!' : 'Quiz submitted.');
   }
+
+  // --- Wrong Answer -> Learning Loop ---------------------------------------
+
+  @Get('mastery')
+  @ApiOperation({ summary: 'Every concept the current employee has been measured on' })
+  async getMyMastery(@Request() req: any) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    return ResultEntity.ok(await this.learningLoop.myMastery(orgId, employeeId));
+  }
+
+  @Get('practice/:practiceId')
+  @ApiOperation({ summary: 'Open a targeted retry, without its answer key' })
+  async getPractice(@Request() req: any, @Param('practiceId') practiceId: string) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    return ResultEntity.ok(await this.learningLoop.getPractice(orgId, employeeId, practiceId));
+  }
+
+  @Post('practice/:practiceId/submit')
+  @ApiOperation({ summary: 'Grade a targeted retry and move mastery' })
+  async submitPractice(
+    @Request() req: any,
+    @Param('practiceId') practiceId: string,
+    @Body() dto: SubmitPracticeDto,
+  ) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    const data = await this.learningLoop.submitPractice(orgId, employeeId, practiceId, dto.answers);
+    return ResultEntity.ok(data, 'Practice recorded.');
+  }
+
+  @Get(':id/learning-loop')
+  @ApiOperation({ summary: 'The weak concepts, coaching and mastery for one quiz' })
+  async getLearningLoop(@Request() req: any, @Param('id') quizId: string) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    return ResultEntity.ok(await this.learningLoop.getLoop(orgId, employeeId, quizId));
+  }
+
+  @Post(':id/learning-loop/coach')
+  @ApiOperation({ summary: 'Explain the weak concepts and recommend practice' })
+  async coachLearningLoop(
+    @Request() req: any,
+    @Param('id') quizId: string,
+    @Query('refresh') refresh?: string,
+  ) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    const data = await this.learningLoop.coach(orgId, employeeId, quizId, refresh === 'true');
+    return ResultEntity.ok(data);
+  }
+
+  @Post(':id/learning-loop/practice')
+  @ApiOperation({ summary: 'Build a targeted retry from the weak concepts' })
+  async buildPractice(@Request() req: any, @Param('id') quizId: string) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    const data = await this.learningLoop.buildPractice(orgId, employeeId, quizId);
+    return ResultEntity.ok(data, 'Practice set ready.');
+  }
+
+
+  // --- Explainable Score ----------------------------------------------------
+
+  @Get('attempts/:attemptId/explain')
+  @ApiOperation({ summary: 'Why this employee received this score' })
+  async explainAttempt(@Request() req: any, @Param('attemptId') attemptId: string) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    const data = await this.insights.explainAttempt(orgId, attemptId, {
+      employeeId,
+      canViewOthers: this.canViewOthers(req),
+    });
+    return ResultEntity.ok(data);
+  }
+
+  @Get(':id/my-attempts')
+  @ApiOperation({ summary: 'Every sitting of one quiz by the current employee' })
+  async listMyAttempts(@Request() req: any, @Param('id') quizId: string) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    return ResultEntity.ok(await this.insights.listMyAttempts(orgId, employeeId, quizId));
+  }
+
+  // --- Skill Passport -------------------------------------------------------
+
+  @Get('passport')
+  @ApiOperation({ summary: 'The current employee learning profile' })
+  async myPassport(@Request() req: any) {
+    const orgId = await this.getOrgId(req);
+    const employeeId = await this.getEmployeeId(req, orgId);
+    return ResultEntity.ok(await this.insights.skillPassport(orgId, employeeId));
+  }
+
+  @Get('passport/:employeeId')
+  @ApiOperation({ summary: 'Another employee learning profile, for HR and managers' })
+  async passportFor(@Request() req: any, @Param('employeeId') employeeId: string) {
+    const orgId = await this.getOrgId(req);
+    const mine = await this.getEmployeeId(req, orgId);
+
+    if (employeeId !== mine && !this.canViewOthers(req)) {
+      throw new ForbiddenException('You can only open your own skill passport.');
+    }
+
+    return ResultEntity.ok(await this.insights.skillPassport(orgId, employeeId));
+  }
+
+  // --- Training ROI ---------------------------------------------------------
+
+  @Get('insights/training-roi')
+  @ApiOperation({ summary: 'Did the training actually improve capability' })
+  async trainingRoi(@Request() req: any, @Query('quizId') quizId?: string) {
+    const orgId = await this.getOrgId(req);
+
+    if (!this.canViewOthers(req)) {
+      throw new ForbiddenException('Training reporting is for HR and managers.');
+    }
+
+    return ResultEntity.ok(await this.insights.trainingRoi(orgId, quizId));
+  }
+
 }

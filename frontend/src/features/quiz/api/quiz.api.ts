@@ -13,6 +13,14 @@ import type {
   QuizLocaleOption,
   QuestionDiagnosis,
   BankQuestion,
+  LearningLoop,
+  PracticeSetView,
+  PracticeResult,
+  ConceptProgress,
+  ExplainedScore,
+  AttemptSummary,
+  SkillPassport,
+  TrainingRoi,
 } from '../types/quiz.types';
 
 export const quizApi = {
@@ -178,7 +186,11 @@ export const quizApi = {
 
   submitAttempt: async (
     quizId: string,
-    payload: { answers: { questionIndex: number; selectedOptionIndex: number }[]; timeTakenSeconds: number },
+    payload: {
+      answers: { questionIndex: number; selectedOptionIndex: number; optionOrder?: number[] }[];
+      timeTakenSeconds: number;
+      autoSubmitted?: boolean;
+    },
   ): Promise<QuizSubmissionResult> => {
     const res = await apiClient.post(`/quizzes/${quizId}/submit`, payload);
     return res.data.data as QuizSubmissionResult;
@@ -194,5 +206,68 @@ export const quizApi = {
   getMyStats: async (): Promise<MyGamificationStats> => {
     const res = await apiClient.get('/quizzes/my-stats');
     return res.data.data as MyGamificationStats;
+  },
+
+  // --- Wrong Answer -> Learning Loop ---------------------------------------
+
+  /** Null when this person has not attempted the quiz yet. */
+  getLearningLoop: async (quizId: string): Promise<LearningLoop | null> => {
+    const res = await apiClient.get(`/quizzes/${quizId}/learning-loop`);
+    return (res.data.data as LearningLoop) || null;
+  },
+
+  coachLearningLoop: async (quizId: string, refresh = false): Promise<LearningLoop> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/learning-loop/coach`, null, {
+      params: refresh ? { refresh: 'true' } : {},
+    });
+    return res.data.data as LearningLoop;
+  },
+
+  buildPractice: async (quizId: string): Promise<PracticeSetView> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/learning-loop/practice`);
+    return res.data.data as PracticeSetView;
+  },
+
+  getPractice: async (practiceId: string): Promise<PracticeSetView> => {
+    const res = await apiClient.get(`/quizzes/practice/${practiceId}`);
+    return res.data.data as PracticeSetView;
+  },
+
+  submitPractice: async (
+    practiceId: string,
+    answers: { questionIndex: number; selectedOptionIndex: number }[],
+  ): Promise<PracticeResult> => {
+    const res = await apiClient.post(`/quizzes/practice/${practiceId}/submit`, { answers });
+    return res.data.data as PracticeResult;
+  },
+
+  getMyMastery: async (): Promise<ConceptProgress[]> => {
+    const res = await apiClient.get('/quizzes/mastery');
+    return res.data.data as ConceptProgress[];
+  },
+
+  // --- Explainable Score, Skill Passport, Training ROI ---------------------
+
+  explainAttempt: async (attemptId: string): Promise<ExplainedScore> => {
+    const res = await apiClient.get(`/quizzes/attempts/${attemptId}/explain`);
+    return res.data.data as ExplainedScore;
+  },
+
+  listMyAttempts: async (quizId: string): Promise<AttemptSummary[]> => {
+    const res = await apiClient.get(`/quizzes/${quizId}/my-attempts`);
+    return res.data.data as AttemptSummary[];
+  },
+
+  /** Omit the id for your own passport. */
+  getPassport: async (employeeId?: string): Promise<SkillPassport> => {
+    const res = await apiClient.get(employeeId ? `/quizzes/passport/${employeeId}` : '/quizzes/passport');
+    return res.data.data as SkillPassport;
+  },
+
+  getTrainingRoi: async (quizId?: string): Promise<TrainingRoi> => {
+    const res = await apiClient.get('/quizzes/insights/training-roi', {
+      params: quizId ? { quizId } : {},
+    });
+    return res.data.data as TrainingRoi;
   },
 };

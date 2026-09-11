@@ -36,6 +36,27 @@ export class QuizQuestionDto {
   @Min(1)
   @IsOptional()
   points?: number;
+
+  /**
+   * What this question is about.
+   *
+   * The schema has carried these since tags were added, but the DTO did not,
+   * so the validator stripped them on the way in and every question reached
+   * the database untagged. That made the learning loop's concepts as coarse as
+   * the quiz's category, which is one bucket for the whole quiz.
+   */
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @IsString()
+  @IsOptional()
+  section?: string;
+
+  @IsString()
+  @IsOptional()
+  sourceEvidence?: string;
 }
 
 export class CreateQuizDto {
@@ -173,6 +194,16 @@ export class SubmitQuizAttemptDto {
   @IsInt()
   @Min(0)
   timeTakenSeconds: number;
+
+  /**
+   * Whether the timer submitted this rather than the person.
+   *
+   * Recorded because it changes how a low score should be read: a paper handed
+   * in at the bell is not the same evidence as one handed in early.
+   */
+  @IsBoolean()
+  @IsOptional()
+  autoSubmitted?: boolean;
 }
 
 
@@ -352,4 +383,29 @@ export class PullFromBankDto {
   @ArrayMinSize(1)
   @IsString({ each: true })
   bankIds: string[];
+}
+
+/** One answer in a targeted retry. */
+export class PracticeAnswerDto {
+  @IsInt()
+  @Min(0)
+  questionIndex: number;
+
+  /**
+   * The option chosen, or -1 for one left blank.
+   *
+   * Practice has no timer, but a person can still hand in an incomplete set,
+   * and refusing that would throw away the questions they did answer.
+   */
+  @IsInt()
+  @Min(-1)
+  selectedOptionIndex: number;
+}
+
+export class SubmitPracticeDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => PracticeAnswerDto)
+  answers: PracticeAnswerDto[];
 }

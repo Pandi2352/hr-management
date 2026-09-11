@@ -53,6 +53,8 @@ import { AgentsHubPage } from "../features/agents/pages/AgentsHubPage";
 import { QuizAgentPage } from "../features/agents/pages/QuizAgentPage";
 import { QuizHubPage } from "../features/quiz/pages/QuizHubPage";
 import { QuizPlayPage } from "../features/quiz/pages/QuizPlayPage";
+import { PracticePage } from "../features/quiz/pages/PracticePage";
+import { AttemptReviewPage } from "../features/quiz/pages/AttemptReviewPage";
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "MANAGER"];
 
@@ -289,6 +291,13 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <QuizHubPage /> },
           { path: ":id/play", element: <QuizPlayPage /> },
+          // The targeted retry from the learning loop. Sits beside play rather
+          // than under a quiz id, because a practice set outlives the attempt
+          // that produced it and is addressed by its own id.
+          { path: "practice/:practiceId", element: <PracticePage /> },
+          // One attempt, explained. Addressed by attempt rather than by quiz,
+          // because the record is of a sitting and outlives the quiz's edits.
+          { path: "attempts/:attemptId", element: <AttemptReviewPage /> },
         ],
       },
       {

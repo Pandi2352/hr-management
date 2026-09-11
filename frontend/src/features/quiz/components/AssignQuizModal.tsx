@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import {
-  X,
-  Users,
-  Calendar,
-  CheckCircle2,
-  Search,
-  UserCheck,
-  Sparkles,
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Users, UserCheck, Building2, Check } from 'lucide-react';
 import type { Quiz } from '../types/quiz.types';
 import { quizApi } from '../api/quiz.api';
 import { employeesApi } from '../../employees/api/employees.api';
 import type { Employee } from '../../employees/types/employees.types';
+import { Button, SearchInput, Avatar, SegmentedTabs } from '../../../components/ui';
+import { FormField } from '../../../components/ui/FormField';
+import { Input } from '../../../components/ui/Input';
 import { useToast } from '../../../components/ui/toast';
+import { cn } from '../../../utils/cn';
 
 interface AssignQuizModalProps {
   quiz: Quiz;
@@ -21,6 +17,25 @@ interface AssignQuizModalProps {
   onSuccess: () => void;
 }
 
+type Audience = 'ALL' | 'PICK';
+
+/** The server's hard ceiling for one page of employees. */
+const ROSTER_PAGE_SIZE = 100;
+/** Enough for 1,000 people; a guard against a page cursor that never ends. */
+const MAX_ROSTER_PAGES = 10;
+
+const employeeId = (emp: Employee) => emp._id || (emp as any).id;
+const employeeName = (emp: Employee) => `${emp.firstName || ''} ${emp.lastName || ''}`.trim();
+
+/**
+ * Who gets this quiz.
+ *
+ * Fixed size rather than a panel that grows with the roster: the footer stays
+ * where it was when the list was short, so the confirm button never walks off
+ * the bottom of a long company. The two audiences are one control rather than
+ * a pair of radio cards, because they are a choice between two things, not two
+ * independent settings.
+ */
 export const AssignQuizModal: React.FC<AssignQuizModalProps> = ({
   quiz,
   isOpen,
@@ -28,313 +43,308 @@ export const AssignQuizModal: React.FC<AssignQuizModalProps> = ({
   onSuccess,
 }) => {
   const toast = useToast();
-  const [isAllEmployees, setIsAllEmployees] = useState<boolean>(true);
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [audience, setAudience] = useState<Audience>('ALL');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<string>('');
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [search, setSearch] = useState<string>('');
+  const [department, setDepartment] = useState<string>('');
   const [isLoadingEmployees, setIsLoadingEmployees] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setIsAllEmployees(true);
-      setSelectedEmployeeIds([]);
-      setDueDate('');
-      setSearchQuery('');
-      loadEmployees();
-    }
+    if (!isOpen) return;
+
+    setAudience('ALL');
+    setSelectedIds([]);
+    setDueDate('');
+    setSearch('');
+    setDepartment('');
+
+    (async () => {
+      try {
+        setIsLoadingEmployees(true);
+
+        /*
+         * Paged, because the server refuses a page larger than 100.
+         *
+         * This list used to ask for 150 in one go, which failed validation and
+         * came back empty — so "choose specific people" showed an empty roster
+         * and looked like the company had no employees. Walking the pages is
+         * both correct and honest about the limit. The cap stops a runaway if a
+         * server ever reports hasNextPage forever.
+         */
+        const collected: Employee[] = [];
+        for (let page = 1; page <= MAX_ROSTER_PAGES; page += 1) {
+          const res = await employeesApi.getEmployees({ page, pageSize: ROSTER_PAGE_SIZE });
+          collected.push(...(res.data || []));
+          if (!res.meta?.hasNextPage) break;
+        }
+        setEmployees(collected);
+      } catch {
+        toast.error('Could not load the employee list.');
+      } finally {
+        setIsLoadingEmployees(false);
+      }
+    })();
+    // The toast helper is stable for the life of the provider.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  const loadEmployees = async () => {
-    try {
-      setIsLoadingEmployees(true);
-      const res = await employeesApi.getEmployees({ pageSize: 150 });
-      setEmployees(res.data || []);
-    } catch {
-      // silently handle fallback
-    } finally {
-      setIsLoadingEmployees(false);
-    }
-  };
+  const departments = useMemo(() => {
+    const names = new Set<string>();
+    employees.forEach((e) => {
+      if (e.departmentName) names.add(e.departmentName);
+    });
+    return Array.from(names).sort();
+  }, [employees]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return employees.filter((emp) => {
+      if (department && emp.departmentName !== department) return false;
+      if (!q) return true;
+      return (
+        employeeName(emp).toLowerCase().includes(q) ||
+        (emp.workEmail || '').toLowerCase().includes(q)
+      );
+    });
+  }, [employees, search, department]);
 
   if (!isOpen) return null;
 
-  const filteredEmployees = employees.filter((emp) => {
-    const name = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
-    const email = (emp.workEmail || '').toLowerCase();
-    const q = searchQuery.toLowerCase();
-    return name.includes(q) || email.includes(q);
-  });
+  const toggle = (id: string) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const toggleEmployee = (empId: string) => {
-    setSelectedEmployeeIds((prev) =>
-      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
-    );
-  };
-
-  const handleSelectAllFiltered = () => {
-    const ids = filteredEmployees.map((e) => e._id || (e as any).id);
-    setSelectedEmployeeIds((prev) => Array.from(new Set([...prev, ...ids])));
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedEmployeeIds([]);
-  };
+  const selectAllShown = () =>
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...filtered.map(employeeId)])));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAllEmployees && selectedEmployeeIds.length === 0) {
-      toast.warning('Please select at least one employee or toggle "Assign to All"');
+    if (audience === 'PICK' && selectedIds.length === 0) {
+      toast.warning('Pick at least one person, or assign to everybody.');
       return;
     }
 
     try {
       setIsSubmitting(true);
       const res = await quizApi.assignQuiz(quiz._id, {
-        assignAll: isAllEmployees,
-        employeeIds: isAllEmployees ? undefined : selectedEmployeeIds,
+        assignAll: audience === 'ALL',
+        employeeIds: audience === 'ALL' ? undefined : selectedIds,
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
       });
 
       toast.success(
-        `Successfully assigned quiz to ${res.assignedCount} employee${res.assignedCount === 1 ? '' : 's'}!`
+        `Assigned to ${res.assignedCount} ${res.assignedCount === 1 ? 'person' : 'people'}.`,
       );
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to assign quiz');
+      toast.error(err?.response?.data?.message || 'Could not assign this quiz.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const recipients = audience === 'ALL' ? employees.length : selectedIds.length;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="w-full max-w-xl bg-surface border border-hairline rounded-md shadow-none flex flex-col my-8">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-surface-2/30">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-ink">Assign Quiz</h2>
-              <p className="text-xs text-ink-3 line-clamp-1">{quiz.title}</p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={onClose} />
+
+      <form
+        onSubmit={handleSubmit}
+        className="relative z-10 flex h-[640px] max-h-[92vh] w-[760px] max-w-[96vw] flex-col overflow-hidden rounded-md border border-hairline bg-surface"
+      >
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-hairline px-5 py-3.5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-ink">Assign this quiz</h2>
+            <p className="mt-0.5 line-clamp-1 text-xs text-ink-3">
+              {quiz.title} · {quiz.questions?.length || 0} questions ·{' '}
+              {quiz.timeLimitMinutes || 0} min · pass {quiz.passingScorePct}%
+            </p>
           </div>
+
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 text-ink-3 hover:text-ink rounded-md hover:bg-surface-2 transition-colors"
+            className="cursor-pointer rounded-md p-1 text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
+            aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Content Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Target Audience Toggle */}
-          <div className="space-y-3">
-            <label className="text-xs font-semibold uppercase tracking-wider text-ink-3">
-              Target Audience
-            </label>
+        <div className="shrink-0 border-b border-hairline px-5 py-3">
+          <SegmentedTabs
+            active={audience}
+            onChange={(id) => setAudience(id as Audience)}
+            tabs={[
+              { id: 'ALL', label: 'Everyone', count: employees.length },
+              { id: 'PICK', label: 'Choose people', count: selectedIds.length },
+            ]}
+          />
+        </div>
 
-            {/* Bulk Assign to All Employees Option */}
-            <div
-              onClick={() => setIsAllEmployees(true)}
-              className={`flex items-start gap-3.5 p-4 rounded-md border cursor-pointer transition-all ${
-                isAllEmployees
-                  ? 'border-primary/50 bg-primary-light ring-1 ring-primary/20'
-                  : 'border-hairline bg-surface-2/20 hover:border-border'
-              }`}
-            >
-              <div
-                className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center ${
-                  isAllEmployees ? 'border-primary bg-primary' : 'border-hairline/50'
-                }`}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {audience === 'ALL' ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <Users className="mb-3 h-8 w-8 text-ink-3 opacity-60" />
+              <h3 className="text-sm font-semibold text-ink">
+                Going to every active employee
+              </h3>
+              <p className="mt-1 max-w-sm text-xs text-ink-3">
+                {isLoadingEmployees
+                  ? 'Counting the roster…'
+                  : `${employees.length} people will see this in their arena. Anyone who already has it keeps their existing attempt.`}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setAudience('PICK')}
+                className="mt-4"
               >
-                {isAllEmployees && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-ink">
-                    Assign to All Employees (Company-Wide)
-                  </span>
-                  <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary-light text-primary dark:text-primary rounded-md border border-primary/20">
-                    Recommended
-                  </span>
-                </div>
-                <p className="text-xs text-ink-3 mt-0.5">
-                  Instantly challenge every active member in the organization to boost team knowledge & XP.
-                </p>
-              </div>
+                Choose specific people instead
+              </Button>
             </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search by name or work email"
+                  wrapperClassName="min-w-[220px] flex-1"
+                />
 
-            {/* Specific Employees Option */}
-            <div
-              onClick={() => setIsAllEmployees(false)}
-              className={`flex items-start gap-3.5 p-4 rounded-md border cursor-pointer transition-all ${
-                !isAllEmployees
-                  ? 'border-primary/50 bg-primary-light ring-1 ring-primary/20'
-                  : 'border-hairline bg-surface-2/20 hover:border-border'
-              }`}
-            >
-              <div
-                className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center ${
-                  !isAllEmployees ? 'border-primary bg-primary' : 'border-hairline/50'
-                }`}
-              >
-                {!isAllEmployees && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="cursor-pointer rounded-md border border-hairline bg-surface px-2.5 py-2 text-xs text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary-ring)]"
+                >
+                  <option value="">All departments</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="flex-1">
-                <span className="text-sm font-medium text-ink">Select Specific Employees</span>
-                <p className="text-xs text-ink-3 mt-0.5">
-                  Pick specific individuals or targeted department members.
-                </p>
-              </div>
-            </div>
-          </div>
 
-          {/* Employee Selector List (when not all employees) */}
-          {!isAllEmployees && (
-            <div className="p-4 rounded-md border border-hairline bg-surface-2/10 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-                  <input
-                    type="text"
-                    placeholder="Search employees by name or email..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 text-xs bg-surface border border-hairline rounded-md text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-[11px] text-ink-3">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  {selectedIds.length} selected · {filtered.length} shown
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <Button type="button" size="sm" variant="ghost" onClick={selectAllShown}>
+                    Select all shown
+                  </Button>
+                  <Button
                     type="button"
-                    onClick={handleSelectAllFiltered}
-                    className="px-2 py-1 text-xs text-primary hover:text-primary font-medium"
-                  >
-                    Select All ({filteredEmployees.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeselectAll}
-                    className="px-2 py-1 text-xs text-ink-3 hover:text-ink font-medium"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedIds([])}
+                    disabled={selectedIds.length === 0}
                   >
                     Clear
-                  </button>
+                  </Button>
                 </div>
               </div>
 
-              {/* Badges / Chips for selected count */}
-              <div className="text-xs text-ink-3 flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-primary" />
-                <span>
-                  {selectedEmployeeIds.length} employee{selectedEmployeeIds.length === 1 ? '' : 's'} selected
-                </span>
-              </div>
-
-              {/* Employee Scroll list */}
-              <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 border border-hairline rounded-md p-1.5 bg-surface">
+              <div className="overflow-hidden rounded-md border border-hairline">
                 {isLoadingEmployees ? (
-                  <div className="py-6 text-center text-xs text-ink-3">Loading employees...</div>
-                ) : filteredEmployees.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-ink-3">No employees found.</div>
+                  <div className="py-12 text-center text-xs text-ink-3">Loading employees…</div>
+                ) : filtered.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-ink-3">
+                    Nobody matches that search.
+                  </div>
                 ) : (
-                  filteredEmployees.map((emp) => {
-                    const empId = emp._id || (emp as any).id;
-                    const isSelected = selectedEmployeeIds.includes(empId);
+                  filtered.map((emp, i) => {
+                    const id = employeeId(emp);
+                    const isSelected = selectedIds.includes(id);
                     return (
-                      <div
-                        key={empId}
-                        onClick={() => toggleEmployee(empId)}
-                        className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
-                          isSelected
-                            ? 'bg-primary-light border border-primary/30'
-                            : 'hover:bg-surface-2 border border-transparent'
-                        }`}
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => toggle(id)}
+                        aria-pressed={isSelected}
+                        className={cn(
+                          'flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition-colors',
+                          i > 0 && 'border-t border-hairline',
+                          isSelected ? 'bg-surface-2' : 'hover:bg-surface-2/50',
+                        )}
                       >
-                        <div className="flex items-center gap-2.5">
-                          {emp.avatarUrl ? (
-                            <img
-                              src={emp.avatarUrl}
-                              alt=""
-                              className="w-6 h-6 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-primary-light text-primary flex items-center justify-center text-[10px] font-bold">
-                              {emp.firstName?.[0] || 'U'}
-                            </div>
+                        <span
+                          className={cn(
+                            'flex h-4 w-4 shrink-0 items-center justify-center rounded-md border',
+                            isSelected
+                              ? 'border-[var(--primary)] bg-[var(--primary)] text-white'
+                              : 'border-hairline',
                           )}
-                          <div>
-                            <p className="text-xs font-medium text-ink">
-                              {emp.firstName} {emp.lastName}
-                            </p>
-                            <p className="text-[10px] text-ink-3">{emp.workEmail}</p>
-                          </div>
-                        </div>
-                        <div
-                          className={`w-4 h-4 rounded-md border flex items-center justify-center ${
-                            isSelected ? 'bg-primary border-primary text-white' : 'border-hairline'
-                          }`}
                         >
-                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                        </div>
-                      </div>
+                          {isSelected && <Check className="h-3 w-3" />}
+                        </span>
+
+                        <Avatar src={emp.avatarUrl} name={employeeName(emp)} size="sm" />
+
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-medium text-ink">
+                            {employeeName(emp) || 'Unnamed'}
+                          </span>
+                          <span className="block truncate text-[10.5px] text-ink-3">
+                            {emp.workEmail}
+                          </span>
+                        </span>
+
+                        {emp.departmentName && (
+                          <span className="hidden shrink-0 items-center gap-1 text-[10.5px] text-ink-3 sm:flex">
+                            <Building2 className="h-3 w-3" />
+                            {emp.departmentName}
+                          </span>
+                        )}
+                      </button>
                     );
                   })
                 )}
               </div>
             </div>
           )}
+        </div>
 
-          {/* Due Date Option */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-ink-3" />
-              Completion Deadline (Optional)
-            </label>
-            <input
+        <div className="shrink-0 space-y-3 border-t border-hairline px-5 py-3.5">
+          <FormField
+            label="Deadline (optional)"
+            helperText="People see a countdown against this date in their arena."
+          >
+            <Input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
-              className="w-full px-3 py-2 text-xs bg-surface border border-hairline rounded-md text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+              className="cursor-pointer"
             />
-            <p className="text-[11px] text-ink-3">
-              Employees will see countdown indicators on their Challenge Arena.
-            </p>
-          </div>
+          </FormField>
 
-          {/* XP & Rewards preview banner */}
-          <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-md flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] text-ink-3">
+              {recipients} {recipients === 1 ? 'person' : 'people'} · +{quiz.xpReward} XP on
+              completion
+            </span>
+
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-medium text-ink">Completion Reward:</span>
+              <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" isLoading={isSubmitting} disabled={isSubmitting}>
+                {isSubmitting ? 'Assigning…' : 'Assign quiz'}
+              </Button>
             </div>
-            <span className="text-xs font-bold text-amber-500">+{quiz.xpReward} XP Base Points</span>
           </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-ink-3 hover:text-ink hover:bg-surface-2 rounded-md transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-semibold text-white bg-primary hover:bg-primary-hover disabled:opacity-50 rounded-md transition-all shadow-none flex items-center gap-2"
-            >
-              {isSubmitting ? 'Assigning...' : 'Confirm & Publish Challenge'}
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 };

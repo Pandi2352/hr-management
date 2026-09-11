@@ -12,9 +12,12 @@ import {
   HelpCircle,
   RotateCcw,
   Check,
+  FileText,
 } from 'lucide-react';
 import { quizApi } from '../api/quiz.api';
-import type { Quiz, QuizSubmissionResult, GradedAnswer } from '../types/quiz.types';
+import type { Quiz, QuizSubmissionResult, GradedAnswer, LearningLoop } from '../types/quiz.types';
+import { Button } from '../../../components/ui';
+import { LearningLoopPanel } from '../components/LearningLoopPanel';
 import { useToast } from '../../../components/ui/toast';
 import { cn } from '../../../utils/cn';
 
@@ -44,6 +47,14 @@ export const QuizPlayPage: React.FC = () => {
   const autoSubmittedRef = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [result, setResult] = useState<QuizSubmissionResult | null>(null);
+  /*
+   * The diagnosis that goes with the score.
+   *
+   * Fetched after submitting rather than returned by the grader, because the
+   * loop is a record about the person that outlives this attempt — it is read
+   * the same way whether you just sat the quiz or came back to it a week later.
+   */
+  const [loop, setLoop] = useState<LearningLoop | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const timerRef = useRef<any>(null);
 
@@ -124,10 +135,20 @@ export const QuizPlayPage: React.FC = () => {
       const res = await quizApi.submitAttempt(quiz._id, {
         answers: submissionAnswers,
         timeTakenSeconds: elapsedSeconds,
+        // Recorded with the attempt, because it changes how a low score should
+        // be read later: a paper handed in at the bell is different evidence.
+        autoSubmitted: autoSubmittedRef.current,
       });
 
       setResult(res);
       hasSubmittedRef.current = true;
+
+      // A failure here costs the person nothing: they still have their score.
+      quizApi
+        .getLearningLoop(quiz._id)
+        .then(setLoop)
+        .catch(() => {});
+
       try {
         sessionStorage.removeItem(`quiz-deadline:${quiz._id}`);
       } catch {
@@ -231,7 +252,10 @@ export const QuizPlayPage: React.FC = () => {
   // Results Screen View
   if (result) {
     return (
-      <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
+      // Full width like every other page: the loop's concept cards sit two to
+      // a row, and a 3xl column squeezed them into a single stack with empty
+      // gutters either side.
+      <div className="w-full space-y-5">
         {/* Celebration / Score Header Card */}
         <div
           className={`p-6 rounded-md border text-center relative overflow-hidden ${
@@ -304,15 +328,33 @@ export const QuizPlayPage: React.FC = () => {
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <button
-              onClick={() => navigate('/quizzes')}
-              className="px-4 py-2 text-xs font-semibold bg-primary hover:bg-primary-hover text-white rounded-md transition-all shadow-none"
-            >
-              Back to Quiz Arena
-            </button>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+            {result.attemptId && (
+              <Button
+                size="sm"
+                onClick={() => navigate(`/quizzes/attempts/${result.attemptId}`)}
+                className="gap-1.5"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                All questions, answers & working
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => navigate('/quizzes')}>
+              Back to the arena
+            </Button>
           </div>
         </div>
+
+        {/*
+          * The loop comes before the answer-by-answer review on purpose.
+          *
+          * A list of what you got wrong is a record; the loop is the thing to
+          * do about it. Put the record first and most people stop reading at
+          * the first red cross.
+          */}
+        {loop && (
+          <LearningLoopPanel quizId={quiz._id} loop={loop} onLoopChange={setLoop} />
+        )}
 
         {/* Detailed Breakdown */}
         <div className="space-y-4">
@@ -472,7 +514,7 @@ export const QuizPlayPage: React.FC = () => {
                 key={optIdx}
                 type="button"
                 onClick={() => handleSelectOption(currentIdx, optIdx)}
-                className={`w-full text-left p-3.5 rounded-md border flex items-center gap-3 transition-all ${
+                className={`w-full cursor-pointer text-left p-3.5 rounded-md border flex items-center gap-3 transition-all ${
                   isSelected
                     ? 'border-primary bg-primary-light text-ink ring-1 ring-primary/30'
                     : 'border-hairline bg-surface-2/20 hover:border-border text-ink hover:bg-surface-2'
@@ -496,36 +538,33 @@ export const QuizPlayPage: React.FC = () => {
 
       {/* Navigation & Controls */}
       <div className="flex items-center justify-between pt-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => setCurrentIdx((prev) => Math.max(0, prev - 1))}
           disabled={currentIdx === 0}
-          className="px-3.5 py-2 text-xs font-medium border border-hairline rounded-md hover:bg-surface-2 text-ink disabled:opacity-30 disabled:pointer-events-none transition-colors flex items-center gap-1.5"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           Previous
-        </button>
+        </Button>
 
         <div className="flex items-center gap-2">
           {currentIdx < quiz.questions.length - 1 ? (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => setCurrentIdx((prev) => Math.min(quiz.questions.length - 1, prev + 1))}
-              className="px-4 py-2 text-xs font-semibold bg-surface-2 hover:bg-surface-2/80 border border-hairline text-ink rounded-md transition-colors flex items-center gap-1.5"
             >
               Next
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
           ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-bold bg-primary hover:bg-primary-hover text-white rounded-md transition-all shadow-none flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              {isSubmitting ? 'Grading Challenge...' : 'Finish & Submit'}
-            </button>
+            <Button type="button" size="sm" onClick={handleSubmit} disabled={isSubmitting}>
+              <CheckCircle2 className="h-4 w-4" />
+              {isSubmitting ? 'Grading...' : 'Finish & submit'}
+            </Button>
           )}
         </div>
       </div>
