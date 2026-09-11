@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ClipboardCheck,
   Trophy,
@@ -15,6 +15,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { BackButton } from '../../../components/common/BackButton';
 import { Button, Input } from '../../../components/ui';
 import { AiActionButton } from '../../../components/ui/AiActionButton';
 import { QuestionEditor } from '../../quiz/components/QuestionEditor';
@@ -53,7 +54,7 @@ const DIFFICULTY_OPTIONS = [
 
 /** The server rejects anything outside this range, so the input matches it. */
 const MIN_QUESTIONS = 3;
-const MAX_QUESTIONS = 15;
+const MAX_QUESTIONS = 50;
 
 /** The window an employee gets. Short enough to stay a check, long enough to read. */
 const MIN_MINUTES = 1;
@@ -61,6 +62,17 @@ const MAX_MINUTES = 180;
 
 /** The value that means "let the agent choose the category". */
 const AUTO_CATEGORY = '';
+
+/**
+ * Above this many questions, generation goes to the background.
+ *
+ * A short set comes back in seconds and is worth reviewing in the studio while
+ * it is fresh. Fifty questions is several minutes of model time, and holding a
+ * request open for that means a spinner nobody can leave — so the job is handed
+ * off, the draft is saved when it finishes, and the person is told wherever
+ * they happen to be.
+ */
+const BACKGROUND_THRESHOLD = 10;
 
 interface EnhancedPromptData {
   suggestedTitle: string;
@@ -207,23 +219,69 @@ export const QuizAgentPage: React.FC = () => {
     }
   };
 
+  /**
+   * Hands the work to a background job and leaves.
+   *
+   * Returns immediately with a job id; the watcher mounted in the layout takes
+   * it from there, so the person can go anywhere in the application and still
+   * see the count climb and be told when the draft is ready.
+   */
+  const handleBackgroundGeneration = async () => {
+    if (!enhancedData) return;
+
+    const promptToUse = editableRefinedPrompt.trim() || enhancedData.refinedPrompt;
+    try {
+      setIsGenerating(true);
+      await quizApi.startGenerationJob({
+        topic: enhancedData.suggestedTitle || topic,
+        refinedPrompt: promptToUse,
+        title: enhancedData.suggestedTitle,
+        questionCount,
+        category: enhancedData.category || undefined,
+        difficulty: difficulty as any,
+        locale,
+        templateId: templateId || undefined,
+        durationMinutes,
+      });
+
+      toast.success(
+        `Writing ${questionCount} questions in the background. Carry on with anything else — you will be told when the draft is ready.`,
+      );
+      navigate('/quizzes?tab=management&filter=review');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Could not start the background job.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Handler: Accept enhanced prompt & generate full quiz with AI
   const handleStartGeneration = async () => {
     if (!enhancedData) return;
+
+    // A long set is handed off rather than waited on.
+    if (questionCount > BACKGROUND_THRESHOLD) {
+      await handleBackgroundGeneration();
+      return;
+    }
 
     try {
       setIsGenerating(true);
       const promptToUse = editableRefinedPrompt.trim() || enhancedData.refinedPrompt;
       const res = await quizApi.generateAiQuiz({
-        topic: `${enhancedData.suggestedTitle}: ${promptToUse}`,
+        // The title is the topic. The brief travels in its own field: gluing
+        // the two together is what put a paragraph of instructions inside
+        // every generated question stem.
+        topic: enhancedData.suggestedTitle || topic,
+        refinedPrompt: promptToUse,
         category: enhancedData.category,
         difficulty: enhancedData.difficulty as any,
-        questionCount: enhancedData.questionCount,
+        questionCount,
       });
 
       setGeneratedQuiz(res);
       setStep('generated');
-      toast.success('Quiz generated! Configure company assignment below.');
+      toast.success('Questions written. Review and edit them below.');
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to generate quiz.');
     } finally {
@@ -315,15 +373,7 @@ export const QuizAgentPage: React.FC = () => {
       <PageHeader
         title="Quiz Master Studio"
         description="Turn a topic into a graded quiz, then assign it to people or whole departments."
-        leading={
-          <Link
-            to="/agents"
-            title="Back to the Agents Hub"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        }
+        leading={<BackButton fallbackTo="/agents" label="Back" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -646,9 +696,17 @@ export const QuizAgentPage: React.FC = () => {
               <AiActionButton
                 onClick={handleStartGeneration}
                 isLoading={isGenerating}
-                label="Generate the questions"
+                label={
+                  questionCount > BACKGROUND_THRESHOLD
+                    ? 'Write them in the background'
+                    : 'Generate the questions'
+                }
                 loadingLabel="Writing questions…"
-                hint={`${questionCount} questions with answer explanations`}
+                hint={
+                  questionCount > BACKGROUND_THRESHOLD
+                    ? `${questionCount} questions — you can leave this page`
+                    : `${questionCount} questions with answer explanations`
+                }
                 size="lg"
               />
             </div>

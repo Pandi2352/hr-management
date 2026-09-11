@@ -98,10 +98,22 @@ export class QuizInsightsService {
 
       return {
         index: a.questionIndex,
+        /*
+         * Carried through from the attempt, not read from the live question.
+         *
+         * Without the type the review cannot know whether "-1" means unanswered
+         * or simply that this was a multiple-answer question whose answer lives
+         * in a different field — and it rendered a correct answer as a blank.
+         */
+        type: a.type || 'SINGLE',
         prompt,
         options,
         concepts: a.concepts || [],
         selectedOptionIndex: a.selectedOptionIndex,
+        selectedOptionIndexes: a.selectedOptionIndexes || [],
+        correctOptionIndexes: a.correctOptionIndexes || [],
+        textAnswer: a.textAnswer || '',
+        acceptedAnswers: a.acceptedAnswers || [],
         selectedOptionText:
           a.selectedOptionIndex >= 0 ? options[a.selectedOptionIndex] || '' : null,
         correctOptionIndex: correctIndex,
@@ -110,7 +122,15 @@ export class QuizInsightsService {
         pointsAwarded: a.pointsAwarded || 0,
         pointsPossible: a.pointsPossible || 0,
         explanation: a.explanation || live?.explanation || '',
-        answered: a.selectedOptionIndex >= 0,
+        // What counts as answered depends on the type: a fill-in-the-blank
+        // never sets an option index, and a multiple-answer question sets a
+        // list rather than one.
+        answered:
+          (a.type || 'SINGLE') === 'FILL_BLANK'
+            ? Boolean(String(a.textAnswer || '').trim())
+            : (a.type || 'SINGLE') === 'MULTI'
+              ? (a.selectedOptionIndexes || []).length > 0
+              : a.selectedOptionIndex >= 0,
       };
     });
 

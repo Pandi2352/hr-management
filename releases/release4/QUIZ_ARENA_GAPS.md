@@ -1,7 +1,8 @@
 # Quiz Arena & AI Quiz Agent — what is not built
 
 Written 11 September 2026, against the module as it stands after the Learning
-Loop, Skill Passport, Training ROI and Explainable Score work.
+Loop, Skill Passport, Training ROI, Explainable Score, background generation and
+question-types work.
 
 This is a list of gaps, not a roadmap. Nothing here is scheduled or estimated.
 Each entry says what is missing and why it matters, so that whoever picks the
@@ -37,11 +38,6 @@ actually are.
 and a full question editor component exists, but the management tab only
 displays those values. Fixing a typo in a live quiz means building a new one.
 
-**Archiving is unreachable.**
-The service permits a move to `ARCHIVED` from every state and the UI has a badge
-style for it, but no route exposes the transition, so the status can never be
-set. There is no delete either, so a bad quiz stays in the list permanently.
-
 **No bulk import.**
 Questions arrive one at a time, from the model or by hand. A CSV or spreadsheet
 import is the normal way an organisation brings across an existing question set,
@@ -51,10 +47,11 @@ and without it the first quiz is always written from scratch.
 Text prompts and text options only. No image, diagram, screenshot or code block,
 which rules out a large class of technical and safety assessment.
 
-**Only one question type.**
-Single-answer multiple choice. No multi-select, true/false, ordering, matching,
-numeric entry or short free text. The schema assumes one correct index
-throughout, so this is a shape change, not an addition.
+**Question types stop at four.**
+Single choice, multiple answers, true/false and fill-in-the-blank are built and
+graded. Ordering, matching, numeric tolerance and long-form written answers are
+not — the last of those needs marking by a person or a model, which is a
+different feature from grading.
 
 ---
 
@@ -127,10 +124,6 @@ Answers live in component state and the deadline in session storage. Closing the
 tab loses the answers; the clock keeps running. For a 60-minute assessment that
 is a real failure mode.
 
-**Question shuffle is declared but not applied.**
-`shuffleQuestions` is on the schema and settable. Only options are actually
-shuffled; questions always appear in their stored order.
-
 **No accessibility pass.**
 Keyboard navigation through options, screen-reader announcement of the timer,
 and focus management on question change have not been tested or built for.
@@ -202,6 +195,16 @@ not be at 3,600.
 **No caching, no pagination anywhere in the module.**
 Quiz lists, the question bank, the mastery board and the dashboard all return
 everything.
+
+**Background generation runs in the API process.**
+The job document is the seam, and `run()` would move behind a queue unchanged,
+but as it stands a second API instance would have two processes racing the same
+job. Stale jobs are closed after five minutes without progress, which covers a
+restart but is a recovery mechanism, not a design for more than one instance.
+
+**Nothing resumes a cancelled or failed job.**
+The questions written before it stopped are kept on the job record, but there is
+no way to pick it up from there — only to start again.
 
 **AI cost is neither measured nor capped.**
 Generation, prompt enhancement, the Question Doctor, coaching and practice

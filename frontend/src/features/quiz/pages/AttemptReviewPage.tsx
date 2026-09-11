@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
-  ArrowLeft,
   Check,
   Clock,
   FileText,
@@ -12,12 +11,17 @@ import {
   X,
 } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { BackButton } from '../../../components/common/BackButton';
 import { Button, SegmentedTabs } from '../../../components/ui';
 import { StatTile, StatTileRow } from '../../../components/ui/StatTile';
 import { useToast } from '../../../components/ui/toast';
 import { cn } from '../../../utils/cn';
 import { quizApi } from '../api/quiz.api';
-import type { ExplainedScore } from '../types/quiz.types';
+import {
+  QUESTION_TYPE_LABELS,
+  type ExplainedScore,
+  type QuestionType,
+} from '../types/quiz.types';
 
 type Tab = 'questions' | 'working';
 
@@ -88,14 +92,7 @@ export function AttemptReviewPage() {
         title={data.quizTitle || 'Attempt'}
         description={`Attempt ${data.attemptNumber} · ${new Date(data.submittedAt).toLocaleString()} · graded under ${data.gradingVersion}`}
         leading={
-          <button
-            type="button"
-            onClick={() => navigate('/quizzes')}
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-hairline text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
-            aria-label="Back to the arena"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          <BackButton fallbackTo="/quizzes" label="Back" />
         }
         actions={
           <span
@@ -206,6 +203,9 @@ export function AttemptReviewPage() {
                         {c}
                       </span>
                     ))}
+                    <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-ink-2">
+                      {QUESTION_TYPE_LABELS[(q.type || 'SINGLE') as QuestionType]}
+                    </span>
                     <span className="text-[10.5px] text-ink-3">
                       {q.pointsAwarded} of {q.pointsPossible} points
                     </span>
@@ -215,13 +215,36 @@ export function AttemptReviewPage() {
                     {q.index + 1}. {q.prompt}
                   </p>
 
-                  {/* Every option, with what you picked and what was right.
-                      A review that only shows the right answer leaves you to
-                      remember what you chose. */}
+                  {(q.type || 'SINGLE') === 'FILL_BLANK' ? (
+                    <div className="mt-2.5 space-y-1.5">
+                      <p className="rounded-md border border-hairline bg-surface px-2.5 py-1.5 text-xs text-ink-2">
+                        <span className="font-semibold">You typed: </span>
+                        {q.textAnswer ? `"${q.textAnswer}"` : 'nothing'}
+                      </p>
+                      <p className="rounded-md border border-emerald-300 bg-emerald-50/60 px-2.5 py-1.5 text-xs text-ink dark:border-emerald-900 dark:bg-emerald-950/20">
+                        <span className="font-semibold">Accepted: </span>
+                        {(q.acceptedAnswers || []).join(', ') || '—'}
+                      </p>
+                      <p className="text-[10.5px] text-ink-3">
+                        Spelling, capitalisation and surrounding spaces were not marked.
+                      </p>
+                    </div>
+                  ) : (
+                  /* Every option, with what you picked and what was right.
+                     A review that only shows the right answer leaves you to
+                     remember what you chose. */
                   <div className="mt-2.5 space-y-1.5">
                     {q.options.map((option, i) => {
-                      const isKey = i === q.correctOptionIndex;
-                      const isMine = i === q.selectedOptionIndex;
+                      const keys =
+                        q.correctOptionIndexes && q.correctOptionIndexes.length > 0
+                          ? q.correctOptionIndexes
+                          : [q.correctOptionIndex];
+                      const mine =
+                        q.selectedOptionIndexes && q.selectedOptionIndexes.length > 0
+                          ? q.selectedOptionIndexes
+                          : [q.selectedOptionIndex];
+                      const isKey = keys.includes(i);
+                      const isMine = mine.includes(i);
                       return (
                         <div
                           key={i}
@@ -240,7 +263,7 @@ export function AttemptReviewPage() {
                           <span className="min-w-0 flex-1">{option}</span>
                           {isKey && (
                             <span className="shrink-0 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                              Correct answer
+                              {isMine ? 'Correct, and you chose it' : 'Correct answer'}
                             </span>
                           )}
                           {isMine && !isKey && (
@@ -252,6 +275,7 @@ export function AttemptReviewPage() {
                       );
                     })}
                   </div>
+                  )}
 
                   {!q.answered && (
                     <p className="mt-2 text-[11px] text-ink-3">You left this one blank.</p>

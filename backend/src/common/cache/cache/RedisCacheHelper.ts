@@ -22,6 +22,13 @@ import { LoggerHelper } from '../../../common/logger';
  * SCAN, never KEYS: `KEYS` blocks the Redis event loop for a full keyspace
  * walk and stalls every other client on a shared instance.
  */
+/**
+ * How long a caller will wait for a first connection before giving up on the
+ * cache for that call. Comfortably above a healthy local connect, far below
+ * anything a person would notice as a slow page.
+ */
+const CONNECT_BUDGET_MS = 2000;
+
 export class RedisCacheHelper implements ICacheHelper {
   private readonly logger = LoggerHelper.Instance.child(RedisCacheHelper.name);
   private readonly client: RedisClientType;
@@ -90,7 +97,7 @@ export class RedisCacheHelper implements ICacheHelper {
     if (this.ready) return;
     if (this.connecting) return this.connecting;
 
-    this.connecting = this.client
+    const attempt = this.client
       .connect()
       .then(() => {
         this.ready = true;
@@ -102,12 +109,50 @@ export class RedisCacheHelper implements ICacheHelper {
           this.warned = true;
           this.logger.warn(null, 'Redis unreachable, serving uncached reads', err);
         }
-      })
-      .finally(() => {
-        this.connecting = null;
       });
 
+    /*
+     * Bounded, because `connect()` is not.
+     *
+     * With a `reconnectStrategy` that retries indefinitely — which is what we
+     * want, so a Redis that comes back is picked up without a restart — the
+     * promise `connect()` returns never settles while the server is down. Every
+     * caller awaiting it then waits forever, and because the auth snapshot is
+     * read on every authenticated request, the entire API stops responding
+     * while still accepting connections. A cache being unreachable took the
+     * product down.
+     *
+     * Racing a timer puts the caller back on the database path within a known
+     * time. The connect attempt is left running underneath: the reconnect is
+     * still what brings the cache back.
+     */
+    this.connecting = Promise.race([attempt, this.connectDeadline()]).finally(() => {
+      this.connecting = null;
+    });
+
     return this.connecting;
+  }
+
+  /**
+   * Resolves after the connect budget, whatever Redis is doing.
+   *
+   * `unref` so a pending timer cannot hold the process open at shutdown.
+   */
+  private connectDeadline(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        if (!this.ready && !this.warned) {
+          this.warned = true;
+          this.logger.warn(
+            null,
+            `Redis did not connect within ${CONNECT_BUDGET_MS}ms, serving uncached reads`,
+          );
+        }
+        resolve();
+      }, CONNECT_BUDGET_MS);
+
+      if (typeof timer.unref === 'function') timer.unref();
+    });
   }
 
   private buildKey(namespace: string, key: string): string {

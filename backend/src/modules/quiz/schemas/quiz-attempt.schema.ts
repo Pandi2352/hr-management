@@ -37,6 +37,22 @@ export class SelectedAnswer {
   @Prop({ type: Number, default: -1 })
   correctOptionIndex: number;
 
+  /** What kind of question this was, so the review renders it as it was asked. */
+  @Prop({ type: String, default: 'SINGLE' })
+  type: string;
+
+  @Prop({ type: [Number], default: [] })
+  selectedOptionIndexes: number[];
+
+  @Prop({ type: [Number], default: [] })
+  correctOptionIndexes: number[];
+
+  @Prop({ type: String, default: '' })
+  textAnswer: string;
+
+  @Prop({ type: [String], default: [] })
+  acceptedAnswers: string[];
+
   @Prop({ type: String, default: '' })
   explanation: string;
 

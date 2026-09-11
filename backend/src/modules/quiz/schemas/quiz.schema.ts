@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { generateUuid } from '../../../common/utils/uuid.util';
+import { QUESTION_TYPES, type QuestionType } from '../question-grading.util';
 
 export type QuizDocument = Quiz & Document;
 
@@ -49,6 +50,24 @@ export const QUIZ_LOCALE_LABELS: Record<QuizLocale, string> = {
 };
 
 export class QuizQuestion {
+  /**
+   * What kind of question this is.
+   *
+   * Defaults to single choice, which is what every question written before
+   * types existed is. Grading reads this field, so a question that does not
+   * carry one still marks exactly as it always did.
+   */
+  @Prop({ type: String, enum: QUESTION_TYPES, default: 'SINGLE' })
+  type: QuestionType;
+
+  /** The correct options, for a question with more than one. */
+  @Prop({ type: [Number], default: [] })
+  correctOptionIndexes: number[];
+
+  /** What counts as right for a fill-in-the-blank, matched case-insensitively. */
+  @Prop({ type: [String], default: [] })
+  acceptedAnswers: string[];
+
   @Prop({ type: String, default: generateUuid })
   id: string;
 

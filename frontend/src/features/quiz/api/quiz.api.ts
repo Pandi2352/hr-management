@@ -21,6 +21,8 @@ import type {
   AttemptSummary,
   SkillPassport,
   TrainingRoi,
+  GenerationJob,
+  StartGenerationPayload,
 } from '../types/quiz.types';
 
 export const quizApi = {
@@ -269,5 +271,36 @@ export const quizApi = {
       params: quizId ? { quizId } : {},
     });
     return res.data.data as TrainingRoi;
+  },
+
+  // --- Removing a quiz -----------------------------------------------------
+
+  archiveQuiz: async (quizId: string, note?: string): Promise<Quiz> => {
+    const res = await apiClient.post(`/quizzes/${quizId}/archive`, { note });
+    return res.data.data as Quiz;
+  },
+
+  deleteQuiz: async (
+    quizId: string,
+  ): Promise<{ deleted: boolean; assignmentsRemoved: number; attemptsKept: number }> => {
+    const res = await apiClient.delete(`/quizzes/${quizId}`);
+    return res.data.data;
+  },
+
+  // --- Background generation -----------------------------------------------
+
+  startGenerationJob: async (payload: StartGenerationPayload): Promise<GenerationJob> => {
+    const res = await apiClient.post('/quizzes/generation-jobs', payload);
+    return res.data.data as GenerationJob;
+  },
+
+  listGenerationJobs: async (): Promise<GenerationJob[]> => {
+    const res = await apiClient.get('/quizzes/generation-jobs');
+    return res.data.data as GenerationJob[];
+  },
+
+  cancelGenerationJob: async (jobId: string): Promise<GenerationJob> => {
+    const res = await apiClient.post(`/quizzes/generation-jobs/${jobId}/cancel`);
+    return res.data.data as GenerationJob;
   },
 };

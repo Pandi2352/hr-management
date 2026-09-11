@@ -6,6 +6,10 @@ import { QuizAttempt, QuizAttemptSchema } from './schemas/quiz-attempt.schema';
 import { EmployeeGamification, EmployeeGamificationSchema } from './schemas/gamification.schema';
 import { BankQuestion, BankQuestionSchema } from './schemas/question-bank.schema';
 import {
+  QuizGenerationJob,
+  QuizGenerationJobSchema,
+} from './schemas/quiz-generation-job.schema';
+import {
   LearningLoop,
   LearningLoopSchema,
   PracticeSet,
@@ -18,6 +22,7 @@ import { QuizService } from './quiz.service';
 import { QuizAuthoringService } from './quiz-authoring.service';
 import { LearningLoopService } from './learning-loop.service';
 import { QuizInsightsService } from './quiz-insights.service';
+import { QuizGenerationService } from './quiz-generation.service';
 import { QuizController } from './quiz.controller';
 
 @Module({
@@ -29,6 +34,7 @@ import { QuizController } from './quiz.controller';
       { name: EmployeeGamification.name, schema: EmployeeGamificationSchema },
       { name: BankQuestion.name, schema: BankQuestionSchema },
       { name: LearningLoop.name, schema: LearningLoopSchema },
+      { name: QuizGenerationJob.name, schema: QuizGenerationJobSchema },
       { name: PracticeSet.name, schema: PracticeSetSchema },
       { name: Employee.name, schema: EmployeeSchema },
     ]),
@@ -36,7 +42,7 @@ import { QuizController } from './quiz.controller';
     OrganizationModule,
   ],
   controllers: [QuizController],
-  providers: [QuizService, QuizAuthoringService, LearningLoopService, QuizInsightsService],
+  providers: [QuizService, QuizAuthoringService, LearningLoopService, QuizInsightsService, QuizGenerationService],
   exports: [QuizService],
 })
 export class QuizModule {}

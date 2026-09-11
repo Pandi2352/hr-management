@@ -77,11 +77,34 @@ export interface BankQuestion {
   createdByName: string;
 }
 
+export const QUESTION_TYPES = ['SINGLE', 'MULTI', 'TRUE_FALSE', 'FILL_BLANK'] as const;
+export type QuestionType = (typeof QUESTION_TYPES)[number];
+
+export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  SINGLE: 'Multiple choice',
+  MULTI: 'Multiple answers',
+  TRUE_FALSE: 'True or false',
+  FILL_BLANK: 'Fill in the blank',
+};
+
+/** What each type asks of the author, said where they choose it. */
+export const QUESTION_TYPE_HINTS: Record<QuestionType, string> = {
+  SINGLE: 'Four options, one right',
+  MULTI: 'At least two right, all must be ticked',
+  TRUE_FALSE: 'Just the two options',
+  FILL_BLANK: 'They type the answer; list what you will accept',
+};
+
 export interface QuizQuestion {
   id?: string;
+  type?: QuestionType;
   prompt: string;
   options: string[];
   correctOptionIndex?: number;
+  /** Every correct option, for a multiple-answer question. */
+  correctOptionIndexes?: number[];
+  /** What counts as right for a fill-in-the-blank, matched case-insensitively. */
+  acceptedAnswers?: string[];
   explanation?: string;
   points: number;
   tags?: string[];
@@ -215,6 +238,8 @@ export interface CreateQuizPayload {
 
 export interface GenerateAiQuizPayload {
   topic: string;
+  /** The author's brief, kept apart from the topic. */
+  refinedPrompt?: string;
   category?: string;
   difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
   questionCount?: number;
@@ -345,8 +370,13 @@ export interface PracticeResult {
 
 export interface ExplainedQuestion {
   index: number;
+  type?: QuestionType;
   prompt: string;
   options: string[];
+  selectedOptionIndexes?: number[];
+  correctOptionIndexes?: number[];
+  textAnswer?: string;
+  acceptedAnswers?: string[];
   concepts: string[];
   selectedOptionIndex: number;
   selectedOptionText: string | null;
@@ -492,4 +522,34 @@ export interface TrainingRoi {
   }[];
   recommendations: string[];
   totals: { quizzes: number; assignments: number; attempts: number; learners: number };
+}
+
+// --- Background generation --------------------------------------------------
+
+export type JobStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+
+export interface GenerationJob {
+  jobId: string;
+  status: JobStatus;
+  topic: string;
+  questionsDone: number;
+  questionsTotal: number;
+  quizId: string;
+  quizTitle: string;
+  error: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface StartGenerationPayload {
+  topic: string;
+  questionCount: number;
+  title?: string;
+  description?: string;
+  category?: string;
+  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  locale?: string;
+  templateId?: string;
+  durationMinutes?: number;
+  refinedPrompt?: string;
 }

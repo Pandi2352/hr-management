@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuditAction, AuditResource } from '../../common/audit/audit.constants';
 import { LoggerHelper } from '../../common/logger';
+import { salvageJson } from './json-salvage.util';
 import { aiConfig, AI_PROVIDER_IDS, type AiModuleConfig, type AiProviderId } from './config/ai.config';
 import { OpenAiProvider } from './providers/openai.provider';
 import { AnthropicProvider } from './providers/anthropic.provider';
@@ -369,8 +370,32 @@ export class AiService {
 
       if (start !== -1 && end !== -1 && end > start) {
         const sub = cleaned.substring(start, end + 1);
-        return JSON.parse(sub) as T;
+        try {
+          return JSON.parse(sub) as T;
+        } catch {
+          // Still not parseable. Fall through to salvage.
+        }
       }
+
+      /*
+       * Last resort: close off a response that was cut short.
+       *
+       * A model that hits its token limit mid-array returns something perfectly
+       * good for the first several elements and then stops. Throwing all of it
+       * away turned "eight of ten questions arrived" into "generation failed",
+       * which is the worse outcome. Salvage only closes what was left open; it
+       * never invents content.
+       */
+      const salvaged = salvageJson<T>(cleaned);
+      if (salvaged !== undefined) {
+        this.logger.warn(
+          null,
+          'AI response was truncated; recovered the complete portion',
+          { chars: cleaned.length },
+        );
+        return salvaged;
+      }
+
       throw new Error(`Failed to parse AI response as JSON: ${raw.slice(0, 200)}`);
     }
   }

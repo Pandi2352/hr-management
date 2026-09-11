@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Loader2, Target, X } from 'lucide-react';
+import { Check, Loader2, Target, X } from 'lucide-react';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { BackButton } from '../../../components/common/BackButton';
 import { Button } from '../../../components/ui';
 import { useToast } from '../../../components/ui/toast';
 import { cn } from '../../../utils/cn';
@@ -101,14 +102,7 @@ export function PracticePage() {
           title="Practice recorded"
           description={`${result.correctCount} of ${result.total} correct. No XP, no leaderboard — this only moves your mastery.`}
           leading={
-            <button
-              type="button"
-              onClick={() => navigate('/quizzes')}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-hairline text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
-              aria-label="Back to the arena"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+              <BackButton fallbackTo="/quizzes" label="Back" />
           }
         />
 
@@ -241,14 +235,7 @@ export function PracticePage() {
         title="Targeted retry"
         description={`Only ${set.concepts.join(', ')}. No timer, no XP — this is the short way back.`}
         leading={
-          <button
-            type="button"
-            onClick={() => navigate('/quizzes')}
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-hairline text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
-            aria-label="Back to the arena"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          <BackButton fallbackTo="/quizzes" label="Back" />
         }
         actions={
           <span className="text-xs text-ink-3">

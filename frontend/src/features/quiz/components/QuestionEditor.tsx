@@ -5,7 +5,14 @@ import { useToast } from '../../../components/ui/toast';
 import { cn } from '../../../utils/cn';
 import { quizApi } from '../api/quiz.api';
 import { QuestionDoctorPanel } from './QuestionDoctorPanel';
-import type { QuestionDiagnosis, QuizQuestion } from '../types/quiz.types';
+import {
+  QUESTION_TYPES,
+  QUESTION_TYPE_HINTS,
+  QUESTION_TYPE_LABELS,
+  type QuestionType,
+  type QuizQuestion,
+} from '../types/quiz.types';
+import type { QuestionDiagnosis } from '../types/quiz.types';
 
 interface Props {
   question: QuizQuestion;
@@ -53,6 +60,76 @@ export function QuestionEditor({
   const [tagDraft, setTagDraft] = useState('');
 
   const patch = (changes: Partial<QuizQuestion>) => onChange({ ...question, ...changes });
+
+  const type: QuestionType = (question.type as QuestionType) || 'SINGLE';
+
+  /**
+   * Changing the type rewrites the fields that type needs.
+   *
+   * Switching to true/false with four options left behind would produce a
+   * question the review gate refuses and the author cannot see the problem
+   * with. Each branch leaves the question valid for its new type.
+   */
+  const changeType = (next: QuestionType) => {
+    if (next === type) return;
+
+    if (next === 'TRUE_FALSE') {
+      patch({
+        type: next,
+        options: ['True', 'False'],
+        correctOptionIndex: Math.min(question.correctOptionIndex ?? 0, 1),
+        correctOptionIndexes: [],
+        acceptedAnswers: [],
+      });
+      return;
+    }
+
+    if (next === 'FILL_BLANK') {
+      patch({ type: next, options: [], correctOptionIndexes: [], acceptedAnswers: [''] });
+      return;
+    }
+
+    const options =
+      question.options.length >= 2 ? question.options : ['', '', '', ''];
+
+    if (next === 'MULTI') {
+      // Carries the single answer over as the first of the set, so the author
+      // is adding a second answer rather than starting again.
+      patch({
+        type: next,
+        options,
+        correctOptionIndexes: [question.correctOptionIndex ?? 0],
+        acceptedAnswers: [],
+      });
+      return;
+    }
+
+    patch({
+      type: next,
+      options,
+      correctOptionIndex: question.correctOptionIndexes?.[0] ?? question.correctOptionIndex ?? 0,
+      correctOptionIndexes: [],
+      acceptedAnswers: [],
+    });
+  };
+
+  const toggleCorrect = (optionIndex: number) => {
+    if (type === 'MULTI') {
+      const current = question.correctOptionIndexes || [];
+      patch({
+        correctOptionIndexes: current.includes(optionIndex)
+          ? current.filter((i) => i !== optionIndex)
+          : [...current, optionIndex].sort((a, b) => a - b),
+      });
+      return;
+    }
+    patch({ correctOptionIndex: optionIndex });
+  };
+
+  const isMarkedCorrect = (optionIndex: number) =>
+    type === 'MULTI'
+      ? (question.correctOptionIndexes || []).includes(optionIndex)
+      : (question.correctOptionIndex ?? 0) === optionIndex;
 
   const setOption = (optionIndex: number, value: string) => {
     const options = [...question.options];
@@ -170,30 +247,111 @@ export function QuestionEditor({
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-1.5">
+        {QUESTION_TYPES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => changeType(t)}
+            aria-pressed={type === t}
+            title={QUESTION_TYPE_HINTS[t]}
+            className={cn(
+              'cursor-pointer rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors',
+              type === t
+                ? 'border-[var(--primary)] bg-[var(--primary-light)] text-[var(--primary)]'
+                : 'border-hairline bg-surface text-ink-3 hover:text-ink',
+            )}
+          >
+            {QUESTION_TYPE_LABELS[t]}
+          </button>
+        ))}
+      </div>
+
       <textarea
         value={question.prompt}
         onChange={(e) => patch({ prompt: e.target.value })}
         rows={2}
-        placeholder="The question"
+        placeholder={
+          type === 'FILL_BLANK'
+            ? 'The question, with ___ where the answer goes'
+            : 'The question'
+        }
         className="w-full resize-none rounded-md border border-hairline bg-surface px-3 py-2 text-xs text-ink outline-none placeholder:text-ink-3 focus:border-primary"
       />
 
+      {type === 'FILL_BLANK' ? (
+        <div className="space-y-1.5">
+          <div className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink-3">
+            Accepted answers · any one of these counts as correct
+          </div>
+
+          {(question.acceptedAnswers || ['']).map((answer, answerIndex) => (
+            <div key={answerIndex} className="flex items-center gap-2">
+              <Input
+                value={answer}
+                onChange={(e) => {
+                  const next = [...(question.acceptedAnswers || [''])];
+                  next[answerIndex] = e.target.value;
+                  patch({ acceptedAnswers: next });
+                }}
+                placeholder={answerIndex === 0 ? 'The answer' : 'Another spelling or wording'}
+                className="text-xs"
+              />
+              {(question.acceptedAnswers || []).length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    patch({
+                      acceptedAnswers: (question.acceptedAnswers || []).filter(
+                        (_, i) => i !== answerIndex,
+                      ),
+                    })
+                  }
+                  aria-label={`Remove accepted answer ${answerIndex + 1}`}
+                  className="shrink-0 cursor-pointer text-ink-3 transition-colors hover:text-rose-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => patch({ acceptedAnswers: [...(question.acceptedAnswers || []), ''] })}
+            className="gap-1 text-[11px]"
+          >
+            <Plus className="h-3 w-3" />
+            Add another wording
+          </Button>
+
+          <p className="text-[10.5px] text-ink-3">
+            Case and surrounding spaces are ignored when marking. Add the plural and any common
+            spelling, or people who know the answer will be marked wrong.
+          </p>
+        </div>
+      ) : (
       <div className="space-y-1.5">
         <div className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink-3">
-          Options · click the circle to mark the right one
+          {type === 'MULTI'
+            ? 'Options · tick every correct one'
+            : 'Options · click the circle to mark the right one'}
         </div>
 
         {question.options.map((option, optionIndex) => {
-          const isCorrect = (question.correctOptionIndex ?? 0) === optionIndex;
+          const isCorrect = isMarkedCorrect(optionIndex);
           return (
             <div key={optionIndex} className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => patch({ correctOptionIndex: optionIndex })}
+                onClick={() => toggleCorrect(optionIndex)}
                 aria-label={`Mark option ${optionIndex + 1} as correct`}
                 aria-pressed={isCorrect}
                 className={cn(
-                  'flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors',
+                  'flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center border transition-colors',
+                  // Square for "tick as many as apply", round for "choose one".
+                  type === 'MULTI' ? 'rounded-md' : 'rounded-full',
                   isCorrect
                     ? 'border-emerald-500 bg-emerald-500 text-white'
                     : 'border-hairline hover:border-ink-3',
@@ -207,27 +365,38 @@ export function QuestionEditor({
                 onChange={(e) => setOption(optionIndex, e.target.value)}
                 placeholder={`Option ${optionIndex + 1}`}
                 className="text-xs"
+                disabled={type === 'TRUE_FALSE'}
               />
 
-              <button
-                type="button"
-                onClick={() => removeOption(optionIndex)}
-                aria-label={`Remove option ${optionIndex + 1}`}
-                className="shrink-0 cursor-pointer text-ink-3 transition-colors hover:text-rose-600"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              {type !== 'TRUE_FALSE' && (
+                <button
+                  type="button"
+                  onClick={() => removeOption(optionIndex)}
+                  aria-label={`Remove option ${optionIndex + 1}`}
+                  className="shrink-0 cursor-pointer text-ink-3 transition-colors hover:text-rose-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           );
         })}
 
-        {question.options.length < 6 && (
+        {type !== 'TRUE_FALSE' && question.options.length < 6 && (
           <Button variant="outline" size="sm" onClick={addOption} className="gap-1 text-[11px]">
             <Plus className="h-3 w-3" />
             Add option
           </Button>
         )}
+
+        {type === 'MULTI' && (question.correctOptionIndexes || []).length < 2 && (
+          <p className="text-[10.5px] text-amber-700 dark:text-amber-300">
+            Tick at least two. A multiple-answer question with one answer is a single choice
+            wearing the wrong label, and review will refuse it.
+          </p>
+        )}
       </div>
+      )}
 
       <div>
         <div className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink-3">

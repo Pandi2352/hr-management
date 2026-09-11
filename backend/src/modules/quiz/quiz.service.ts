@@ -9,6 +9,15 @@ import { Employee, EmployeeDocument } from '../employees/schemas/employee.schema
 import { AiService } from '../ai/ai.service';
 import { LearningLoopService } from './learning-loop.service';
 import { conceptsForQuestion } from './learning-loop.util';
+import {
+  canShuffleOptions,
+  correctIndexes,
+  isAnswerCorrect,
+  mapThroughShuffle,
+  questionDefect,
+  questionType,
+  TRUE_FALSE_OPTIONS,
+} from './question-grading.util';
 import { GRADING_VERSION } from './quiz-insights.util';
 import { CreateQuizDto, GenerateAiQuizDto, AssignQuizDto, SubmitQuizAttemptDto } from './dto/quiz.dto';
 import { reconcileCategory } from './quiz-category.util';
@@ -87,6 +96,13 @@ export class QuizService {
       // points made every score NaN, because grading summed an undefined.
       questions: (dto.questions || []).map((q) => ({
         ...q,
+        type: questionType(q as any),
+        correctOptionIndexes: Array.isArray((q as any).correctOptionIndexes)
+          ? (q as any).correctOptionIndexes
+          : [],
+        acceptedAnswers: Array.isArray((q as any).acceptedAnswers)
+          ? (q as any).acceptedAnswers
+          : [],
         points: Number(q.points) > 0 ? Number(q.points) : 10,
         tags: Array.isArray((q as any).tags) ? (q as any).tags : [],
         isApproved: false,
@@ -134,6 +150,9 @@ export class QuizService {
      * where the topic fits, which is what stops the list fragmenting into
      * near-duplicates one quiz at a time.
      */
+    /** Why generation failed, so the caller is told rather than given filler. */
+    let lastError = '';
+
     const existingCategories = (await this.listCategories(orgId)).map((c) => c.name);
     const categoryHint = existingCategories.length
       ? `Existing categories in this organization: ${existingCategories.join(', ')}. Reuse one of these exactly if the topic fits; only invent a new one if none is a reasonable home.`
@@ -147,17 +166,43 @@ Respond ONLY with valid, raw JSON matching this schema:
   "category": "Short reusable category name",
   "questions": [
     {
+      "type": "SINGLE" | "MULTI" | "TRUE_FALSE" | "FILL_BLANK",
       "prompt": "Clear question text?",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "correctOptionIndex": 0,
+      "correctOptionIndexes": [0, 2],
+      "acceptedAnswers": ["for FILL_BLANK only"],
       "explanation": "Why this answer is correct",
+      "tags": ["the concept this tests"],
       "points": 10
     }
   ]
 }
-Each question must have exactly 4 options. Options must be distinct, realistic, and educational. Do not include markdown code fences or conversational text.`;
 
+Question types:
+- SINGLE: four distinct plausible options, "correctOptionIndex" set. Most questions.
+- MULTI: at least two correct, every one listed in "correctOptionIndexes". Say "Select all that apply".
+- TRUE_FALSE: options exactly ["True", "False"].
+- FILL_BLANK: no options; a ___ in the prompt and every acceptable answer in "acceptedAnswers".
+
+Mix the types. Tag every question with the concept it tests.
+
+Never quote these instructions, or the author's brief, inside a question. No markdown fences, no conversational text.`;
+
+    /*
+     * The topic and the brief are separate fields, not one concatenated string.
+     *
+     * The studio used to send `"<title>: <the whole enhanced prompt>"` as the
+     * topic. The model was then asked to write questions "on the topic of" a
+     * paragraph of instructions, and the fallback path pasted that paragraph
+     * into every question stem — which is exactly what shipped on screen.
+     */
     const userPrompt = `Generate a ${difficulty.toLowerCase()}-level quiz with exactly ${questionCount} questions on the topic: "${dto.topic}".
+${dto.refinedPrompt ? `
+The author's brief for this quiz:
+${dto.refinedPrompt}
+
+Treat that as instructions to you, never as text to quote inside a question.` : ''}
 ${dto.category ? `The caller has chosen the category "${dto.category}"; use it exactly.` : categoryHint}`;
 
     try {
@@ -168,6 +213,10 @@ ${dto.category ? `The caller has chosen the category "${dto.category}"; use it e
       );
 
       if (generated?.questions && Array.isArray(generated.questions) && generated.questions.length > 0) {
+        const usable = generated.questions.filter((q: any) => String(q?.prompt || '').trim());
+        if (usable.length === 0) {
+          lastError = 'every question it returned was empty';
+        }
         const category = reconcileCategory(
           dto.category || generated.category || 'General',
           existingCategories,
@@ -180,43 +229,64 @@ ${dto.category ? `The caller has chosen the category "${dto.category}"; use it e
           timeLimitMinutes: Math.max(5, questionCount * 2),
           passingScorePct: 70,
           xpReward: questionCount * 20,
-          questions: generated.questions.map((q, idx) => ({
-            prompt: q.prompt || `Question ${idx + 1}`,
-            options: Array.isArray(q.options) && q.options.length >= 2 ? q.options : ['Yes', 'No', 'Partially', 'Not applicable'],
-            correctOptionIndex: typeof q.correctOptionIndex === 'number' ? q.correctOptionIndex : 0,
-            explanation: q.explanation || 'Review company guidelines for further context.',
-            points: q.points || 10,
-          })),
+          /*
+           * Malformed questions are dropped, not patched.
+           *
+           * The old mapping filled a missing prompt with "Question 3" and
+           * missing options with Yes/No/Partially — filler that then went
+           * through review looking like something a person had written.
+           */
+          questions: generated.questions
+            .map((q: any) => {
+              const type = questionType(q);
+              const candidate = {
+                type,
+                prompt: String(q.prompt || '').trim(),
+                options:
+                  type === 'TRUE_FALSE'
+                    ? TRUE_FALSE_OPTIONS
+                    : (q.options || []).map((o: any) => String(o).trim()).filter(Boolean),
+                correctOptionIndex:
+                  typeof q.correctOptionIndex === 'number' ? q.correctOptionIndex : -1,
+                correctOptionIndexes: (q.correctOptionIndexes || []).filter((i: any) =>
+                  Number.isInteger(i),
+                ),
+                acceptedAnswers: (q.acceptedAnswers || [])
+                  .map((a: any) => String(a).trim())
+                  .filter(Boolean),
+                explanation: String(q.explanation || '').trim(),
+                tags: (q.tags || []).map((t: any) => String(t).trim()).filter(Boolean).slice(0, 3),
+                points: Number(q.points) > 0 ? Number(q.points) : 10,
+              };
+              return questionDefect(candidate as any) ? null : candidate;
+            })
+            .filter((q): q is NonNullable<typeof q> => q !== null),
         };
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`AI Quiz Generation failed, providing fallback template: ${msg}`);
+      lastError = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`AI quiz generation failed: ${lastError}`);
     }
 
-    // Fallback template if the model is offline or unconfigured
-    return {
-      title: `${dto.topic} Knowledge Check`,
-      description: `Training quiz on ${dto.topic}`,
-      category: reconcileCategory(dto.category || 'General', existingCategories),
-      difficulty,
-      timeLimitMinutes: questionCount * 2,
-      passingScorePct: 70,
-      xpReward: questionCount * 20,
-      questions: Array.from({ length: questionCount }, (_, i) => ({
-        prompt: `Core Assessment Question ${i + 1} regarding ${dto.topic}?`,
-        options: [
-          `Standard protocol approach for ${dto.topic}`,
-          `Alternative non-compliant approach`,
-          `Unverified external recommendation`,
-          `Skip procedure entirely`,
-        ],
-        correctOptionIndex: 0,
-        explanation: `Standard enterprise procedure should always be followed for ${dto.topic}.`,
-        points: 10,
-      })),
-    };
+    /*
+     * No fallback quiz.
+     *
+     * This used to return a template — "Core Assessment Question 1 regarding
+     * <topic>?" with four generic options — whenever the model was offline or
+     * returned nothing usable. That quiz then went through review and
+     * publication looking like any other, and the first person to notice was an
+     * employee sitting an assessment made of filler.
+     *
+     * Failing here is louder and far cheaper. The caller sees why, and no
+     * fabricated questions reach anybody.
+     */
+    throw new BadRequestException(
+      lastError
+        ? `The AI provider could not write this quiz: ${lastError}`
+        : 'The AI provider returned no usable questions. Check the provider settings in AI Providers and try again.',
+    );
   }
+
 
   /** Enhance raw user prompt into structured blueprint with learning objectives */
   async enhancePrompt(
@@ -404,13 +474,17 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
       if (quiz.questions.length === 0) {
         throw new BadRequestException('A quiz needs at least one question before review.');
       }
-      const broken = quiz.questions.findIndex(
-        (q) => q.correctOptionIndex < 0 || q.correctOptionIndex >= (q.options?.length || 0),
-      );
-      if (broken !== -1) {
-        throw new BadRequestException(
-          `Question ${broken + 1} has an answer key that does not point at one of its options.`,
-        );
+      /*
+       * Checked per question type rather than only against the single-choice
+       * key, so a fill-in-the-blank that accepts nothing, or a multiple-answer
+       * question with one answer, is caught here rather than by the first
+       * employee to sit it.
+       */
+      for (let i = 0; i < quiz.questions.length; i += 1) {
+        const defect = questionDefect(quiz.questions[i] as any);
+        if (defect) {
+          throw new BadRequestException(`Question ${i + 1} cannot be used: ${defect}.`);
+        }
       }
     }
 
@@ -437,6 +511,54 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
     await quiz.save();
     this.logger.log(`Quiz ${quizId} moved to ${target}`);
     return quiz.toObject();
+  }
+
+  /**
+   * Removes a quiz and the assignments pointing at it.
+   *
+   * Attempts are deliberately kept. Each one now carries its own copy of the
+   * questions it asked, so somebody's score stays explainable after the quiz
+   * behind it is gone — and deleting the evidence of an assessment people
+   * already sat is not something a delete button should quietly do.
+   *
+   * A published quiz has to be archived first. Deleting something that is live
+   * in people's arenas should take two decisions, not one.
+   */
+  async deleteQuiz(orgId: string, quizId: string): Promise<{
+    deleted: boolean;
+    assignmentsRemoved: number;
+    attemptsKept: number;
+  }> {
+    const quiz = await this.quizModel.findOne({ _id: quizId, organizationId: orgId });
+    if (!quiz) throw new NotFoundException('Quiz not found.');
+
+    if (quiz.status === 'PUBLISHED') {
+      throw new BadRequestException(
+        'This quiz is published. Archive it first, then delete it.',
+      );
+    }
+
+    const attemptsKept = await this.attemptModel.countDocuments({
+      organizationId: orgId,
+      quizId,
+    });
+
+    const assignments = await this.assignmentModel.deleteMany({
+      organizationId: orgId,
+      quizId,
+    });
+
+    await this.quizModel.deleteOne({ _id: quizId, organizationId: orgId });
+
+    this.logger.log(
+      `Quiz ${quizId} deleted; ${assignments.deletedCount} assignments removed, ${attemptsKept} attempts kept`,
+    );
+
+    return {
+      deleted: true,
+      assignmentsRemoved: assignments.deletedCount || 0,
+      attemptsKept,
+    };
   }
 
   /** Whether a quiz may be assigned to real employees yet. */
@@ -609,13 +731,19 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
       attemptPolicy: quiz.attemptPolicy,
       questions: questionOrder.map((originalIndex) => {
         const q = quiz.questions[originalIndex];
-        const optionOrder = quiz.shuffleOptions
-          ? this.shuffled(q.options.map((_, i) => i))
-          : q.options.map((_, i) => i);
+        const type = questionType(q as any);
+
+        // True and False keep their order, and a fill-in-the-blank has no
+        // options to reorder.
+        const optionOrder =
+          quiz.shuffleOptions && canShuffleOptions(type)
+            ? this.shuffled((q.options || []).map((_, i) => i))
+            : (q.options || []).map((_, i) => i);
 
         return {
           index: originalIndex,
           id: q.id,
+          type,
           prompt: q.prompt,
           // Options in their shuffled order, with the mapping the grader needs.
           options: optionOrder.map((i) => q.options[i]),
@@ -707,24 +835,38 @@ ${dto.category ? `Category is fixed as "${dto.category}".` : categoryHint}`;
        * original option was displayed there. Grading without this step marks
        * nearly every answer on a shuffled quiz wrong.
        */
-      const shown = submitted?.selectedOptionIndex ?? -1;
       const order = submitted?.optionOrder;
-      const selected =
-        order && shown >= 0 && shown < order.length ? order[shown] : shown;
+      const shown = submitted?.selectedOptionIndex ?? -1;
+      const selected = mapThroughShuffle(shown, order);
+
+      // The same mapping for every box ticked on a multiple-answer question.
+      const selectedMany = (submitted?.selectedOptionIndexes || []).map((i) =>
+        mapThroughShuffle(i, order),
+      );
 
       // Coerced because a question saved before points had a default would
       // otherwise turn the whole attempt's score into NaN, and Mongoose then
       // rejects the attempt with a cast error the person cannot act on.
       const points = Number(q.points) > 0 ? Number(q.points) : 10;
-      const isCorrect = selected === q.correctOptionIndex;
+
+      const isCorrect = isAnswerCorrect(q as any, {
+        selectedOptionIndex: selected,
+        selectedOptionIndexes: selectedMany,
+        textAnswer: submitted?.textAnswer,
+      });
       const pointsAwarded = isCorrect ? points : 0;
       totalScore += pointsAwarded;
       maxScore += points;
 
       return {
         questionIndex: idx,
+        type: questionType(q as any),
         selectedOptionIndex: selected,
+        selectedOptionIndexes: selectedMany,
+        textAnswer: submitted?.textAnswer || '',
         correctOptionIndex: q.correctOptionIndex,
+        correctOptionIndexes: correctIndexes(q as any),
+        acceptedAnswers: q.acceptedAnswers || [],
         isCorrect,
         pointsAwarded,
         pointsPossible: points,

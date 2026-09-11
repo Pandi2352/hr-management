@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { QuizJobWatcher } from "../../features/quiz/components/QuizJobWatcher";
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
 import { SpotlightRail } from "./SpotlightRail";
@@ -33,6 +34,11 @@ export function MainLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-canvas">
+      {/* Mounted here, above the outlet, so a quiz being written in the
+          background keeps reporting its progress wherever the person navigates.
+          Renders nothing; its output is notifications. */}
+      <QuizJobWatcher />
+
       <Sidebar
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}

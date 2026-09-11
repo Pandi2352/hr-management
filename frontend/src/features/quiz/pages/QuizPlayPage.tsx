@@ -17,6 +17,7 @@ import {
 import { quizApi } from '../api/quiz.api';
 import type { Quiz, QuizSubmissionResult, GradedAnswer, LearningLoop } from '../types/quiz.types';
 import { Button } from '../../../components/ui';
+import { BackButton } from '../../../components/common/BackButton';
 import { LearningLoopPanel } from '../components/LearningLoopPanel';
 import { useToast } from '../../../components/ui/toast';
 import { cn } from '../../../utils/cn';
@@ -29,7 +30,12 @@ export const QuizPlayPage: React.FC = () => {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [currentIdx, setCurrentIdx] = useState<number>(0);
+  /** Single-choice and true/false: the position clicked. */
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  /** Multiple-answer: every position ticked. */
+  const [multiAnswers, setMultiAnswers] = useState<Record<number, number[]>>({});
+  /** Fill-in-the-blank: what was typed. */
+  const [textAnswers, setTextAnswers] = useState<Record<number, string>>({});
   /*
    * An absolute deadline, not a counter that ticks down.
    *
@@ -129,6 +135,11 @@ export const QuizPlayPage: React.FC = () => {
       const submissionAnswers = quiz.questions.map((q: any, idx: number) => ({
         questionIndex: typeof q.index === 'number' ? q.index : idx,
         selectedOptionIndex: answers[idx] !== undefined ? answers[idx] : -1,
+        // Sent for every question, whatever its type. The grader reads the one
+        // that matches, and an empty array or string is an unanswered question
+        // rather than a validation failure.
+        selectedOptionIndexes: multiAnswers[idx] || [],
+        textAnswer: textAnswers[idx] || '',
         optionOrder: q.optionOrder,
       }));
 
@@ -230,6 +241,18 @@ export const QuizPlayPage: React.FC = () => {
       ...prev,
       [questionIdx]: optionIdx,
     }));
+  };
+
+  /** Ticking a box on a multiple-answer question, and unticking it. */
+  const handleToggleOption = (questionIdx: number, optionIdx: number) => {
+    if (result) return;
+    setMultiAnswers((prev) => {
+      const current = prev[questionIdx] || [];
+      const next = current.includes(optionIdx)
+        ? current.filter((i) => i !== optionIdx)
+        : [...current, optionIdx];
+      return { ...prev, [questionIdx]: next };
+    });
   };
 
   const formatTimer = (seconds: number) => {
@@ -436,19 +459,38 @@ export const QuizPlayPage: React.FC = () => {
 
   // Active Play Session View
   const currentQ = quiz.questions[currentIdx];
+  const questionType: string = currentQ?.type || 'SINGLE';
   const progressPercent = Math.round(((currentIdx + 1) / quiz.questions.length) * 100);
   const isTimeCritical = timeRemainingSeconds !== null && timeRemainingSeconds < 60;
-  const answeredCount = Object.keys(answers).length;
+  /*
+   * An answer is an answer whichever box it went in. Counting only the
+   * single-choice map would tell somebody who filled in every blank that they
+   * had answered nothing.
+   */
+  const answeredCount = quiz.questions.filter((q: any, i: number) => {
+    const t = q?.type || 'SINGLE';
+    if (t === 'MULTI') return (multiAnswers[i] || []).length > 0;
+    if (t === 'FILL_BLANK') return Boolean((textAnswers[i] || '').trim());
+    return answers[i] !== undefined;
+  }).length;
 
   return (
-    <div className="max-w-2xl mx-auto py-6 px-4 space-y-5">
+    // Full width, with the options laid out in two columns below. The old
+    // narrow column left most of the screen empty and pushed a long question
+    // into a tall wall of text.
+    <div className="w-full space-y-5">
       {/* Top Banner & Timer */}
-      <div className="bg-surface border border-hairline rounded-md p-4 flex items-center justify-between">
-        <div>
-          <span className="text-[10px] uppercase font-bold text-ink-3 tracking-wider">
-            {quiz.category || 'Knowledge Arena'}
-          </span>
-          <h2 className="text-sm font-bold text-ink line-clamp-1">{quiz.title}</h2>
+      <div className="bg-surface border border-hairline rounded-md p-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* A preview opened from the arena had no way back other than the
+              browser's own button, which is not where anybody looks. */}
+          <BackButton fallbackTo="/quizzes" label="Leave this quiz" />
+          <div className="min-w-0">
+            <span className="text-[10px] uppercase font-bold text-ink-3 tracking-wider">
+              {quiz.category || 'Knowledge Arena'}
+            </span>
+            <h2 className="text-sm font-bold text-ink line-clamp-1">{quiz.title}</h2>
+          </div>
         </div>
 
         {timeRemainingSeconds !== null && (
@@ -504,36 +546,90 @@ export const QuizPlayPage: React.FC = () => {
           </span>
         </div>
 
-        {/* Options List */}
-        <div className="space-y-2.5">
-          {currentQ.options.map((option, optIdx) => {
-            const isSelected = answers[currentIdx] === optIdx;
-            const letter = String.fromCharCode(65 + optIdx);
-            return (
-              <button
-                key={optIdx}
-                type="button"
-                onClick={() => handleSelectOption(currentIdx, optIdx)}
-                className={`w-full cursor-pointer text-left p-3.5 rounded-md border flex items-center gap-3 transition-all ${
-                  isSelected
-                    ? 'border-primary bg-primary-light text-ink ring-1 ring-primary/30'
-                    : 'border-hairline bg-surface-2/20 hover:border-border text-ink hover:bg-surface-2'
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${
-                    isSelected
-                      ? 'bg-primary text-white'
-                      : 'bg-surface border border-hairline text-ink-3'
-                  }`}
-                >
-                  {letter}
-                </div>
-                <span className="text-xs font-medium flex-1">{option}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* The answer, in whatever shape this question takes */}
+        {questionType === 'FILL_BLANK' ? (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={textAnswers[currentIdx] || ''}
+              onChange={(e) =>
+                setTextAnswers((prev) => ({ ...prev, [currentIdx]: e.target.value }))
+              }
+              placeholder="Type your answer"
+              autoComplete="off"
+              className="w-full rounded-md border border-hairline bg-surface px-3.5 py-3 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary-ring)]"
+            />
+            <p className="text-[11px] text-ink-3">
+              Spelling and capitalisation are not marked. One or two words is enough.
+            </p>
+          </div>
+        ) : (
+          <>
+            {questionType === 'MULTI' && (
+              <p className="mb-2 text-[11px] font-semibold text-ink-2">
+                Select every option that applies. A partly correct answer scores nothing.
+              </p>
+            )}
+
+            {/*
+              * Two columns on a wide screen.
+              *
+              * A single stack of short options down the middle of a wide page
+              * wastes the width and makes the eye travel further between the
+              * question and the answers.
+              */}
+            <div
+              className={cn(
+                'grid gap-2.5',
+                currentQ.options.length > 2 ? 'sm:grid-cols-2' : 'grid-cols-1',
+              )}
+            >
+              {currentQ.options.map((option: string, optIdx: number) => {
+                const isSelected =
+                  questionType === 'MULTI'
+                    ? (multiAnswers[currentIdx] || []).includes(optIdx)
+                    : answers[currentIdx] === optIdx;
+                const letter = String.fromCharCode(65 + optIdx);
+
+                return (
+                  <button
+                    key={optIdx}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() =>
+                      questionType === 'MULTI'
+                        ? handleToggleOption(currentIdx, optIdx)
+                        : handleSelectOption(currentIdx, optIdx)
+                    }
+                    className={cn(
+                      'flex w-full cursor-pointer items-center gap-3 rounded-md border p-3.5 text-left transition-colors',
+                      isSelected
+                        ? 'border-[var(--primary)] bg-[var(--primary-light)] text-ink'
+                        : 'border-hairline bg-surface text-ink hover:bg-surface-2',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'flex h-6 w-6 shrink-0 items-center justify-center text-xs font-bold',
+                        questionType === 'MULTI' ? 'rounded-md' : 'rounded-full',
+                        isSelected
+                          ? 'bg-[var(--primary)] text-white'
+                          : 'border border-hairline bg-surface text-ink-3',
+                      )}
+                    >
+                      {questionType === 'MULTI' && isSelected ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        letter
+                      )}
+                    </span>
+                    <span className="flex-1 text-xs font-medium">{option}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Navigation & Controls */}

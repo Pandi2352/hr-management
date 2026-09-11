@@ -29,6 +29,15 @@ export const CacheNamespace = {
 
   /** Login throttle counters. Not tenant-scoped — an attacker is not in a tenant. */
   throttle: () => 'throttle:global',
+
+  /**
+   * Live progress of background quiz generation. Key: the job id.
+   *
+   * Written every batch and polled every couple of seconds by whoever asked for
+   * the quiz, which is the shape a cache is for. Mongo stays the source of
+   * truth, so a flush costs one slower poll and never the job itself.
+   */
+  quizJob: (orgId?: string | null) => ns('quiz-job', orgId),
 };
 
 /**
@@ -72,4 +81,6 @@ export const CACHE_TTL = {
   SECURITY_POLICY: 900,
   CAREERS: 300,
   EMPLOYEE_STATS: 120,
+  /** Long enough to outlive a slow 50-question job by a wide margin. */
+  QUIZ_JOB: 3600,
 } as const;

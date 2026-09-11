@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Library,
   Sparkles,
-  Plus,
   Play,
   Clock,
   CheckCircle2,
@@ -12,8 +11,6 @@ import {
   Bot,
   BrainCircuit,
   FileText,
-  Share2,
-  Upload,
   Users,
 } from 'lucide-react';
 import { quizApi } from '../api/quiz.api';
@@ -25,7 +22,6 @@ import type {
 } from '../types/quiz.types';
 import { ASSIGNABLE_STATUSES } from '../types/quiz.types';
 import { LeaderboardPodium } from '../components/LeaderboardPodium';
-import { QuizBuilderModal } from '../components/QuizBuilderModal';
 import { AssignQuizModal } from '../components/AssignQuizModal';
 import { QuizLifecycleActions, QuizStatusBadge } from '../components/QuizLifecycleActions';
 import { QuestionBankModal } from '../components/QuestionBankModal';
@@ -71,8 +67,6 @@ export const QuizHubPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Modals state
-  const [isBuilderOpen, setIsBuilderOpen] = useState<boolean>(false);
-  const [initialAiMode, setInitialAiMode] = useState<boolean>(false);
   const [assigningQuiz, setAssigningQuiz] = useState<Quiz | null>(null);
   const [isBankOpen, setIsBankOpen] = useState(false);
 
@@ -102,16 +96,16 @@ export const QuizHubPage: React.FC = () => {
     Boolean(user?.email?.toLowerCase().includes('admin')) ||
     Boolean(user?.email?.toLowerCase().includes('manager'));
 
-  // Automatically open quiz creator when ?create=... is in URL
+  /*
+   * `?create=` used to open a builder modal here. The modal is gone, so the
+   * parameter redirects to the studio instead — old links and bookmarks still
+   * land somewhere that makes sense rather than doing nothing.
+   */
   useEffect(() => {
-    const createParam = searchParams.get('create');
-    if (createParam) {
-      setInitialAiMode(createParam === 'ai' || createParam === 'true');
-      setIsBuilderOpen(true);
-      searchParams.delete('create');
-      setSearchParams(searchParams, { replace: true });
+    if (searchParams.get('create')) {
+      navigate('/agents/quiz', { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, navigate]);
 
   const loadData = useCallback(async () => {
     try {
@@ -168,6 +162,9 @@ export const QuizHubPage: React.FC = () => {
   const replaceQuiz = (updated: Quiz) =>
     setAllQuizzes((prev) => prev.map((q) => (q._id === updated._id ? updated : q)));
 
+  const dropQuiz = (quizId: string) =>
+    setAllQuizzes((prev) => prev.filter((q) => q._id !== quizId));
+
   const pendingCount = myAssignments.filter((a) => a.status === 'PENDING').length;
   const reviewCount = allQuizzes.filter(needsReview).length;
   const readyToAssign = allQuizzes.filter(isAssignable);
@@ -212,28 +209,12 @@ export const QuizHubPage: React.FC = () => {
                 <Bot className="h-3.5 w-3.5" />
                 AI Agents Hub
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setInitialAiMode(false);
-                  setIsBuilderOpen(true);
-                }}
-                className="gap-1.5"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Manual studio
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setInitialAiMode(true);
-                  setIsBuilderOpen(true);
-                }}
-                className="gap-1.5"
-              >
+              {/* One way to build a quiz. The modal that used to sit beside
+                  this could publish and assign in a single click, skipping the
+                  review gate the rest of the module is built around. */}
+              <Button size="sm" onClick={() => navigate('/agents/quiz')} className="gap-1.5">
                 <Sparkles className="h-3.5 w-3.5" />
-                Create with AI
+                Create a quiz
               </Button>
             </div>
           ) : undefined
@@ -273,7 +254,7 @@ export const QuizHubPage: React.FC = () => {
                 When HR or your manager assigns a quiz, it appears here with its deadline.
               </p>
               {canManage && (
-                <Button size="sm" onClick={() => setIsBuilderOpen(true)} className="mt-4">
+                <Button size="sm" onClick={() => navigate('/agents/quiz')} className="mt-4">
                   Create the first quiz
                 </Button>
               )}
@@ -443,33 +424,12 @@ export const QuizHubPage: React.FC = () => {
                       Preview
                     </Button>
 
-                    {quiz.status === 'APPROVED' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            replaceQuiz(await quizApi.publishQuiz(quiz._id));
-                            toast.success('Published to the arena.');
-                          } catch (err: any) {
-                            toast.error(err?.response?.data?.message || 'Could not publish.');
-                          }
-                        }}
-                        className="gap-1.5 text-[11px]"
-                      >
-                        <Upload className="h-3.5 w-3.5" />
-                        Publish
-                      </Button>
-                    )}
-
-                    <Button
-                      size="sm"
-                      onClick={() => setAssigningQuiz(quiz)}
-                      className="gap-1.5 text-[11px]"
-                    >
-                      <Share2 className="h-3.5 w-3.5" />
-                      Assign
-                    </Button>
+                    <QuizLifecycleActions
+                      quiz={quiz}
+                      onChanged={replaceQuiz}
+                      onAssign={setAssigningQuiz}
+                      onDeleted={dropQuiz}
+                    />
                   </div>
                 </div>
               ))}
@@ -566,6 +526,7 @@ export const QuizHubPage: React.FC = () => {
                       quiz={quiz}
                       onChanged={replaceQuiz}
                       onAssign={setAssigningQuiz}
+                      onDeleted={dropQuiz}
                     />
                   </div>
                 </div>
@@ -579,16 +540,6 @@ export const QuizHubPage: React.FC = () => {
       {activeTab === 'roi' && canManage && <TrainingRoiPanel quizzes={allQuizzes} />}
 
       <QuestionBankModal isOpen={isBankOpen} onClose={() => setIsBankOpen(false)} />
-
-      <QuizBuilderModal
-        isOpen={isBuilderOpen}
-        initialAiMode={initialAiMode}
-        onClose={() => setIsBuilderOpen(false)}
-        onSuccess={() => {
-          loadData();
-          setActiveTab(canManage ? 'management' : 'challenges');
-        }}
-      />
 
       {assigningQuiz && (
         <AssignQuizModal

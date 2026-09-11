@@ -13,6 +13,8 @@ interface ToastContextValue {
   warning: (message: string, title?: string, duration?: number) => string;
   info: (message: string, title?: string, duration?: number) => string;
   loading: (message: string, title?: string) => string;
+  /** Rewrites a toast in place, or shows it if it is not on screen. */
+  update: (id: string, options: ToastOptions) => string;
   dismiss: (id: string) => void;
   dismissAll: () => void;
 }
@@ -50,6 +52,28 @@ export function ToastProvider({
       const id = options.id || generateUuid();
 
       setToasts((prev) => {
+        /*
+         * An explicit id names one toast rather than requesting another.
+         *
+         * Without this, a progress notification that rewrites itself every few
+         * seconds would stack up a new toast per update and push everything
+         * else off the screen.
+         */
+        const existing = prev.findIndex((t) => t.id === id);
+        if (existing !== -1) {
+          const next = [...prev];
+          next[existing] = {
+            ...next[existing],
+            type: options.type ?? next[existing].type,
+            title: options.title ?? next[existing].title,
+            description: options.description ?? next[existing].description,
+            duration: options.duration !== undefined ? options.duration : next[existing].duration,
+            action: options.action ?? next[existing].action,
+            onDismiss: options.onDismiss ?? next[existing].onDismiss,
+          };
+          return next;
+        }
+
         // Prevent duplicate messages
         const isDuplicate = prev.some(
           (t) =>
@@ -114,6 +138,11 @@ export function ToastProvider({
     [toast],
   );
 
+  const update = useCallback(
+    (id: string, options: ToastOptions) => toast({ ...options, id }),
+    [toast],
+  );
+
   /*
    * Memoised because this object is a dependency of callers' hooks.
    *
@@ -133,10 +162,11 @@ export function ToastProvider({
       warning,
       info,
       loading,
+      update,
       dismiss,
       dismissAll,
     }),
-    [toasts, position, toast, success, error, warning, info, loading, dismiss, dismissAll],
+    [toasts, position, toast, success, error, warning, info, loading, update, dismiss, dismissAll],
   );
 
   return (

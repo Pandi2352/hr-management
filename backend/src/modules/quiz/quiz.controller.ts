@@ -31,9 +31,11 @@ import {
   AddBankQuestionDto,
   PullFromBankDto,
   SubmitPracticeDto,
+  StartGenerationJobDto,
 } from './dto/quiz.dto';
 import { LearningLoopService } from './learning-loop.service';
 import { QuizInsightsService } from './quiz-insights.service';
+import { QuizGenerationService } from './quiz-generation.service';
 import { OrganizationService } from '../organization/organization.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -49,6 +51,7 @@ export class QuizController {
     private readonly authoringService: QuizAuthoringService,
     private readonly learningLoop: LearningLoopService,
     private readonly insights: QuizInsightsService,
+    private readonly generation: QuizGenerationService,
     private readonly orgService: OrganizationService,
     @InjectModel(Employee.name) private readonly employeeModel: Model<EmployeeDocument>,
   ) {}
@@ -456,6 +459,73 @@ export class QuizController {
     }
 
     return ResultEntity.ok(await this.insights.trainingRoi(orgId, quizId));
+  }
+
+
+  // --- Removing a quiz ------------------------------------------------------
+
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'Take a quiz out of circulation without deleting it' })
+  async archiveQuiz(@Request() req: any, @Param('id') quizId: string, @Body() dto: ReviewQuizDto) {
+    const orgId = await this.getOrgId(req);
+    const data = await this.quizService.transition(orgId, quizId, 'ARCHIVED', req.user, dto?.note);
+    return ResultEntity.ok(data, 'Archived.');
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a draft, approved or archived quiz' })
+  async deleteQuiz(@Request() req: any, @Param('id') quizId: string) {
+    const orgId = await this.getOrgId(req);
+
+    if (!this.canViewOthers(req)) {
+      throw new ForbiddenException('Only HR and managers can delete a quiz.');
+    }
+
+    const data = await this.quizService.deleteQuiz(orgId, quizId);
+    return ResultEntity.ok(
+      data,
+      data.attemptsKept > 0
+        ? `Deleted. ${data.attemptsKept} recorded attempt${data.attemptsKept === 1 ? '' : 's'} kept for the record.`
+        : 'Deleted.',
+    );
+  }
+
+  // --- Background generation ------------------------------------------------
+
+  @Post('generation-jobs')
+  @ApiOperation({ summary: 'Start writing a quiz in the background' })
+  async startGenerationJob(@Request() req: any, @Body() dto: StartGenerationJobDto) {
+    const orgId = await this.getOrgId(req);
+    const actor = {
+      userId: req.user?.userId || req.user?.id,
+      name: [req.user?.firstName, req.user?.lastName].filter(Boolean).join(' '),
+    };
+    const data = await this.generation.start(orgId, actor, dto);
+    return ResultEntity.ok(data, 'Writing your quiz in the background.');
+  }
+
+  @Get('generation-jobs')
+  @ApiOperation({ summary: 'Background quiz jobs belonging to the current user' })
+  async listGenerationJobs(@Request() req: any) {
+    const orgId = await this.getOrgId(req);
+    const userId = req.user?.userId || req.user?.id;
+    return ResultEntity.ok(await this.generation.listMine(orgId, userId));
+  }
+
+  @Get('generation-jobs/:jobId')
+  @ApiOperation({ summary: 'Progress of one background quiz job' })
+  async getGenerationJob(@Request() req: any, @Param('jobId') jobId: string) {
+    const orgId = await this.getOrgId(req);
+    const userId = req.user?.userId || req.user?.id;
+    return ResultEntity.ok(await this.generation.get(orgId, userId, jobId));
+  }
+
+  @Post('generation-jobs/:jobId/cancel')
+  @ApiOperation({ summary: 'Stop a background quiz job, keeping what it wrote' })
+  async cancelGenerationJob(@Request() req: any, @Param('jobId') jobId: string) {
+    const orgId = await this.getOrgId(req);
+    const userId = req.user?.userId || req.user?.id;
+    return ResultEntity.ok(await this.generation.cancel(orgId, userId, jobId), 'Cancelled.');
   }
 
 }

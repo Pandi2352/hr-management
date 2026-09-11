@@ -14,6 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { QUESTION_TYPES, type QuestionType } from '../question-grading.util';
 
 export class QuizQuestionDto {
   @IsString()
@@ -24,9 +25,25 @@ export class QuizQuestionDto {
   @IsString({ each: true })
   options: string[];
 
+  @IsEnum(QUESTION_TYPES)
+  @IsOptional()
+  type?: QuestionType;
+
   @IsInt()
   @Min(0)
   correctOptionIndex: number;
+
+  /** The correct options, for a question with more than one. */
+  @IsArray()
+  @IsOptional()
+  @IsInt({ each: true })
+  correctOptionIndexes?: number[];
+
+  /** What counts as right for a fill-in-the-blank. */
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
+  acceptedAnswers?: string[];
 
   @IsString()
   @IsOptional()
@@ -117,6 +134,16 @@ export class GenerateAiQuizDto {
   @Max(15)
   @IsOptional()
   questionCount?: number;
+
+  /**
+   * The author's brief, kept apart from the topic.
+   *
+   * Concatenating the two into one topic string is what put a paragraph of
+   * instructions inside every generated question stem.
+   */
+  @IsString()
+  @IsOptional()
+  refinedPrompt?: string;
 }
 
 export class EnhanceQuizPromptDto {
@@ -183,6 +210,17 @@ export class QuizAnswerItemDto {
   @IsInt({ each: true })
   optionOrder?: number[];
 
+  /** Every option ticked, for a multiple-answer question. */
+  @IsArray()
+  @IsOptional()
+  @IsInt({ each: true })
+  selectedOptionIndexes?: number[];
+
+  /** What was typed, for a fill-in-the-blank. */
+  @IsString()
+  @IsOptional()
+  @MaxLength(300)
+  textAnswer?: string;
 }
 
 export class SubmitQuizAttemptDto {
@@ -408,4 +446,57 @@ export class SubmitPracticeDto {
   @ValidateNested({ each: true })
   @Type(() => PracticeAnswerDto)
   answers: PracticeAnswerDto[];
+}
+
+/**
+ * A request to write a quiz in the background.
+ *
+ * Carries everything the studio had chosen at the moment the person pressed
+ * generate, so the job is self-contained: the browser can close and the draft
+ * still comes out with the duration, locale and template that were asked for.
+ */
+export class StartGenerationJobDto {
+  @IsString()
+  @IsNotEmpty()
+  topic: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  questionCount: number;
+
+  @IsString()
+  @IsOptional()
+  title?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsEnum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED'])
+  @IsOptional()
+  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+  @IsString()
+  @IsOptional()
+  locale?: string;
+
+  @IsString()
+  @IsOptional()
+  templateId?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(180)
+  @IsOptional()
+  durationMinutes?: number;
+
+  /** The enhanced brief, when the author ran the prompt enhancer first. */
+  @IsString()
+  @IsOptional()
+  refinedPrompt?: string;
 }
